@@ -20,7 +20,7 @@ import { Toaster } from "react-hot-toast";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 function App() {
-  const { isLoading: legacyLoading } = useAuthStore();
+  const { isLoading: legacyLoading, user } = useAuthStore();
   const { isLoading: nextLoading } = useNextAuthStore();
   const [isInitializing, setIsInitializing] = useState(true);
   const [initError, setInitError] = useState<Error | null>(null);
@@ -120,6 +120,16 @@ function App() {
           <Route path="signup" element={<SignUp />} />
         </Route>
 
+        {/* Protected Admin Routes */}
+        <Route
+          path="/admin/*"
+          element={
+            <PrivateRoute>
+              <AdminRoutes />
+            </PrivateRoute>
+          }
+        />
+
         {/* Protected Kitchen Routes */}
         <Route
           element={
@@ -130,16 +140,6 @@ function App() {
         >
           <Route path="/kitchen/*" element={<KitchenRoutes />} />
         </Route>
-
-        {/* Admin Routes */}
-        <Route
-          path="/admin/*"
-          element={
-            <PrivateRoute>
-              <AdminRoutes />
-            </PrivateRoute>
-          }
-        />
 
         {/* Default Routes */}
         <Route
