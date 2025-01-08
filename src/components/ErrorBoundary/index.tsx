@@ -1,4 +1,3 @@
-// src/components/ErrorBoundary/index.tsx
 import React from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 
@@ -24,7 +23,6 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   static getDerivedStateFromError(error: Error): State {
-    // Determine error type
     let errorType: "gateway" | "network" | "general" = "general";
 
     if (
@@ -85,7 +83,6 @@ export class ErrorBoundary extends React.Component<Props, State> {
             </div>
 
             <h2 className="text-2xl font-bold text-white">{errorInfo.title}</h2>
-
             <p className="text-gray-400">{errorInfo.message}</p>
 
             <div className="pt-4">

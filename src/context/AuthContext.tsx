@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
-import toast from "react-hot-toast";
+import { LoadingLogo } from "@/components/LoadingLogo";
+import type { Organization } from "@/types/organization";
 
 interface AuthContextType {
   user: User | null;
+  organization: Organization | null;
   organizationId: string | null;
   isDev: boolean;
   hasAdminAccess: boolean;
@@ -14,98 +16,94 @@ interface AuthContextType {
   signOut: () => Promise<void>;
 }
 
-// Export the context
-export const AuthContext = createContext<AuthContextType | null>(null);
+const AuthContext = createContext<AuthContextType | null>(null);
 
-interface AuthProviderProps {
-  children: React.ReactNode;
-}
-
-export function AuthProvider({ children }: AuthProviderProps) {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [organization, setOrganization] = useState<Organization | null>(null);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [isDev, setIsDev] = useState(false);
   const [hasAdminAccess, setHasAdminAccess] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Fetch organization data
+  const fetchOrganization = async (orgId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("*")
+        .eq("id", orgId)
+        .single();
+
+      if (error) throw error;
+      if (!data) throw new Error("Organization not found");
+
+      setOrganization(data);
+    } catch (error) {
+      console.error("Error fetching organization:", error);
+      setError("Failed to load organization data");
+    }
+  };
+
+  // Initialize auth state
   useEffect(() => {
-    let mounted = true;
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+        setIsDev(session.user.user_metadata?.system_role === "dev");
+        const orgId = session.user.user_metadata?.organizationId;
+        setOrganizationId(orgId);
+        setHasAdminAccess(
+          session.user.user_metadata?.role === "owner" ||
+            session.user.user_metadata?.role === "admin",
+        );
 
-    const initAuth = async () => {
-      try {
-        // Get initial session
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (session?.user && mounted) {
-          setUser(session.user);
-          await loadUserData(session.user.id);
-        }
-      } catch (error) {
-        console.error("Auth initialization error:", error);
-      } finally {
-        if (mounted) {
-          setIsLoading(false);
+        // Fetch organization data if we have an orgId
+        if (orgId) {
+          fetchOrganization(orgId);
         }
       }
-    };
-
-    initAuth();
+      setIsLoading(false);
+    });
 
     // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return;
+      if (session?.user) {
+        setUser(session.user);
+        setIsDev(session.user.user_metadata?.system_role === "dev");
+        const orgId = session.user.user_metadata?.organizationId;
+        setOrganizationId(orgId);
+        setHasAdminAccess(
+          session.user.user_metadata?.role === "owner" ||
+            session.user.user_metadata?.role === "admin",
+        );
 
-      if (event === "SIGNED_OUT") {
+        // Fetch organization data if we have an orgId
+        if (orgId) {
+          fetchOrganization(orgId);
+        }
+      } else {
         setUser(null);
+        setOrganization(null);
         setOrganizationId(null);
         setIsDev(false);
         setHasAdminAccess(false);
-        setIsLoading(false);
-        return;
-      }
-
-      if (session?.user) {
-        setUser(session.user);
-        await loadUserData(session.user.id);
       }
       setIsLoading(false);
     });
 
     return () => {
-      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
 
-  const loadUserData = async (userId: string) => {
-    try {
-      const { data: orgRole, error: orgError } = await supabase
-        .from("organization_roles")
-        .select("organization_id, role")
-        .eq("user_id", userId)
-        .single();
-
-      if (orgError) throw orgError;
-
-      setOrganizationId(orgRole.organization_id);
-      setIsDev(false); // Always false in production
-      setHasAdminAccess(orgRole.role === "owner" || orgRole.role === "admin");
-    } catch (error) {
-      console.error("Error loading user data:", error);
-      setError("Failed to load user data");
-    }
-  };
-
   const signIn = async (email: string, password: string) => {
     try {
-      setIsLoading(true);
       setError(null);
-
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password: password.trim(),
@@ -113,43 +111,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       if (error) throw error;
       if (!data.user) throw new Error("No user data returned");
-
-      toast.success("Signed in successfully");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to sign in";
       setError(message);
-      toast.error(message);
       throw error;
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const signOut = async () => {
     try {
-      setIsLoading(true);
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
-
-      setUser(null);
-      setOrganizationId(null);
-      setIsDev(false);
-      setHasAdminAccess(false);
-
-      toast.success("Signed out successfully");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to sign out";
-      toast.error(message);
+      setError(message);
       throw error;
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const value = {
     user,
+    organization,
     organizationId,
     isDev,
     hasAdminAccess,
@@ -158,6 +142,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
     signIn,
     signOut,
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center p-4">
+        <LoadingLogo message="Loading..." />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center p-4">
+        <LoadingLogo message={error} error />
+      </div>
+    );
+  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
