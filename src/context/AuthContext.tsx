@@ -1,11 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import {
-  supabase,
-  isDevelopment,
-  getDefaultSession,
-  DEFAULT_CREDENTIALS,
-} from "@/lib/supabase";
-import { LoadingLogo } from "@/components/LoadingLogo";
+import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 import toast from "react-hot-toast";
 
@@ -34,71 +28,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load user data with fallback for development
-  const loadUserData = async (userId: string) => {
-    try {
-      const { data: orgRole, error: orgError } = await supabase
-        .from("organization_roles")
-        .select("organization_id, role")
-        .eq("user_id", userId)
-        .single();
-
-      if (orgError) {
-        if (isDevelopment) {
-          console.log("Using default organization data");
-          setOrganizationId(DEFAULT_CREDENTIALS.organizationId);
-          setIsDev(true);
-          setHasAdminAccess(true);
-          return;
-        }
-        throw orgError;
-      }
-
-      setOrganizationId(orgRole.organization_id);
-      setIsDev(isDevelopment);
-      setHasAdminAccess(orgRole.role === "owner" || orgRole.role === "admin");
-    } catch (error) {
-      console.error("Error loading user data:", error);
-      if (isDevelopment) {
-        setOrganizationId(DEFAULT_CREDENTIALS.organizationId);
-        setIsDev(true);
-        setHasAdminAccess(true);
-      } else {
-        throw error;
-      }
-    }
-  };
-
   // Initialize auth state
   useEffect(() => {
+    if (!supabase) {
+      setError("Supabase client not initialized");
+      setIsLoading(false);
+      return;
+    }
+
     let mounted = true;
 
     const initializeAuth = async () => {
       try {
-        // Get current session
         const {
           data: { session },
         } = await supabase.auth.getSession();
 
-        // In development, try to use default session if none exists
-        if (!session && isDevelopment) {
-          const defaultSession = await getDefaultSession();
-          if (defaultSession?.user && mounted) {
-            setUser(defaultSession.user);
-            await loadUserData(defaultSession.user.id);
-            setIsLoading(false);
-            return;
-          }
-        }
-
         if (session?.user && mounted) {
           setUser(session.user);
-          await loadUserData(session.user.id);
+          await loadUserData(session.user.id, true);
+          setIsLoading(false);
         } else if (mounted) {
           setUser(null);
           setOrganizationId(null);
-          setIsDev(isDevelopment);
+          setIsDev(false);
           setHasAdminAccess(false);
+          setIsLoading(false);
         }
       } catch (error) {
         console.error("Auth initialization error:", error);
@@ -110,8 +65,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
           );
           toast.error("Authentication error");
         }
-      } finally {
-        if (mounted) setIsLoading(false);
       }
     };
 
@@ -126,14 +79,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (event === "SIGNED_OUT" || !session) {
         setUser(null);
         setOrganizationId(null);
-        setIsDev(isDevelopment);
+        setIsDev(false);
         setHasAdminAccess(false);
         return;
       }
 
       if (session.user) {
         setUser(session.user);
-        await loadUserData(session.user.id);
+        await loadUserData(session.user.id, false);
       }
     });
 
@@ -143,7 +96,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
   }, []);
 
+  // Load user data with fallback for development
+  const loadUserData = async (userId: string, isInitialLoad: boolean) => {
+    if (!supabase) return;
+
+    try {
+      const { data: orgRole, error: orgError } = await supabase
+        .from("organization_roles")
+        .select("organization_id, role")
+        .eq("user_id", userId)
+        .single();
+
+      if (orgError) throw orgError;
+
+      setOrganizationId(orgRole.organization_id);
+      setIsDev(false); // Always false in production
+      setHasAdminAccess(orgRole.role === "owner" || orgRole.role === "admin");
+
+      // Only show toast on initial load
+      if (isInitialLoad) {
+        toast.success("Signed in successfully");
+      }
+    } catch (error) {
+      console.error("Error loading user data:", error);
+      throw error;
+    }
+  };
+
   const signIn = async (email: string, password: string) => {
+    if (!supabase) throw new Error("Supabase client not initialized");
+
     try {
       setIsLoading(true);
       setError(null);
@@ -155,8 +137,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       if (error) throw error;
       if (!data.user) throw new Error("No user data returned");
-
-      toast.success("Signed in successfully");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to sign in";
@@ -169,6 +149,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const signOut = async () => {
+    if (!supabase) throw new Error("Supabase client not initialized");
+
     try {
       setIsLoading(true);
       const { error } = await supabase.auth.signOut();
@@ -176,11 +158,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       setUser(null);
       setOrganizationId(null);
-      setIsDev(isDevelopment);
+      setIsDev(false);
       setHasAdminAccess(false);
-
-      // Clear local storage
-      localStorage.removeItem("kitchen-ai-auth");
 
       toast.success("Signed out successfully");
       window.location.href = "/auth/signin";
