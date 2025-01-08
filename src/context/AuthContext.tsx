@@ -14,6 +14,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
 }
 
+// Export the context
 export const AuthContext = createContext<AuthContextType | null>(null);
 
 interface AuthProviderProps {
@@ -28,47 +29,30 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize auth state
   useEffect(() => {
-    if (!supabase) {
-      setError("Supabase client not initialized");
-      setIsLoading(false);
-      return;
-    }
-
     let mounted = true;
 
-    const initializeAuth = async () => {
+    const initAuth = async () => {
       try {
+        // Get initial session
         const {
           data: { session },
         } = await supabase.auth.getSession();
 
         if (session?.user && mounted) {
           setUser(session.user);
-          await loadUserData(session.user.id, true);
-          setIsLoading(false);
-        } else if (mounted) {
-          setUser(null);
-          setOrganizationId(null);
-          setIsDev(false);
-          setHasAdminAccess(false);
-          setIsLoading(false);
+          await loadUserData(session.user.id);
         }
       } catch (error) {
         console.error("Auth initialization error:", error);
+      } finally {
         if (mounted) {
-          setError(
-            error instanceof Error
-              ? error.message
-              : "Failed to initialize auth",
-          );
-          toast.error("Authentication error");
+          setIsLoading(false);
         }
       }
     };
 
-    initializeAuth();
+    initAuth();
 
     // Listen for auth changes
     const {
@@ -76,18 +60,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
 
-      if (event === "SIGNED_OUT" || !session) {
+      if (event === "SIGNED_OUT") {
         setUser(null);
         setOrganizationId(null);
         setIsDev(false);
         setHasAdminAccess(false);
+        setIsLoading(false);
         return;
       }
 
-      if (session.user) {
+      if (session?.user) {
         setUser(session.user);
-        await loadUserData(session.user.id, false);
+        await loadUserData(session.user.id);
       }
+      setIsLoading(false);
     });
 
     return () => {
@@ -96,10 +82,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
   }, []);
 
-  // Load user data with fallback for development
-  const loadUserData = async (userId: string, isInitialLoad: boolean) => {
-    if (!supabase) return;
-
+  const loadUserData = async (userId: string) => {
     try {
       const { data: orgRole, error: orgError } = await supabase
         .from("organization_roles")
@@ -112,20 +95,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setOrganizationId(orgRole.organization_id);
       setIsDev(false); // Always false in production
       setHasAdminAccess(orgRole.role === "owner" || orgRole.role === "admin");
-
-      // Only show toast on initial load
-      if (isInitialLoad) {
-        toast.success("Signed in successfully");
-      }
     } catch (error) {
       console.error("Error loading user data:", error);
-      throw error;
+      setError("Failed to load user data");
     }
   };
 
   const signIn = async (email: string, password: string) => {
-    if (!supabase) throw new Error("Supabase client not initialized");
-
     try {
       setIsLoading(true);
       setError(null);
@@ -137,6 +113,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       if (error) throw error;
       if (!data.user) throw new Error("No user data returned");
+
+      toast.success("Signed in successfully");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to sign in";
@@ -149,8 +127,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const signOut = async () => {
-    if (!supabase) throw new Error("Supabase client not initialized");
-
     try {
       setIsLoading(true);
       const { error } = await supabase.auth.signOut();
@@ -162,7 +138,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setHasAdminAccess(false);
 
       toast.success("Signed out successfully");
-      window.location.href = "/auth/signin";
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to sign out";
@@ -173,7 +148,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const value: AuthContextType = {
+  const value = {
     user,
     organizationId,
     isDev,
