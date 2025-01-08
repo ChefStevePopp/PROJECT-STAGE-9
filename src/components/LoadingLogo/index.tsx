@@ -1,11 +1,13 @@
-import React from 'react';
-import { ChefHat } from 'lucide-react';
+import React from "react";
+import { ChefHat } from "lucide-react";
 
 interface LoadingLogoProps {
   message?: string;
 }
 
-export const LoadingLogo: React.FC<LoadingLogoProps> = ({ message = 'Loading...' }) => {
+export const LoadingLogo: React.FC<LoadingLogoProps> = ({
+  message = "Loading...",
+}) => {
   return (
     <div className="flex flex-col items-center justify-center">
       <div className="relative mb-4">
@@ -14,7 +16,9 @@ export const LoadingLogo: React.FC<LoadingLogoProps> = ({ message = 'Loading...'
         </div>
         <ChefHat className="w-16 h-16 text-primary-500 relative" />
       </div>
-      <p className="text-lg font-medium text-gray-400 animate-pulse">{message}</p>
+      <div className="text-lg font-medium text-gray-400 animate-pulse">
+        {message}
+      </div>
     </div>
   );
 };

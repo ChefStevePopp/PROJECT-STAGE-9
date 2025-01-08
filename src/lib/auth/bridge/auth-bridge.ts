@@ -1,10 +1,9 @@
-// src/lib/auth/bridge/auth-bridge.ts
-import { useAuthStore } from '@/stores/authStore';
-import { useNextAuthStore } from '../next/auth-store';
-import type { AuthSession } from '../types';
-import type { User } from '@supabase/supabase-js';
-import { AUTH_CONSTANTS } from '../constants/auth-constants';
-import toast from 'react-hot-toast';
+import { useAuthStore } from "@/stores/authStore";
+import { useNextAuthStore } from "../next/auth-store";
+import type { AuthSession } from "../types";
+import type { User } from "@supabase/supabase-js";
+import { AUTH_CONSTANTS } from "../constants/auth-constants";
+import toast from "react-hot-toast";
 
 export function bridgeSession(legacyUser: User | null): AuthSession | null {
   if (!legacyUser) return null;
@@ -14,19 +13,15 @@ export function bridgeSession(legacyUser: User | null): AuthSession | null {
       user: legacyUser,
       organizationId: legacyUser.user_metadata?.organizationId || null,
       metadata: legacyUser.user_metadata || {},
-      isDev: Boolean(
-        legacyUser.user_metadata?.system_role === 'dev' ||
-        legacyUser.user_metadata?.role === 'dev'
-      ),
+      isDev: false, // Remove static dev access
       hasAdminAccess: Boolean(
-        legacyUser.user_metadata?.system_role === 'dev' ||
-        legacyUser.user_metadata?.role === 'owner' ||
-        legacyUser.user_metadata?.role === 'admin'
+        legacyUser.user_metadata?.role === "owner" ||
+          legacyUser.user_metadata?.role === "admin",
       ),
-      lastRefreshed: new Date().toISOString()
+      lastRefreshed: new Date().toISOString(),
     };
   } catch (error) {
-    console.error('Error bridging session:', error);
+    console.error("Error bridging session:", error);
     return null;
   }
 }
@@ -45,15 +40,15 @@ export function syncAuthStores() {
         isDev: false,
         hasAdminAccess: false,
         isLoading: false,
-        error: null
+        error: null,
       });
-      
+
       useNextAuthStore.setState({
         session: null,
         isLoading: false,
-        error: null
+        error: null,
       });
-      
+
       return;
     }
 
@@ -61,13 +56,13 @@ export function syncAuthStores() {
     if (legacyStore.user && !nextStore.session) {
       const bridgedSession = bridgeSession(legacyStore.user);
       if (bridgedSession) {
-        useNextAuthStore.setState({ 
+        useNextAuthStore.setState({
           session: bridgedSession,
           isLoading: false,
-          error: null
+          error: null,
         });
       } else {
-        throw new Error('Failed to bridge legacy session');
+        throw new Error("Failed to bridge legacy session");
       }
     }
 
@@ -76,10 +71,10 @@ export function syncAuthStores() {
       useAuthStore.setState({
         user: nextStore.session.user,
         organizationId: nextStore.session.organizationId,
-        isDev: nextStore.session.isDev,
+        isDev: false, // Remove static dev access
         hasAdminAccess: nextStore.session.hasAdminAccess,
         isLoading: false,
-        error: null
+        error: null,
       });
     }
 
@@ -88,15 +83,14 @@ export function syncAuthStores() {
     const syncedNext = useNextAuthStore.getState();
 
     if (
-      (syncedLegacy.user && !syncedNext.session) || 
+      (syncedLegacy.user && !syncedNext.session) ||
       (!syncedLegacy.user && syncedNext.session)
     ) {
-      throw new Error('Store sync validation failed');
+      throw new Error("Store sync validation failed");
     }
-
   } catch (error) {
-    console.error('Auth store sync error:', error);
-    
+    console.error("Auth store sync error:", error);
+
     // Reset both stores to a safe state
     useAuthStore.setState({
       user: null,
@@ -104,13 +98,13 @@ export function syncAuthStores() {
       isDev: false,
       hasAdminAccess: false,
       isLoading: false,
-      error: error instanceof Error ? error.message : 'Auth sync failed'
+      error: error instanceof Error ? error.message : "Auth sync failed",
     });
-    
+
     useNextAuthStore.setState({
       session: null,
       isLoading: false,
-      error: error instanceof Error ? error.message : 'Auth sync failed'
+      error: error instanceof Error ? error.message : "Auth sync failed",
     });
 
     toast.error(AUTH_CONSTANTS.ERRORS.SYNC_FAILED);
@@ -124,30 +118,31 @@ export function verifyAuthStores(): boolean {
     const nextStore = useNextAuthStore.getState();
 
     // Both should be in same state (either both have user or neither does)
-    const isConsistent = Boolean(legacyStore.user) === Boolean(nextStore.session);
-    
+    const isConsistent =
+      Boolean(legacyStore.user) === Boolean(nextStore.session);
+
     if (!isConsistent) {
-      console.warn('Auth stores are in inconsistent state');
+      console.warn("Auth stores are in inconsistent state");
       return false;
     }
 
     // If we have a user, verify critical fields match
     if (legacyStore.user && nextStore.session) {
-      const fieldsMatch = 
+      const fieldsMatch =
         legacyStore.user.id === nextStore.session.user.id &&
         legacyStore.organizationId === nextStore.session.organizationId &&
-        legacyStore.isDev === nextStore.session.isDev &&
+        !legacyStore.isDev && // isDev should always be false
         legacyStore.hasAdminAccess === nextStore.session.hasAdminAccess;
 
       if (!fieldsMatch) {
-        console.warn('Auth store fields are mismatched');
+        console.warn("Auth store fields are mismatched");
         return false;
       }
     }
 
     return true;
   } catch (error) {
-    console.error('Error verifying auth stores:', error);
+    console.error("Error verifying auth stores:", error);
     return false;
   }
 }

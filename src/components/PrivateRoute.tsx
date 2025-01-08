@@ -1,15 +1,15 @@
-import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import { useAuthStore } from '@/stores/authStore';
-import { ROUTES } from '@/config/routes';
-import { LoadingLogo } from '@/features/shared/components';
+import React from "react";
+import { Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
+import { ROUTES } from "@/config/routes";
+import { LoadingLogo } from "@/components/LoadingLogo";
 
 interface PrivateRouteProps {
   children: React.ReactNode;
 }
 
 export const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
-  const { user, isLoading } = useAuthStore();
+  const { user, isLoading } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -21,8 +21,14 @@ export const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
   }
 
   if (!user) {
-    return <Navigate to={ROUTES.AUTH.SIGN_IN} state={{ from: location }} replace />;
+    return (
+      <Navigate
+        to={ROUTES.AUTH.SIGN_IN}
+        state={{ from: location.pathname }}
+        replace
+      />
+    );
   }
 
-  return <>{children}</>;
+  return children;
 };
