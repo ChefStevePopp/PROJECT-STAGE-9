@@ -1,11 +1,12 @@
-import React from 'react';
-import { Route, Routes } from 'react-router-dom';
-import { MyAccount } from '../components/MyAccount';
+import React from "react";
+import { Routes, Route } from "react-router-dom";
+import { MyAccount } from "../components/MyAccount";
 
-export const AccountRoutes = () => {
+export const AccountRoutes: React.FC = () => {
+  console.log("AccountRoutes mounted"); // Debug log
   return (
     <Routes>
-      <Route index element={<MyAccount />} />
+      <Route path="/" element={<MyAccount />} />
     </Routes>
   );
 };

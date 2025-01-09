@@ -8,41 +8,16 @@ import { PrivateRoute } from "@/components/PrivateRoute";
 import { ROUTES } from "@/config/routes";
 import { AdminRoutes } from "@/features/admin/routes";
 import { KitchenRoutes } from "@/features/kitchen/routes";
+import { AccountRoutes } from "@/features/account/routes";
 import { AuthProvider } from "@/context/AuthContext";
 import { Toaster } from "react-hot-toast";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
-// Memoized route components to prevent unnecessary re-renders
-const ProtectedAdminRoutes = React.memo(() => (
-  <PrivateRoute>
-    <AdminRoutes />
-  </PrivateRoute>
-));
-
-const ProtectedKitchenRoutes = React.memo(() => (
-  <PrivateRoute>
-    <MainLayout>
-      <KitchenRoutes />
-    </MainLayout>
-  </PrivateRoute>
-));
-
-// Add display names for debugging
-ProtectedAdminRoutes.displayName = "ProtectedAdminRoutes";
-ProtectedKitchenRoutes.displayName = "ProtectedKitchenRoutes";
-
 function App() {
-  // Extract root props to avoid key prop spreading
-  const rootProps = {
-    id: "root",
-    className:
-      "min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900",
-  };
-
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <div {...rootProps}>
+        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
           <Routes>
             {/* Auth Routes */}
             <Route element={<AuthLayout />}>
@@ -50,15 +25,38 @@ function App() {
               <Route path="/auth/signup" element={<SignUp />} />
             </Route>
 
-            {/* Protected Routes */}
-            <Route path="/admin/*" element={<ProtectedAdminRoutes />} />
-            <Route path="/kitchen/*" element={<ProtectedKitchenRoutes />} />
-
-            {/* Default Routes */}
+            {/* Protected Routes with MainLayout */}
             <Route
-              path="/"
-              element={<Navigate to={ROUTES.KITCHEN.DASHBOARD} replace />}
+              element={
+                <PrivateRoute>
+                  <MainLayout />
+                </PrivateRoute>
+              }
+            >
+              {/* Kitchen Routes */}
+              <Route path="/kitchen/*" element={<KitchenRoutes />} />
+
+              {/* Account Routes */}
+              <Route path="/account/*" element={<AccountRoutes />} />
+
+              {/* Redirect root to kitchen dashboard */}
+              <Route
+                path="/"
+                element={<Navigate to={ROUTES.KITCHEN.DASHBOARD} replace />}
+              />
+            </Route>
+
+            {/* Admin Routes (separate layout) */}
+            <Route
+              path="/admin/*"
+              element={
+                <PrivateRoute>
+                  <AdminRoutes />
+                </PrivateRoute>
+              }
             />
+
+            {/* Catch all redirect */}
             <Route
               path="*"
               element={<Navigate to={ROUTES.KITCHEN.DASHBOARD} replace />}

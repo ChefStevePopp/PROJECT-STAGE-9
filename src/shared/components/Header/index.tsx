@@ -1,51 +1,48 @@
-import React from 'react';
-import { Bell } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import { UserMenu } from '@/shared/components/UserMenu';
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { UserMenu } from "../UserMenu";
+import { ROUTES } from "@/config/routes";
+import { useAuth } from "@/hooks/useAuth";
 
-interface HeaderProps {
-  notifications?: number;
-  className?: string;
-}
-
-export const Header: React.FC<HeaderProps> = ({ notifications = 0, className = '' }) => {
-  const { user } = useAuth();
-  
-  // Get organization name from user metadata
-  const organizationName = user?.user_metadata?.organization_name || 'Memphis Fire Barbeque Company Inc.';
+export const Header: React.FC = () => {
+  const navigate = useNavigate();
+  const { organization } = useAuth();
 
   return (
-    <header className={`bg-gray-900/95 backdrop-blur-sm ${className}`}>
-      <div className="px-8 py-4">
-        <div className="flex items-center justify-between">
-          {/* Logo and Branding */}
-          <div className="flex items-center gap-4">
-            <img
-              src="https://www.restaurantconsultants.ca/wp-content/uploads/2023/03/cropped-AI-CHEF-BOT.png"
-              alt="KITCHEN AI"
-              className="w-12 h-12 rounded-lg object-cover"
-            />
-            <div>
-              <h1 className="text-xl font-semibold text-white">KITCHEN AI</h1>
-              <div className="flex flex-col">
-                <p className="text-xs text-gray-400">Turning Your Passion into Profit for</p>
-                <p className="text-sm font-medium text-gray-300 font-mono">
-                  {organizationName}
-                </p>
+    <header className="sticky top-0 z-40 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo & Organization */}
+          <div className="flex items-center gap-6">
+            <button
+              onClick={() => navigate(ROUTES.KITCHEN.DASHBOARD)}
+              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+            >
+              <img
+                src="https://www.restaurantconsultants.ca/wp-content/uploads/2023/03/cropped-AI-CHEF-BOT.png"
+                alt="KITCHEN AI"
+                className="w-8 h-8 rounded-lg"
+              />
+              <span className="text-lg font-semibold text-white">
+                KITCHEN AI
+              </span>
+            </button>
+
+            {/* Organization Info - for debugging */}
+            {organization && (
+              <div className="hidden md:block px-3 py-1 rounded-lg bg-gray-800/50 border border-gray-700/50">
+                <div className="text-xs font-medium text-gray-400">
+                  Organization: {organization.name}
+                </div>
+                <div className="text-[10px] text-gray-500">
+                  ID: {organization.id}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
-          {/* Right Side Actions */}
+          {/* Right Section */}
           <div className="flex items-center gap-4">
-            <button className="relative p-2 text-gray-400 hover:text-white transition-colors">
-              <Bell className="w-6 h-6" />
-              {notifications > 0 && (
-                <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                  {notifications}
-                </span>
-              )}
-            </button>
             <UserMenu />
           </div>
         </div>

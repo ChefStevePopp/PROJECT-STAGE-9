@@ -1,116 +1,87 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { User, Settings, LogOut, Building2, Shield } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import { ROUTES } from '@/config/routes';
-import toast from 'react-hot-toast';
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { ChefHat, Settings, LogOut, Building2 } from "lucide-react";
+import { ROUTES } from "@/config/routes";
 
 export const UserMenu: React.FC = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const { user, displayName, isDev, signOut } = useAuth();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      navigate(ROUTES.AUTH.SIGN_IN);
-    } catch (error) {
-      console.error('Error signing out:', error);
-      toast.error('Failed to sign out');
-    }
-  };
+  const { user, organization, signOut } = useAuth();
 
   if (!user) return null;
 
+  // Get display name from user metadata or format email nicely
+  const displayName =
+    user.user_metadata?.firstName && user.user_metadata?.lastName
+      ? `${user.user_metadata.firstName} ${user.user_metadata.lastName}`
+      : user.email?.split("@")[0]?.replace(/[._-]/g, " ");
+
+  // Get user role for display
+  const role = user.user_metadata?.role || "Team Member";
+  const roleColor =
+    role.toLowerCase() === "owner"
+      ? "text-rose-400"
+      : role.toLowerCase() === "admin"
+        ? "text-amber-400"
+        : role.toLowerCase() === "manager"
+          ? "text-emerald-400"
+          : "text-blue-400";
+
+  // Get avatar URL or generate initials
+  const avatarUrl =
+    user.user_metadata?.avatar ||
+    `https://api.dicebear.com/7.x/initials/svg?seed=${displayName}`;
+
   return (
-    <div className="relative z-[110]" ref={menuRef}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors"
-      >
-        <div className="w-10 h-10 rounded-lg bg-primary-500/20 flex items-center justify-center">
-          <User className="w-5 h-5 text-primary-400" />
-        </div>
+    <div className="relative group">
+      <button className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-800/50 transition-colors">
+        <img
+          src={avatarUrl}
+          alt={displayName}
+          className="w-8 h-8 rounded-lg bg-gray-800 object-cover"
+        />
         <div className="text-left">
-          <p className="text-sm font-medium text-white">
-            {displayName || user.email?.split('@')[0]}
-          </p>
-          <p className="text-xs text-gray-400">
-            {isDev ? 'Developer' : 'Organization Owner'}
-          </p>
-        </div>
-      </button>
-
-      {isOpen && (
-        <div className="absolute right-0 mt-2 w-56 rounded-xl bg-gray-800 border border-gray-700 shadow-xl">
-          <div className="p-2">
-            <div className="px-3 py-2">
-              <p className="text-sm font-medium text-white truncate">
-                {user.email}
-              </p>
-              {isDev && (
-                <span className="flex items-center gap-1 text-xs text-primary-400">
-                  <Shield className="w-3 h-3" />
-                  Developer Access
-                </span>
-              )}
-            </div>
-
-            <div className="border-t border-gray-700 my-2" />
-
-            <Link
-              to={ROUTES.ADMIN.SETTINGS}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700/50 rounded-lg transition-colors"
-              onClick={() => setIsOpen(false)}
-            >
-              <Settings className="w-4 h-4" />
-              Settings
-            </Link>
-
-            <Link
-              to={ROUTES.ADMIN.ORGANIZATIONS}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700/50 rounded-lg transition-colors"
-              onClick={() => setIsOpen(false)}
-            >
-              <Building2 className="w-4 h-4" />
-              Organizations
-            </Link>
-
-            {isDev && (
-              <Link
-                to="/admin/dev-management"
-                className="flex items-center gap-2 px-3 py-2 text-sm text-primary-400 hover:text-primary-300 hover:bg-primary-500/10 rounded-lg transition-colors"
-                onClick={() => setIsOpen(false)}
-              >
-                <Shield className="w-4 h-4" />
-                Dev Management
-              </Link>
+          <div className="text-sm font-medium text-white">{displayName}</div>
+          <div className="flex items-center gap-2">
+            <span className={`text-xs ${roleColor}`}>{role}</span>
+            {organization && (
+              <span className="text-xs text-gray-500">{organization.name}</span>
             )}
-
-            <div className="border-t border-gray-700 my-2" />
-
-            <button
-              onClick={handleSignOut}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-              Sign Out
-            </button>
           </div>
         </div>
-      )}
+        <ChefHat className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" />
+      </button>
+
+      {/* Dropdown Menu */}
+      <div className="absolute right-0 top-full mt-2 w-64 py-2 bg-gray-800 rounded-xl border border-gray-700/50 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+        {/* Organization Info */}
+        {organization && (
+          <div className="px-4 py-2 border-b border-gray-700/50 mb-2">
+            <div className="flex items-center gap-2 text-sm text-gray-400">
+              <Building2 className="w-4 h-4" />
+              <span>{organization.name}</span>
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              {organization.settings?.business_type || "Restaurant"}
+            </div>
+          </div>
+        )}
+
+        <button
+          onClick={() => navigate(ROUTES.ADMIN.MY_ACCOUNT)}
+          className="flex items-center gap-3 w-full px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700/50 transition-colors"
+        >
+          <Settings className="w-4 h-4" />
+          Account Settings
+        </button>
+        <button
+          onClick={() => signOut()}
+          className="flex items-center gap-3 w-full px-4 py-2 text-sm text-rose-400 hover:text-rose-300 hover:bg-gray-700/50 transition-colors"
+        >
+          <LogOut className="w-4 h-4" />
+          Sign Out
+        </button>
+      </div>
     </div>
   );
 };
