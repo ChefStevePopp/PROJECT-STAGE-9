@@ -20,7 +20,7 @@ export const menuItems = (isDev: boolean) => {
   const items = [
     {
       id: "account",
-      items: [{ icon: User, label: "My Account", path: "/admin/my-account" }],
+      items: [{ icon: User, label: "My Account", path: "/admin/account" }], // Updated path
     },
     {
       id: "kitchen",

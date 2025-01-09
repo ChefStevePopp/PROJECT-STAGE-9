@@ -10,8 +10,13 @@ import { HelpSupport } from "../components/sections/HelpSupport";
 import { ExcelImports } from "../components/sections/ExcelImports";
 import { RecipeManager } from "@/features/recipes/components/RecipeManager";
 import { DevManagement } from "../components/sections/DevManagement";
+import { MyAccount } from "@/features/account/components/MyAccount";
+import { OrganizationSettings } from "../components/settings/OrganizationSettings";
 
 export const AdminRoutes: React.FC = () => {
+  // Debug logging
+  console.log("AdminRoutes mounted");
+
   return (
     <Routes>
       <Route element={<AdminLayout />}>
@@ -24,6 +29,9 @@ export const AdminRoutes: React.FC = () => {
         <Route path="excel-imports" element={<ExcelImports />} />
         <Route path="vendor-invoices" element={<VendorInvoiceManager />} />
         <Route path="dev-management" element={<DevManagement />} />
+        <Route path="organizations" element={<OrganizationSettings />} />
+        <Route path="account" element={<MyAccount />} />
+        <Route path="account/*" element={<MyAccount />} />
       </Route>
     </Routes>
   );

@@ -3,48 +3,50 @@ import { X } from "lucide-react";
 import { useTeamStore } from "@/stores/teamStore";
 import { AvatarCustomizer } from "@/features/shared/components";
 import { RoleSelector } from "../RoleSelector";
-import toast from "react-hot-toast";
 import type { TeamMember } from "../../types";
+import toast from "react-hot-toast";
 
-interface CreateTeamMemberModalProps {
+interface TeamMemberModalProps {
+  member?: TeamMember; // If provided, we're in edit mode
   isOpen?: boolean;
   onClose?: () => void;
 }
 
-export const CreateTeamMemberModal: React.FC<CreateTeamMemberModalProps> = ({
+export const TeamMemberModal: React.FC<TeamMemberModalProps> = ({
+  member,
   isOpen = false,
   onClose,
 }) => {
-  const { createTeamMember } = useTeamStore();
-  const [formData, setFormData] = useState<Partial<TeamMember>>({
-    first_name: "",
-    last_name: "",
-    email: "",
-    phone: "",
-    role: "team_member",
-    kitchen_role: "",
-    station: "",
-    punch_id: "",
-    status: "active",
-    start_date: new Date().toISOString().split("T")[0],
-    certifications: [],
-    allergies: [],
-    emergency_contact: {
-      name: "",
-      phone: "",
-      relationship: "",
+  const { createTeamMember, updateTeamMember } = useTeamStore();
+  const [formData, setFormData] = useState<Partial<TeamMember>>(
+    member || {
+      first_name: "",
+      last_name: "",
+      email: "",
+      role: "team_member",
+      status: "active",
     },
-  });
+  );
+
+  const isEditMode = !!member;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await createTeamMember(formData as Omit<TeamMember, "id">);
-      toast.success("Team member added successfully");
+      if (isEditMode && member) {
+        await updateTeamMember(member.id, formData);
+        toast.success("Team member updated successfully");
+      } else {
+        await createTeamMember(formData as Omit<TeamMember, "id">);
+        toast.success("Team member added successfully");
+      }
       onClose?.();
     } catch (error) {
-      console.error("Error creating team member:", error);
-      toast.error("Failed to create team member");
+      console.error(
+        `Error ${isEditMode ? "updating" : "creating"} team member:`,
+        error,
+      );
+      toast.error(`Failed to ${isEditMode ? "update" : "create"} team member`);
     }
   };
 
@@ -54,7 +56,9 @@ export const CreateTeamMemberModal: React.FC<CreateTeamMemberModalProps> = ({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6">
       <div className="bg-gray-800 rounded-xl p-6 w-full max-w-5xl max-h-[80vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-white">Add Team Member</h2>
+          <h2 className="text-xl font-semibold text-white">
+            {isEditMode ? "Edit" : "Add"} Team Member
+          </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white">
             <X className="w-5 h-5" />
           </button>
@@ -146,21 +150,6 @@ export const CreateTeamMemberModal: React.FC<CreateTeamMemberModalProps> = ({
                 className="input w-full"
               />
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">
-                Punch ID
-              </label>
-              <input
-                type="text"
-                value={formData.punch_id}
-                onChange={(e) =>
-                  setFormData({ ...formData, punch_id: e.target.value })
-                }
-                className="input w-full"
-                placeholder="Optional"
-              />
-            </div>
           </div>
 
           {/* Right Column - Role & Additional Info */}
@@ -223,59 +212,6 @@ export const CreateTeamMemberModal: React.FC<CreateTeamMemberModalProps> = ({
                 <option value="inactive">Inactive</option>
               </select>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">
-                Emergency Contact
-              </label>
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  value={formData.emergency_contact?.name || ""}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      emergency_contact: {
-                        ...formData.emergency_contact,
-                        name: e.target.value,
-                      },
-                    })
-                  }
-                  className="input w-full"
-                  placeholder="Contact Name"
-                />
-                <input
-                  type="tel"
-                  value={formData.emergency_contact?.phone || ""}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      emergency_contact: {
-                        ...formData.emergency_contact,
-                        phone: e.target.value,
-                      },
-                    })
-                  }
-                  className="input w-full"
-                  placeholder="Contact Phone"
-                />
-                <input
-                  type="text"
-                  value={formData.emergency_contact?.relationship || ""}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      emergency_contact: {
-                        ...formData.emergency_contact,
-                        relationship: e.target.value,
-                      },
-                    })
-                  }
-                  className="input w-full"
-                  placeholder="Relationship"
-                />
-              </div>
-            </div>
           </div>
 
           {/* Footer Actions */}
@@ -288,7 +224,7 @@ export const CreateTeamMemberModal: React.FC<CreateTeamMemberModalProps> = ({
               Cancel
             </button>
             <button type="submit" className="btn-primary text-sm">
-              Add Team Member
+              {isEditMode ? "Save Changes" : "Add Team Member"}
             </button>
           </div>
         </form>

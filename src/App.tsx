@@ -8,7 +8,6 @@ import { PrivateRoute } from "@/components/PrivateRoute";
 import { ROUTES } from "@/config/routes";
 import { AdminRoutes } from "@/features/admin/routes";
 import { KitchenRoutes } from "@/features/kitchen/routes";
-import { AccountRoutes } from "@/features/account/routes";
 import { AuthProvider } from "@/context/AuthContext";
 import { Toaster } from "react-hot-toast";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -36,9 +35,6 @@ function App() {
               {/* Kitchen Routes */}
               <Route path="/kitchen/*" element={<KitchenRoutes />} />
 
-              {/* Account Routes */}
-              <Route path="/account/*" element={<AccountRoutes />} />
-
               {/* Redirect root to kitchen dashboard */}
               <Route
                 path="/"
@@ -49,6 +45,16 @@ function App() {
             {/* Admin Routes (separate layout) */}
             <Route
               path="/admin/*"
+              element={
+                <PrivateRoute>
+                  <AdminRoutes />
+                </PrivateRoute>
+              }
+            />
+
+            {/* Account Routes (under Admin layout) */}
+            <Route
+              path="/account/*"
               element={
                 <PrivateRoute>
                   <AdminRoutes />

@@ -1,110 +1,182 @@
-import { create } from 'zustand';
-import { supabase } from '@/lib/supabase';
-import { supabaseAdmin } from '@/lib/supabase-admin';
-import type { TeamMemberData } from '@/features/team/types';
-import type { KitchenRole } from '@/config/kitchen-roles';
-import toast from 'react-hot-toast';
-
-interface TeamStore {
-  members: TeamMemberData[];
-  isLoading: boolean;
-  isImporting: boolean;
-  error: string | null;
-  fetchTeamMembers: () => Promise<void>;
-  updateMember: (id: string, updates: Partial<TeamMemberData>) => Promise<void>;
-  updateKitchenRole: (memberId: string, role: KitchenRole) => Promise<void>;
-  deleteMember: (id: string) => Promise<void>;
-  importTeam: (data: any[]) => Promise<void>;
-  clearTeam: () => Promise<void>;
-  saveTeam: () => Promise<void>;
-}
+import { create } from "zustand";
+import { supabase } from "@/lib/supabase";
+import type { TeamMember, TeamStore } from "@/features/team/types";
+import toast from "react-hot-toast";
 
 export const useTeamStore = create<TeamStore>((set, get) => ({
   members: [],
   isLoading: false,
-  isImporting: false,
   error: null,
 
   fetchTeamMembers: async () => {
     set({ isLoading: true, error: null });
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user?.user_metadata?.organizationId) {
-        throw new Error('No organization ID found');
+        throw new Error("No organization ID found");
       }
 
       const { data, error } = await supabase
-        .from('organization_team_members')
-        .select('*')
-        .eq('organization_id', user.user_metadata.organizationId)
-        .order('last_name', { ascending: true });
+        .from("organization_team_members")
+        .select("*")
+        .eq("organization_id", user.user_metadata.organizationId);
 
       if (error) throw error;
-
-      const transformedData = data.map(member => ({
-        id: member.id,
-        firstName: member.first_name,
-        lastName: member.last_name,
-        email: member.email,
-        phone: member.phone || '',
-        punchId: member.punch_id || '',
-        avatar: member.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${member.first_name}-${member.last_name}`,
-        departments: member.departments || [],
-        roles: member.roles || [],
-        locations: member.locations || [],
-        kitchenRole: member.kitchen_role || 'team_member',
-        lastUpdated: member.updated_at
-      }));
-
-      set({ members: transformedData, error: null });
+      set({ members: data || [], error: null });
     } catch (error) {
-      console.error('Error fetching team members:', error);
-      set({ error: 'Failed to load team members' });
+      console.error("Error fetching team members:", error);
+      set({ error: "Failed to load team members" });
     } finally {
       set({ isLoading: false });
     }
   },
 
-  updateMember: async (id, updates) => {
+  createTeamMember: async (member) => {
+    set({ isLoading: true, error: null });
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user?.user_metadata?.organizationId) {
-        throw new Error('No organization ID found');
+        throw new Error("No organization ID found");
       }
 
-      const { error } = await supabase
-        .from('organization_team_members')
-        .update({
-          first_name: updates.firstName,
-          last_name: updates.lastName,
-          email: updates.email,
-          phone: updates.phone,
-          punch_id: updates.punchId,
-          avatar_url: updates.avatar,
-          departments: updates.departments,
-          roles: updates.roles,
-          locations: updates.locations,
-          kitchen_role: updates.kitchenRole,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', id)
-        .eq('organization_id', user.user_metadata.organizationId);
+      const { data, error } = await supabase
+        .from("organization_team_members")
+        .insert([
+          { ...member, organization_id: user.user_metadata.organizationId },
+        ])
+        .select()
+        .single();
 
       if (error) throw error;
 
-      set(state => ({
-        members: state.members.map(member =>
-          member.id === id ? { ...member, ...updates } : member
-        )
-      }));
-
-      toast.success('Team member updated successfully');
+      const { members } = get();
+      set({ members: [...members, data], error: null });
+      toast.success("Team member added successfully");
     } catch (error) {
-      console.error('Error updating team member:', error);
-      toast.error('Failed to update team member');
-      throw error;
+      console.error("Error creating team member:", error);
+      set({ error: "Failed to create team member" });
+      toast.error("Failed to add team member");
+    } finally {
+      set({ isLoading: false });
     }
   },
 
-  // ... rest of the store implementation remains the same
+  updateTeamMember: async (id, updates) => {
+    set({ isLoading: true, error: null });
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user?.user_metadata?.organizationId) {
+        throw new Error("No organization ID found");
+      }
+
+      const { error } = await supabase
+        .from("organization_team_members")
+        .update(updates)
+        .eq("id", id)
+        .eq("organization_id", user.user_metadata.organizationId);
+
+      if (error) throw error;
+
+      const { members } = get();
+      set({
+        members: members.map((m) => (m.id === id ? { ...m, ...updates } : m)),
+        error: null,
+      });
+      toast.success("Team member updated successfully");
+    } catch (error) {
+      console.error("Error updating team member:", error);
+      set({ error: "Failed to update team member" });
+      toast.error("Failed to update team member");
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  deleteTeamMember: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user?.user_metadata?.organizationId) {
+        throw new Error("No organization ID found");
+      }
+
+      const { error } = await supabase
+        .from("organization_team_members")
+        .delete()
+        .eq("id", id)
+        .eq("organization_id", user.user_metadata.organizationId);
+
+      if (error) throw error;
+
+      const { members } = get();
+      set({
+        members: members.filter((m) => m.id !== id),
+        error: null,
+      });
+      toast.success("Team member removed successfully");
+    } catch (error) {
+      console.error("Error deleting team member:", error);
+      set({ error: "Failed to delete team member" });
+      toast.error("Failed to remove team member");
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  importTeamMembers: async (data) => {
+    set({ isLoading: true, error: null });
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user?.user_metadata?.organizationId) {
+        throw new Error("No organization ID found");
+      }
+
+      // Transform Excel data to match team member structure
+      const teamMembers = data.map((row) => ({
+        organization_id: user.user_metadata.organizationId,
+        id: `tm-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        first_name: row.firstName || row["First Name"] || "",
+        last_name: row.lastName || row["Last Name"] || "",
+        email: row.email || row["Email"] || "",
+        phone: row.phone || row["Phone"] || "",
+        role: row.role || row["Role"] || "staff",
+        kitchen_role: row.kitchenRole || row["Kitchen Role"] || "",
+        station: row.station || row["Station"] || "",
+        punch_id: row.punchId || row["Punch ID"] || "",
+        status: "active",
+        start_date:
+          row.startDate || row["Start Date"] || new Date().toISOString(),
+      }));
+
+      const { data: inserted, error } = await supabase
+        .from("organization_team_members")
+        .insert(teamMembers)
+        .select();
+
+      if (error) throw error;
+
+      const { members } = get();
+      set({
+        members: [...members, ...inserted],
+        error: null,
+      });
+      toast.success(`${inserted.length} team members imported successfully`);
+    } catch (error) {
+      console.error("Error importing team members:", error);
+      set({ error: "Failed to import team members" });
+      toast.error("Failed to import team members");
+    } finally {
+      set({ isLoading: false });
+    }
+  },
 }));

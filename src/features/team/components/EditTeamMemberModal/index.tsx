@@ -1,251 +1,290 @@
-import React, { useState } from 'react';
-import { X, Camera, Phone, Mail, MapPin, Building2, Tag } from 'lucide-react';
-import { useTeamStore } from '../../stores/teamStore';
-import { useAuth } from '@/hooks/useAuth';
-import { AvatarCustomizer } from '@/features/shared/components';
-import type { TeamMemberData } from '../../types';
-import toast from 'react-hot-toast';
+import React, { useState } from "react";
+import { X } from "lucide-react";
+import { useTeamStore } from "@/stores/teamStore";
+import { AvatarCustomizer } from "@/features/shared/components";
+import { RoleSelector } from "../RoleSelector";
+import type { TeamMember } from "../../types";
+import toast from "react-hot-toast";
 
 interface EditTeamMemberModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  member: TeamMemberData;
+  member: TeamMember;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
-export const EditTeamMemberModal: React.FC<EditTeamMemberModalProps> = ({ isOpen, onClose, member }) => {
-  const { updateMember } = useTeamStore();
-  const { user } = useAuth();
-  const [formData, setFormData] = useState({
-    firstName: member.firstName,
-    lastName: member.lastName,
-    email: member.email,
-    phone: member.phone,
-    avatar: member.avatar,
-    departments: member.departments,
-    roles: member.roles,
-    locations: member.locations,
-    kitchenRole: member.kitchenRole
+export const EditTeamMemberModal: React.FC<EditTeamMemberModalProps> = ({
+  member,
+  isOpen = false,
+  onClose,
+}) => {
+  const { updateTeamMember } = useTeamStore();
+  const [formData, setFormData] = useState<Partial<TeamMember>>({
+    ...member,
+    emergency_contact: member.emergency_contact || {
+      name: "",
+      phone: "",
+      relationship: "",
+    },
+    certifications: member.certifications || [],
+    allergies: member.allergies || [],
   });
-
-  const [isAvatarCustomizerOpen, setIsAvatarCustomizerOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-
-  const handleAvatarSelect = (avatarUrl: string) => {
-    setFormData(prev => ({ ...prev, avatar: avatarUrl }));
-    setIsAvatarCustomizerOpen(false);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSaving(true);
-
     try {
-      await updateMember(member.id, {
-        ...formData,
-        lastUpdated: new Date().toISOString()
-      });
-
-      toast.success('Profile updated successfully');
-      onClose();
+      await updateTeamMember(member.id, formData);
+      toast.success("Team member updated successfully");
+      onClose?.();
     } catch (error) {
-      console.error('Error updating profile:', error);
-      toast.error('Failed to update profile');
-    } finally {
-      setIsSaving(false);
+      console.error("Error updating team member:", error);
+      toast.error("Failed to update team member");
     }
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 flex items-center justify-center p-4">
-      <div className="bg-gray-900 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-gray-900 p-6 border-b border-gray-800 flex justify-between items-center z-10">
-          <h2 className="text-2xl font-bold text-white">Edit Profile</h2>
-          {!isAvatarCustomizerOpen && (
-            <button 
-              onClick={onClose}
-              className="text-gray-400 hover:text-white transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          )}
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6">
+      <div className="bg-gray-800 rounded-xl p-6 w-full max-w-5xl max-h-[80vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-semibold text-white">Edit Team Member</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        <div className="p-6">
-          {isAvatarCustomizerOpen ? (
-            <div className="space-y-4">
+        <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-8">
+          {/* Left Column - Basic Info */}
+          <div className="space-y-6">
+            <div className="flex justify-center mb-6">
               <AvatarCustomizer
-                currentAvatar={formData.avatar}
-                onSelect={handleAvatarSelect}
+                value={formData.avatar_url}
+                onChange={(url) =>
+                  setFormData({ ...formData, avatar_url: url })
+                }
               />
-              <div className="flex justify-end gap-4">
-                <button
-                  onClick={() => setIsAvatarCustomizerOpen(false)}
-                  className="btn-ghost"
-                >
-                  Cancel
-                </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">
+                  First Name
+                </label>
+                <input
+                  type="text"
+                  value={formData.first_name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, first_name: e.target.value })
+                  }
+                  className="input w-full"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">
+                  Last Name
+                </label>
+                <input
+                  type="text"
+                  value={formData.last_name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, last_name: e.target.value })
+                  }
+                  className="input w-full"
+                  required
+                />
               </div>
             </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Avatar Section */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium text-white">Profile Picture</h3>
-                <div className="flex items-center gap-6">
-                  <div className="relative group">
-                    <img
-                      src={formData.avatar}
-                      alt={`${formData.firstName} ${formData.lastName}`}
-                      className="w-24 h-24 rounded-full bg-gray-800 transition-transform group-hover:scale-105"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setIsAvatarCustomizerOpen(true)}
-                      className="absolute bottom-0 right-0 bg-primary-500 text-white p-2 rounded-full shadow-lg transition-transform group-hover:scale-110"
-                    >
-                      <Camera className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <div className="text-sm text-gray-400">
-                    Click the camera icon to customize your avatar with our fun avatar maker!
-                  </div>
-                </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) =>
+                  setFormData({ ...formData, email: e.target.value })
+                }
+                className="input w-full"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">
+                Phone
+              </label>
+              <input
+                type="tel"
+                value={formData.phone}
+                onChange={(e) =>
+                  setFormData({ ...formData, phone: e.target.value })
+                }
+                className="input w-full"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">
+                Start Date
+              </label>
+              <input
+                type="date"
+                value={formData.start_date?.split("T")[0]}
+                onChange={(e) =>
+                  setFormData({ ...formData, start_date: e.target.value })
+                }
+                className="input w-full"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">
+                Punch ID
+              </label>
+              <input
+                type="text"
+                value={formData.punch_id}
+                onChange={(e) =>
+                  setFormData({ ...formData, punch_id: e.target.value })
+                }
+                className="input w-full"
+                placeholder="Optional"
+              />
+            </div>
+          </div>
+
+          {/* Right Column - Role & Additional Info */}
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">
+                Role & Permissions
+              </label>
+              <RoleSelector
+                value={formData.role}
+                onChange={(value) => setFormData({ ...formData, role: value })}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">
+                Kitchen Role
+              </label>
+              <input
+                type="text"
+                value={formData.kitchen_role}
+                onChange={(e) =>
+                  setFormData({ ...formData, kitchen_role: e.target.value })
+                }
+                className="input w-full"
+                placeholder="e.g., Line Cook, Prep Cook"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">
+                Station
+              </label>
+              <input
+                type="text"
+                value={formData.station}
+                onChange={(e) =>
+                  setFormData({ ...formData, station: e.target.value })
+                }
+                className="input w-full"
+                placeholder="e.g., Grill, Prep"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">
+                Status
+              </label>
+              <select
+                value={formData.status}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    status: e.target.value as "active" | "inactive",
+                  })
+                }
+                className="input w-full"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">
+                Emergency Contact
+              </label>
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  value={formData.emergency_contact?.name || ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      emergency_contact: {
+                        ...formData.emergency_contact,
+                        name: e.target.value,
+                      },
+                    })
+                  }
+                  className="input w-full"
+                  placeholder="Contact Name"
+                />
+                <input
+                  type="tel"
+                  value={formData.emergency_contact?.phone || ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      emergency_contact: {
+                        ...formData.emergency_contact,
+                        phone: e.target.value,
+                      },
+                    })
+                  }
+                  className="input w-full"
+                  placeholder="Contact Phone"
+                />
+                <input
+                  type="text"
+                  value={formData.emergency_contact?.relationship || ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      emergency_contact: {
+                        ...formData.emergency_contact,
+                        relationship: e.target.value,
+                      },
+                    })
+                  }
+                  className="input w-full"
+                  placeholder="Relationship"
+                />
               </div>
+            </div>
+          </div>
 
-              {/* Personal Information */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium text-white">Personal Information</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-1">
-                      First Name
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.firstName}
-                      onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
-                      className="input w-full"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-1">
-                      Last Name
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.lastName}
-                      onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
-                      className="input w-full"
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Contact Information */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium text-white">Contact Information</h3>
-                <div className="space-y-4">
-                  <div className="relative">
-                    <Mail className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                    <input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                      className="input w-full pl-10"
-                      placeholder="Email address"
-                    />
-                  </div>
-                  <div className="relative">
-                    <Phone className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                    <input
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                      className="input w-full pl-10"
-                      placeholder="Phone number"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Work Information */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium text-white">Work Information</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">
-                      <Building2 className="w-4 h-4 inline-block mr-2" />
-                      Departments
-                    </label>
-                    <textarea
-                      value={formData.departments.join(', ')}
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        departments: e.target.value.split(',').map(d => d.trim()).filter(Boolean)
-                      }))}
-                      className="input w-full min-h-[80px]"
-                      placeholder="Enter departments (comma-separated)"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">
-                      <Tag className="w-4 h-4 inline-block mr-2" />
-                      Roles
-                    </label>
-                    <textarea
-                      value={formData.roles.join(', ')}
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        roles: e.target.value.split(',').map(r => r.trim()).filter(Boolean)
-                      }))}
-                      className="input w-full min-h-[80px]"
-                      placeholder="Enter roles (comma-separated)"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">
-                      <MapPin className="w-4 h-4 inline-block mr-2" />
-                      Locations
-                    </label>
-                    <textarea
-                      value={formData.locations.join(', ')}
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        locations: e.target.value.split(',').map(l => l.trim()).filter(Boolean)
-                      }))}
-                      className="input w-full min-h-[80px]"
-                      placeholder="Enter locations (comma-separated)"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Form Actions */}
-              <div className="flex justify-end gap-4 pt-4 border-t border-gray-800">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="btn-ghost"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="btn-primary"
-                >
-                  {isSaving ? 'Saving...' : 'Save Changes'}
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
+          {/* Footer Actions */}
+          <div className="col-span-2 flex justify-end gap-2 mt-6 pt-6 border-t border-gray-700">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn-ghost text-sm"
+            >
+              Cancel
+            </button>
+            <button type="submit" className="btn-primary text-sm">
+              Save Changes
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
