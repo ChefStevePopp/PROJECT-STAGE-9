@@ -14,13 +14,14 @@ import {
   Box,
   ChefHat,
   CircleDollarSign,
+  History,
 } from "lucide-react";
 
 export const menuItems = (isDev: boolean) => {
   const items = [
     {
       id: "account",
-      items: [{ icon: User, label: "My Account", path: "/admin/account" }], // Updated path
+      items: [{ icon: User, label: "My Account", path: "/admin/account" }],
     },
     {
       id: "kitchen",
@@ -47,7 +48,11 @@ export const menuItems = (isDev: boolean) => {
           label: "Organization",
           path: "/admin/organizations",
         },
-        { icon: FileText, label: "Activity Log", path: "/admin/activity" },
+        {
+          icon: History,
+          label: "Activity Log",
+          path: "/admin/activity",
+        },
       ],
     },
     {

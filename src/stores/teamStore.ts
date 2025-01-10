@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { supabase } from "@/lib/supabase";
 import type { TeamMember, TeamStore } from "@/features/team/types";
+import { logActivity } from "@/lib/activity-logger";
 import toast from "react-hot-toast";
 
 export const useTeamStore = create<TeamStore>((set, get) => ({
@@ -27,13 +28,81 @@ export const useTeamStore = create<TeamStore>((set, get) => ({
       set({ members: data || [], error: null });
     } catch (error) {
       console.error("Error fetching team members:", error);
-      set({ error: "Failed to load team members" });
+      set({ error: "Failed to load team members", members: [] });
+      throw error;
     } finally {
       set({ isLoading: false });
     }
   },
 
-  createTeamMember: async (member) => {
+  updateTeamMember: async (id: string, updates: Partial<TeamMember>) => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user?.user_metadata?.organizationId) {
+        throw new Error("No organization ID found");
+      }
+
+      // Get the current member data
+      const { data: currentMember, error: fetchError } = await supabase
+        .from("organization_team_members")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!currentMember) throw new Error("Team member not found");
+
+      // Prepare update data - only include fields that exist in the database
+      const updateData = {
+        organization_id: user.user_metadata.organizationId,
+        first_name: updates.first_name || currentMember.first_name,
+        last_name: updates.last_name || currentMember.last_name,
+        display_name: updates.display_name || currentMember.display_name,
+        email: updates.email || currentMember.email,
+        phone: updates.phone || currentMember.phone || null,
+        punch_id: updates.punch_id || currentMember.punch_id || null,
+        avatar_url: updates.avatar_url || currentMember.avatar_url || null,
+        roles: updates.roles || currentMember.roles || [],
+        departments: updates.departments || currentMember.departments || [],
+        locations: updates.locations || currentMember.locations || [],
+        notification_preferences:
+          updates.notification_preferences ||
+          currentMember.notification_preferences ||
+          null,
+        kitchen_role: currentMember.kitchen_role, // Keep existing kitchen_role as it's managed elsewhere
+        updated_at: new Date().toISOString(),
+      };
+
+      // Perform update
+      const { error: updateError } = await supabase
+        .from("organization_team_members")
+        .update(updateData)
+        .match({ id, organization_id: user.user_metadata.organizationId });
+
+      if (updateError) throw updateError;
+
+      // Fetch fresh data to ensure we have the latest state
+      await logActivity({
+        organization_id: user.user_metadata.organizationId,
+        user_id: user.id,
+        activity_type: "team_member_updated",
+        details: {
+          team_member_id: id,
+          changes: updates,
+        },
+      });
+      await get().fetchTeamMembers();
+      toast.success("Team member updated successfully");
+    } catch (error) {
+      console.error("Error updating team member:", error);
+      toast.error("Failed to update team member");
+      throw error;
+    }
+  },
+
+  createTeamMember: async (member: Omit<TeamMember, "id">) => {
     set({ isLoading: true, error: null });
     try {
       const {
@@ -46,15 +115,40 @@ export const useTeamStore = create<TeamStore>((set, get) => ({
       const { data, error } = await supabase
         .from("organization_team_members")
         .insert([
-          { ...member, organization_id: user.user_metadata.organizationId },
+          {
+            first_name: member.first_name,
+            last_name: member.last_name,
+            display_name: member.display_name,
+            email: member.email,
+            phone: member.phone || null,
+            punch_id: member.punch_id || null,
+            avatar_url: member.avatar_url,
+            roles: member.roles || [],
+            departments: member.departments || [],
+            locations: member.locations || [],
+            notification_preferences: member.notification_preferences || null,
+            kitchen_role: null, // This will be set through permissions
+            organization_id: user.user_metadata.organizationId,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
         ])
         .select()
         .single();
 
       if (error) throw error;
 
-      const { members } = get();
-      set({ members: [...members, data], error: null });
+      // Fetch fresh data to ensure we have the latest state
+      await logActivity({
+        organization_id: user.user_metadata.organizationId,
+        user_id: user.id,
+        activity_type: "team_member_added",
+        details: {
+          team_member_id: data.id,
+          team_member: member,
+        },
+      });
+      await get().fetchTeamMembers();
       toast.success("Team member added successfully");
     } catch (error) {
       console.error("Error creating team member:", error);
@@ -65,40 +159,7 @@ export const useTeamStore = create<TeamStore>((set, get) => ({
     }
   },
 
-  updateTeamMember: async (id, updates) => {
-    set({ isLoading: true, error: null });
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user?.user_metadata?.organizationId) {
-        throw new Error("No organization ID found");
-      }
-
-      const { error } = await supabase
-        .from("organization_team_members")
-        .update(updates)
-        .eq("id", id)
-        .eq("organization_id", user.user_metadata.organizationId);
-
-      if (error) throw error;
-
-      const { members } = get();
-      set({
-        members: members.map((m) => (m.id === id ? { ...m, ...updates } : m)),
-        error: null,
-      });
-      toast.success("Team member updated successfully");
-    } catch (error) {
-      console.error("Error updating team member:", error);
-      set({ error: "Failed to update team member" });
-      toast.error("Failed to update team member");
-    } finally {
-      set({ isLoading: false });
-    }
-  },
-
-  deleteTeamMember: async (id) => {
+  deleteTeamMember: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
       const {
@@ -111,70 +172,25 @@ export const useTeamStore = create<TeamStore>((set, get) => ({
       const { error } = await supabase
         .from("organization_team_members")
         .delete()
-        .eq("id", id)
-        .eq("organization_id", user.user_metadata.organizationId);
+        .match({ id, organization_id: user.user_metadata.organizationId });
 
       if (error) throw error;
 
-      const { members } = get();
-      set({
-        members: members.filter((m) => m.id !== id),
-        error: null,
+      await logActivity({
+        organization_id: user.user_metadata.organizationId,
+        user_id: user.id,
+        activity_type: "team_member_removed",
+        details: {
+          team_member_id: id,
+        },
       });
+      // Fetch fresh data to ensure we have the latest state
+      await get().fetchTeamMembers();
       toast.success("Team member removed successfully");
     } catch (error) {
       console.error("Error deleting team member:", error);
       set({ error: "Failed to delete team member" });
       toast.error("Failed to remove team member");
-    } finally {
-      set({ isLoading: false });
-    }
-  },
-
-  importTeamMembers: async (data) => {
-    set({ isLoading: true, error: null });
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user?.user_metadata?.organizationId) {
-        throw new Error("No organization ID found");
-      }
-
-      // Transform Excel data to match team member structure
-      const teamMembers = data.map((row) => ({
-        organization_id: user.user_metadata.organizationId,
-        id: `tm-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        first_name: row.firstName || row["First Name"] || "",
-        last_name: row.lastName || row["Last Name"] || "",
-        email: row.email || row["Email"] || "",
-        phone: row.phone || row["Phone"] || "",
-        role: row.role || row["Role"] || "staff",
-        kitchen_role: row.kitchenRole || row["Kitchen Role"] || "",
-        station: row.station || row["Station"] || "",
-        punch_id: row.punchId || row["Punch ID"] || "",
-        status: "active",
-        start_date:
-          row.startDate || row["Start Date"] || new Date().toISOString(),
-      }));
-
-      const { data: inserted, error } = await supabase
-        .from("organization_team_members")
-        .insert(teamMembers)
-        .select();
-
-      if (error) throw error;
-
-      const { members } = get();
-      set({
-        members: [...members, ...inserted],
-        error: null,
-      });
-      toast.success(`${inserted.length} team members imported successfully`);
-    } catch (error) {
-      console.error("Error importing team members:", error);
-      set({ error: "Failed to import team members" });
-      toast.error("Failed to import team members");
     } finally {
       set({ isLoading: false });
     }

@@ -33,33 +33,50 @@ export const TeamList: React.FC<TeamListProps> = ({
 
   return (
     <div className="space-y-4">
+      {viewMode === "full" && (
+        <div className="flex items-center gap-2 mb-4">
+          <Users className="w-5 h-5 text-primary-400" />
+          <h2 className="text-lg font-medium text-white">Team Members</h2>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {members.map((member) => (
           <div
             key={member.id}
             className="p-4 bg-gray-800/50 rounded-lg flex items-center gap-4"
           >
-            <img
-              src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${member.email}`}
-              alt={member.first_name}
-              className="w-12 h-12 rounded-full bg-gray-700"
-            />
-            <div className="flex-1">
-              <div className="font-medium text-white">
+            <div className="w-12 h-12 rounded-full bg-gray-700 overflow-hidden flex-shrink-0">
+              {member.avatar_url ? (
+                <img
+                  src={member.avatar_url}
+                  alt={`${member.first_name}'s avatar`}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <img
+                  src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${member.email}`}
+                  alt={member.first_name}
+                  className="w-full h-full"
+                />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-white truncate">
                 {member.first_name} {member.last_name}
               </div>
-              <div className="text-sm text-primary-400">
+              <div className="text-sm text-primary-400 truncate">
                 {member.kitchen_role || member.role}
               </div>
               {member.station && (
-                <div className="text-xs text-gray-400 mt-1">
+                <div className="text-xs text-gray-400 mt-1 truncate">
                   {member.station}
                 </div>
               )}
             </div>
 
             {viewMode === "full" && (
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-shrink-0">
                 <button
                   onClick={() => onEdit?.(member)}
                   className="p-2 text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-gray-700/50"

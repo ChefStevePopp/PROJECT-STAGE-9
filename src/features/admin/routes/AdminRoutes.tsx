@@ -12,6 +12,7 @@ import { RecipeManager } from "@/features/recipes/components/RecipeManager";
 import { DevManagement } from "../components/sections/DevManagement";
 import { MyAccount } from "@/features/account/components/MyAccount";
 import { OrganizationSettings } from "../components/settings/OrganizationSettings";
+import { ActivityFeed } from "../components/ActivityFeed";
 
 export const AdminRoutes: React.FC = () => {
   // Debug logging
@@ -30,6 +31,7 @@ export const AdminRoutes: React.FC = () => {
         <Route path="vendor-invoices" element={<VendorInvoiceManager />} />
         <Route path="dev-management" element={<DevManagement />} />
         <Route path="organizations" element={<OrganizationSettings />} />
+        <Route path="activity" element={<ActivityFeed />} />
         <Route path="account" element={<MyAccount />} />
         <Route path="account/*" element={<MyAccount />} />
       </Route>

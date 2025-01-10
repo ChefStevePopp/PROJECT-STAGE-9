@@ -1,10 +1,12 @@
 import React, { useState } from "react";
-import { X } from "lucide-react";
+import { X, User, Shield, Building2, Bell, UserCircle } from "lucide-react";
 import { useTeamStore } from "@/stores/teamStore";
-import { AvatarCustomizer } from "@/features/shared/components";
-import { RoleSelector } from "../RoleSelector";
+import { BasicInfoTab } from "./tabs/BasicInfoTab";
+import { RolesTab } from "./tabs/RolesTab";
+import { DepartmentsTab } from "./tabs/DepartmentsTab";
+import { NotificationsTab } from "./tabs/NotificationsTab";
+import { AvatarTab } from "./tabs/AvatarTab";
 import type { TeamMember } from "../../types";
-import toast from "react-hot-toast";
 
 interface EditTeamMemberModalProps {
   member: TeamMember;
@@ -12,279 +14,147 @@ interface EditTeamMemberModalProps {
   onClose?: () => void;
 }
 
+type TabId = "basic" | "roles" | "departments" | "notifications" | "avatar";
+
+const TABS = [
+  { id: "basic", label: "Basic Info", icon: User, color: "primary" },
+  { id: "roles", label: "Roles", icon: Shield, color: "green" },
+  { id: "departments", label: "Departments", icon: Building2, color: "amber" },
+  { id: "notifications", label: "Notifications", icon: Bell, color: "rose" },
+  { id: "avatar", label: "Avatar", icon: UserCircle, color: "purple" },
+] as const;
+
 export const EditTeamMemberModal: React.FC<EditTeamMemberModalProps> = ({
   member,
   isOpen = false,
   onClose,
 }) => {
   const { updateTeamMember } = useTeamStore();
-  const [formData, setFormData] = useState<Partial<TeamMember>>({
-    ...member,
-    emergency_contact: member.emergency_contact || {
-      name: "",
-      phone: "",
-      relationship: "",
-    },
-    certifications: member.certifications || [],
-    allergies: member.allergies || [],
-  });
+  const [formData, setFormData] = useState<TeamMember>(member);
+  const [activeTab, setActiveTab] = useState<TabId>("basic");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
     try {
-      await updateTeamMember(member.id, formData);
-      toast.success("Team member updated successfully");
+      const updates: Partial<TeamMember> = {
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        display_name: formData.display_name,
+        email: formData.email,
+        phone: formData.phone || null,
+        punch_id: formData.punch_id || null,
+        avatar_url: formData.avatar_url,
+        roles: formData.roles || [],
+        departments: formData.departments || [],
+        locations: formData.locations || [],
+        notification_preferences: formData.notification_preferences,
+      };
+
+      await updateTeamMember(member.id, updates);
       onClose?.();
     } catch (error) {
       console.error("Error updating team member:", error);
-      toast.error("Failed to update team member");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6">
-      <div className="bg-gray-800 rounded-xl p-6 w-full max-w-5xl max-h-[80vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-white">Edit Team Member</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-8">
-          {/* Left Column - Basic Info */}
-          <div className="space-y-6">
-            <div className="flex justify-center mb-6">
-              <AvatarCustomizer
-                value={formData.avatar_url}
-                onChange={(url) =>
-                  setFormData({ ...formData, avatar_url: url })
-                }
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">
-                  First Name
-                </label>
-                <input
-                  type="text"
-                  value={formData.first_name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, first_name: e.target.value })
-                  }
-                  className="input w-full"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">
-                  Last Name
-                </label>
-                <input
-                  type="text"
-                  value={formData.last_name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, last_name: e.target.value })
-                  }
-                  className="input w-full"
-                  required
-                />
-              </div>
-            </div>
-
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 sm:p-6">
+      <div className="bg-gray-800 rounded-xl w-full max-w-4xl">
+        <div className="p-6">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">
-                Email
-              </label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value })
-                }
-                className="input w-full"
-                required
-              />
+              <h2 className="text-2xl font-semibold text-white">
+                {formData.first_name} {formData.last_name}
+              </h2>
+              <p className="text-gray-400">
+                {formData.kitchen_role || "No role assigned"}
+              </p>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">
-                Phone
-              </label>
-              <input
-                type="tel"
-                value={formData.phone}
-                onChange={(e) =>
-                  setFormData({ ...formData, phone: e.target.value })
-                }
-                className="input w-full"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">
-                Start Date
-              </label>
-              <input
-                type="date"
-                value={formData.start_date?.split("T")[0]}
-                onChange={(e) =>
-                  setFormData({ ...formData, start_date: e.target.value })
-                }
-                className="input w-full"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">
-                Punch ID
-              </label>
-              <input
-                type="text"
-                value={formData.punch_id}
-                onChange={(e) =>
-                  setFormData({ ...formData, punch_id: e.target.value })
-                }
-                className="input w-full"
-                placeholder="Optional"
-              />
-            </div>
-          </div>
-
-          {/* Right Column - Role & Additional Info */}
-          <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">
-                Role & Permissions
-              </label>
-              <RoleSelector
-                value={formData.role}
-                onChange={(value) => setFormData({ ...formData, role: value })}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">
-                Kitchen Role
-              </label>
-              <input
-                type="text"
-                value={formData.kitchen_role}
-                onChange={(e) =>
-                  setFormData({ ...formData, kitchen_role: e.target.value })
-                }
-                className="input w-full"
-                placeholder="e.g., Line Cook, Prep Cook"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">
-                Station
-              </label>
-              <input
-                type="text"
-                value={formData.station}
-                onChange={(e) =>
-                  setFormData({ ...formData, station: e.target.value })
-                }
-                className="input w-full"
-                placeholder="e.g., Grill, Prep"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">
-                Status
-              </label>
-              <select
-                value={formData.status}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    status: e.target.value as "active" | "inactive",
-                  })
-                }
-                className="input w-full"
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">
-                Emergency Contact
-              </label>
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  value={formData.emergency_contact?.name || ""}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      emergency_contact: {
-                        ...formData.emergency_contact,
-                        name: e.target.value,
-                      },
-                    })
-                  }
-                  className="input w-full"
-                  placeholder="Contact Name"
-                />
-                <input
-                  type="tel"
-                  value={formData.emergency_contact?.phone || ""}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      emergency_contact: {
-                        ...formData.emergency_contact,
-                        phone: e.target.value,
-                      },
-                    })
-                  }
-                  className="input w-full"
-                  placeholder="Contact Phone"
-                />
-                <input
-                  type="text"
-                  value={formData.emergency_contact?.relationship || ""}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      emergency_contact: {
-                        ...formData.emergency_contact,
-                        relationship: e.target.value,
-                      },
-                    })
-                  }
-                  className="input w-full"
-                  placeholder="Relationship"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Footer Actions */}
-          <div className="col-span-2 flex justify-end gap-2 mt-6 pt-6 border-t border-gray-700">
             <button
-              type="button"
               onClick={onClose}
-              className="btn-ghost text-sm"
+              className="text-gray-400 hover:text-white p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
+              disabled={isSubmitting}
             >
-              Cancel
-            </button>
-            <button type="submit" className="btn-primary text-sm">
-              Save Changes
+              <X className="w-5 h-5" />
             </button>
           </div>
-        </form>
+
+          {/* Tabs */}
+          <div className="flex gap-2 mb-6">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`relative flex items-center gap-2 px-4 py-2 rounded-lg transition-all text-sm font-medium
+                  ${
+                    activeTab === tab.id
+                      ? `bg-gray-800 text-${tab.color}-400`
+                      : "text-gray-400 hover:text-white hover:bg-gray-800/50"
+                  }`}
+              >
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+                {activeTab === tab.id && (
+                  <div
+                    className={`absolute -top-px left-0 right-0 h-0.5 rounded-full bg-${tab.color}-500`}
+                  />
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Tab Content */}
+          <form onSubmit={handleSubmit}>
+            <div className="card p-6">
+              {activeTab === "basic" && (
+                <BasicInfoTab formData={formData} setFormData={setFormData} />
+              )}
+              {activeTab === "roles" && (
+                <RolesTab formData={formData} setFormData={setFormData} />
+              )}
+              {activeTab === "departments" && (
+                <DepartmentsTab formData={formData} setFormData={setFormData} />
+              )}
+              {activeTab === "notifications" && (
+                <NotificationsTab
+                  formData={formData}
+                  setFormData={setFormData}
+                />
+              )}
+              {activeTab === "avatar" && (
+                <AvatarTab formData={formData} setFormData={setFormData} />
+              )}
+            </div>
+
+            {/* Footer Actions */}
+            <div className="flex justify-end gap-2 mt-6 pt-6 border-t border-gray-700">
+              <button
+                type="button"
+                onClick={onClose}
+                className="btn-ghost text-sm px-6"
+                disabled={isSubmitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn-primary text-sm px-6"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

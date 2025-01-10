@@ -1,22 +1,45 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { YourKitchen } from "./YourKitchen";
 import { YourCrew } from "./YourCrew";
 import { YourStation } from "./YourStation";
 import { LoadingLogo } from "@/components/LoadingLogo";
+import { supabase } from "@/lib/supabase";
 
 export const MyAccount: React.FC = () => {
   const [activeTab, setActiveTab] = useState("kitchen");
   const { user, organization, isLoading, error } = useAuth();
+  const [kitchenRole, setKitchenRole] = useState<string | null>(null);
 
-  // Debug logging
-  console.log("MyAccount:", { user, organization, isLoading, error });
+  // Fetch kitchen role
+  useEffect(() => {
+    const fetchKitchenRole = async () => {
+      if (!user?.id || !organization?.id) return;
+
+      try {
+        const { data, error } = await supabase
+          .from("organization_team_members")
+          .select("kitchen_role")
+          .eq("organization_id", organization.id)
+          .eq("user_id", user.id)
+          .single();
+
+        if (!error && data) {
+          setKitchenRole(data.kitchen_role);
+        }
+      } catch (err) {
+        console.error("Error fetching kitchen role:", err);
+      }
+    };
+
+    fetchKitchenRole();
+  }, [user?.id, organization?.id]);
 
   const tabs = [
     { id: "kitchen", label: "Your Kitchen", color: "primary" },
     { id: "crew", label: "Your Crew", color: "green" },
     { id: "station", label: "Your Station", color: "amber" },
-  ] as const;
+  ];
 
   if (isLoading) {
     return (
@@ -57,7 +80,7 @@ export const MyAccount: React.FC = () => {
       <div className="p-4 bg-gray-800/50 rounded-lg text-xs font-mono text-gray-400">
         <div>User ID: {user.id}</div>
         <div>Organization: {organization.name}</div>
-        <div>Role: {user.user_metadata?.role || "None"}</div>
+        <div>Kitchen Role: {kitchenRole || "None"}</div>
       </div>
 
       {/* Tab Navigation */}
