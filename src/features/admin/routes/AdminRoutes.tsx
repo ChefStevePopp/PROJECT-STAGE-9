@@ -8,7 +8,7 @@ import { PermissionsManager } from "../components/sections/PermissionsManager";
 import { NotificationCenter } from "../components/sections/NotificationCenter/index";
 import { HelpSupport } from "../components/sections/HelpSupport";
 import { ExcelImports } from "../components/sections/ExcelImports";
-import { RecipeManager } from "@/features/recipes/components/RecipeManager";
+import RecipeManager from "@/features/recipes/components/RecipeManager";
 import { DevManagement } from "../components/sections/DevManagement";
 import { MyAccount } from "@/features/account/components/MyAccount";
 import { OrganizationSettings } from "../components/settings/OrganizationSettings";
