@@ -5,19 +5,16 @@ import { AdminDashboard } from "../components/AdminDashboard";
 import { VendorInvoiceManager } from "../components/sections/VendorInvoice/VendorInvoiceManager";
 import { TeamManagement } from "../components/sections/TeamManagement";
 import { PermissionsManager } from "../components/sections/PermissionsManager";
-import { NotificationCenter } from "../components/sections/NotificationCenter";
+import { NotificationCenter } from "../components/sections/NotificationCenter/index";
 import { HelpSupport } from "../components/sections/HelpSupport";
 import { ExcelImports } from "../components/sections/ExcelImports";
 import { RecipeManager } from "@/features/recipes/components/RecipeManager";
 import { DevManagement } from "../components/sections/DevManagement";
 import { MyAccount } from "@/features/account/components/MyAccount";
 import { OrganizationSettings } from "../components/settings/OrganizationSettings";
-import { ActivityFeed } from "../components/ActivityFeed";
+import { ActivityLogList } from "../components/ActivityLogList";
 
 export const AdminRoutes: React.FC = () => {
-  // Debug logging
-  console.log("AdminRoutes mounted");
-
   return (
     <Routes>
       <Route element={<AdminLayout />}>
@@ -31,7 +28,7 @@ export const AdminRoutes: React.FC = () => {
         <Route path="vendor-invoices" element={<VendorInvoiceManager />} />
         <Route path="dev-management" element={<DevManagement />} />
         <Route path="organizations" element={<OrganizationSettings />} />
-        <Route path="activity" element={<ActivityFeed />} />
+        <Route path="activity" element={<ActivityLogList />} />
         <Route path="account" element={<MyAccount />} />
         <Route path="account/*" element={<MyAccount />} />
       </Route>

@@ -15,6 +15,7 @@ import {
   ChefHat,
   CircleDollarSign,
   History,
+  Bell,
 } from "lucide-react";
 
 export const menuItems = (isDev: boolean) => {
@@ -35,7 +36,11 @@ export const menuItems = (isDev: boolean) => {
       label: "TEAM",
       items: [
         { icon: Users, label: "Team Management", path: "/admin/team" },
-        { icon: Clock, label: "Notifications", path: "/admin/notifications" },
+        {
+          icon: Bell,
+          label: "Notification Settings",
+          path: "/admin/notifications",
+        },
         { icon: Shield, label: "Permissions", path: "/admin/permissions" },
       ],
     },
