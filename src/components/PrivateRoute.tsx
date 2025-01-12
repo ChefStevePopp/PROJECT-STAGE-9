@@ -3,6 +3,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { ROUTES } from "@/config/routes";
 import { LoadingLogo } from "@/components/LoadingLogo";
+import { AlertTriangle } from "lucide-react";
 
 interface PrivateRouteProps {
   children: React.ReactNode;
@@ -51,7 +52,11 @@ export const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
   // Handle missing organization for non-dev users
   const isDev = user.user_metadata?.system_role === "dev";
   if (!organization && !isDev && !location.pathname.includes("/admin")) {
-    console.log("No organization, showing error");
+    console.log("No organization access:", {
+      isDev,
+      organization,
+      pathname: location.pathname,
+    });
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6 text-center space-y-4">
@@ -75,10 +80,7 @@ export const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
     );
   }
 
-  // Return children directly
   return <>{children}</>;
 };
-
-PrivateRoute.displayName = "PrivateRoute";
 
 export default PrivateRoute;

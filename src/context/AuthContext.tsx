@@ -18,6 +18,16 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+// Separate loading component to avoid re-renders
+const LoadingScreen = React.memo(() => (
+  <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center p-4">
+    <LoadingLogo message="Initializing..." />
+  </div>
+));
+
+LoadingScreen.displayName = "LoadingScreen";
+
+// Main AuthProvider component
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [organization, setOrganization] = useState<Organization | null>(null);
@@ -48,31 +58,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize auth state
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
-        setIsDev(session.user.user_metadata?.system_role === "dev");
-        const orgId = session.user.user_metadata?.organizationId;
-        setOrganizationId(orgId);
-        setHasAdminAccess(
-          session.user.user_metadata?.role === "owner" ||
-            session.user.user_metadata?.role === "admin",
-        );
+    let mounted = true;
 
-        // Fetch organization data if we have an orgId
-        if (orgId) {
-          fetchOrganization(orgId);
+    const initializeAuth = async () => {
+      try {
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
+        if (error) throw error;
+
+        if (session?.user && mounted) {
+          setUser(session.user);
+          setIsDev(session.user.user_metadata?.system_role === "dev");
+          const orgId = session.user.user_metadata?.organizationId;
+          setOrganizationId(orgId);
+          setHasAdminAccess(
+            session.user.user_metadata?.role === "owner" ||
+              session.user.user_metadata?.role === "admin",
+          );
+
+          if (orgId) {
+            await fetchOrganization(orgId);
+          }
         }
+      } catch (error) {
+        console.error("Auth initialization error:", error);
+      } finally {
+        if (mounted) setIsLoading(false);
       }
-      setIsLoading(false);
-    });
+    };
 
-    // Listen for auth changes
+    initializeAuth();
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
+      if (session?.user && mounted) {
         setUser(session.user);
         setIsDev(session.user.user_metadata?.system_role === "dev");
         const orgId = session.user.user_metadata?.organizationId;
@@ -82,21 +104,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             session.user.user_metadata?.role === "admin",
         );
 
-        // Fetch organization data if we have an orgId
         if (orgId) {
-          fetchOrganization(orgId);
+          await fetchOrganization(orgId);
         }
-      } else {
+      } else if (mounted) {
         setUser(null);
         setOrganization(null);
         setOrganizationId(null);
         setIsDev(false);
         setHasAdminAccess(false);
       }
-      setIsLoading(false);
     });
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
@@ -121,6 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
+      setIsLoading(true);
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
     } catch (error) {
@@ -128,6 +150,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         error instanceof Error ? error.message : "Failed to sign out";
       setError(message);
       throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -144,24 +168,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center p-4">
-        <LoadingLogo message="Loading..." />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center p-4">
-        <LoadingLogo message={error} error />
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// Hook for using auth context
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
