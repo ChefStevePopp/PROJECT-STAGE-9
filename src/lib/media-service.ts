@@ -1,6 +1,5 @@
 import { supabase } from "./supabase";
 import { v4 as uuidv4 } from "uuid";
-import toast from "react-hot-toast";
 
 export const ALLOWED_FILE_TYPES = [
   "image/jpeg",
@@ -10,7 +9,15 @@ export const ALLOWED_FILE_TYPES = [
   "video/quicktime",
 ];
 
+export const ALLOWED_LABEL_FILE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+];
+
 export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+export const MAX_LABEL_FILE_SIZE = 5 * 1024 * 1024; // 5MB for labels
 
 export const mediaService = {
   async uploadStepMedia(
@@ -40,7 +47,7 @@ export const mediaService = {
       const fileExt = file.name.split(".").pop();
       const filePath = `recipes/${user.user_metadata.organizationId}/${recipeId}/steps/${stepId}/${uuidv4()}.${fileExt}`;
 
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError, data } = await supabase.storage
         .from("recipe-media")
         .upload(filePath, file, {
           cacheControl: "3600",
@@ -49,11 +56,7 @@ export const mediaService = {
 
       if (uploadError) throw uploadError;
 
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("recipe-media").getPublicUrl(filePath);
-
-      return publicUrl;
+      return data.path;
     } catch (error) {
       console.error("Error uploading media:", error);
       throw error;
@@ -65,31 +68,44 @@ export const mediaService = {
     organizationId: string,
   ): Promise<string> {
     try {
-      if (!file.type.startsWith("image/")) {
-        throw new Error("Only image files are allowed for label templates.");
+      if (!ALLOWED_LABEL_FILE_TYPES.includes(file.type)) {
+        throw new Error(
+          "Only JPG, PNG, WebP or PDF files are allowed for label templates.",
+        );
       }
 
-      if (file.size > MAX_FILE_SIZE) {
-        throw new Error("File size too large. Maximum size is 10MB.");
+      if (file.size > MAX_LABEL_FILE_SIZE) {
+        throw new Error("File size too large. Maximum size is 5MB.");
+      }
+
+      // Get current user to verify organization access
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (
+        !user?.user_metadata?.organizationId ||
+        user.user_metadata.organizationId !== organizationId
+      ) {
+        throw new Error("Unauthorized to upload to this organization");
       }
 
       const fileExt = file.name.split(".").pop();
-      const filePath = `organizations/${organizationId}/labels/${uuidv4()}.${fileExt}`;
+      const fileName = `${uuidv4()}.${fileExt}`;
+      const filePath = `${organizationId}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError, data } = await supabase.storage
         .from("label-templates")
         .upload(filePath, file, {
           cacheControl: "3600",
           upsert: false,
         });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        throw uploadError;
+      }
 
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("label-templates").getPublicUrl(filePath);
-
-      return publicUrl;
+      return data.path;
     } catch (error) {
       console.error("Error uploading label template:", error);
       throw error;

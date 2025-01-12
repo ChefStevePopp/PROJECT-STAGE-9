@@ -9,6 +9,14 @@ export interface Recipe {
   steps: RecipeStep[];
   created_at?: string;
   updated_at?: string;
+  label_requirements?: {
+    required_fields: string[];
+    custom_fields?: string[];
+    description?: string;
+    example_photo_url?: string | null;
+    example_photo_description?: string | null;
+    use_label_printer?: boolean;
+  };
 }
 
 export interface RecipeIngredient {
