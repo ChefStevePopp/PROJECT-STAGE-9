@@ -23,15 +23,6 @@ export const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
   const { user, organization, isLoading } = useAuth();
   const location = useLocation();
 
-  // Debug logging
-  console.log("PrivateRoute:", {
-    path: location.pathname,
-    isLoading,
-    hasUser: !!user,
-    hasOrg: !!organization,
-    userMetadata: user?.user_metadata,
-  });
-
   // Handle loading state
   if (isLoading) {
     return <LoadingScreen />;
@@ -39,7 +30,6 @@ export const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
 
   // Handle unauthenticated state
   if (!user) {
-    console.log("No user, redirecting to login");
     return (
       <Navigate
         to={ROUTES.AUTH.SIGN_IN}
@@ -52,11 +42,6 @@ export const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
   // Handle missing organization for non-dev users
   const isDev = user.user_metadata?.system_role === "dev";
   if (!organization && !isDev && !location.pathname.includes("/admin")) {
-    console.log("No organization access:", {
-      isDev,
-      organization,
-      pathname: location.pathname,
-    });
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6 text-center space-y-4">

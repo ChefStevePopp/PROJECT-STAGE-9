@@ -3,7 +3,6 @@ import { useRecipeStore } from "../../stores/recipeStore";
 import { Plus, Search } from "lucide-react";
 import { LoadingLogo } from "@/components/LoadingLogo";
 import { useAuth } from "@/hooks/useAuth";
-import type { Recipe } from "../../types/recipe";
 
 export const RecipeManager: React.FC = () => {
   const { recipes, isLoading, error, fetchRecipes } = useRecipeStore();

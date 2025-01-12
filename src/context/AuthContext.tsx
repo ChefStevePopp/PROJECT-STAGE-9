@@ -37,36 +37,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch organization data
-  const fetchOrganization = async (orgId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("organizations")
-        .select("*")
-        .eq("id", orgId)
-        .single();
-
-      if (error) throw error;
-      if (!data) throw new Error("Organization not found");
-
-      setOrganization(data);
-    } catch (error) {
-      console.error("Error fetching organization:", error);
-      setError("Failed to load organization data");
-    }
-  };
-
   // Initialize auth state
   useEffect(() => {
     let mounted = true;
 
     const initializeAuth = async () => {
       try {
+        // Get initial session
         const {
           data: { session },
-          error,
+          error: sessionError,
         } = await supabase.auth.getSession();
-        if (error) throw error;
+        if (sessionError) throw sessionError;
 
         if (session?.user && mounted) {
           setUser(session.user);
@@ -78,23 +60,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               session.user.user_metadata?.role === "admin",
           );
 
+          // Fetch organization if we have an orgId
           if (orgId) {
-            await fetchOrganization(orgId);
+            const { data: org, error: orgError } = await supabase
+              .from("organizations")
+              .select("*")
+              .eq("id", orgId)
+              .single();
+
+            if (!orgError && mounted) {
+              setOrganization(org);
+            }
           }
         }
       } catch (error) {
         console.error("Auth initialization error:", error);
+        if (mounted) {
+          setError(
+            error instanceof Error
+              ? error.message
+              : "Failed to initialize auth",
+          );
+        }
       } finally {
-        if (mounted) setIsLoading(false);
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     };
 
-    initializeAuth();
-
+    // Set up auth state listener
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user && mounted) {
+      if (!mounted) return;
+
+      if (session?.user) {
         setUser(session.user);
         setIsDev(session.user.user_metadata?.system_role === "dev");
         const orgId = session.user.user_metadata?.organizationId;
@@ -105,9 +106,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         );
 
         if (orgId) {
-          await fetchOrganization(orgId);
+          const { data: org, error: orgError } = await supabase
+            .from("organizations")
+            .select("*")
+            .eq("id", orgId)
+            .single();
+
+          if (!orgError && mounted) {
+            setOrganization(org);
+          }
         }
-      } else if (mounted) {
+      } else {
         setUser(null);
         setOrganization(null);
         setOrganizationId(null);
@@ -116,6 +125,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
+    // Start initialization
+    initializeAuth();
+
+    // Cleanup
     return () => {
       mounted = false;
       subscription.unsubscribe();
