@@ -8,52 +8,35 @@ import { AUTH_CONSTANTS } from "../constants/auth-constants";
 import toast from "react-hot-toast";
 
 class AuthService {
-  private refreshTimer: NodeJS.Timeout | null = null;
   private initialized = false;
-  private initializationTimeout: NodeJS.Timeout | null = null;
   private isInitializing = false;
 
   async initialize(): Promise<void> {
-    // Prevent multiple simultaneous initializations
     if (this.initialized || this.isInitializing) return;
 
     this.isInitializing = true;
 
     try {
-      // First try to get the Supabase session
+      // Get initial session
       const {
         data: { session },
         error: sessionError,
       } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
 
-      if (sessionError) {
-        throw sessionError;
-      }
+      if (session?.user) {
+        // Set up refresh listener
+        supabase.auth.onAuthStateChange(async (event, session) => {
+          if (event === "TOKEN_REFRESHED" && session) {
+            await this.createSession(session.user);
+            logger.debug("Session refreshed via Supabase");
+          }
+        });
 
-      // If we have a session, try to refresh it
-      if (session) {
-        const {
-          data: { session: refreshedSession },
-          error: refreshError,
-        } = await supabase.auth.refreshSession();
-
-        if (refreshError) {
-          throw refreshError;
-        }
-
-        if (refreshedSession) {
-          // Successfully refreshed, create our session
-          const authSession = await this.createSession(refreshedSession.user);
-          await this.startRefreshTimer();
-          this.initialized = true;
-          this.isInitializing = false;
-          return;
-        }
-      }
-
-      // No valid session, check if we're on auth page
-      const isAuthPage = window.location.pathname.includes("/auth/");
-      if (!isAuthPage) {
+        // Create initial session
+        await this.createSession(session.user);
+        this.initialized = true;
+      } else {
         await this.handleNoSession();
       }
     } catch (error) {
@@ -65,14 +48,10 @@ class AuthService {
   }
 
   private async handleNoSession() {
-    // Clear any existing data
     await this.cleanupStorage();
-
-    // Reset state
     this.initialized = false;
     this.isInitializing = false;
 
-    // Redirect if not on auth page
     if (!window.location.pathname.includes("/auth/")) {
       window.location.href = "/auth/signin";
     }
@@ -80,17 +59,9 @@ class AuthService {
 
   private async cleanupStorage(): Promise<void> {
     try {
-      // Stop refresh timer first
-      this.stopRefreshTimer();
-
-      // Clear Supabase session
       await supabase.auth.signOut();
-
-      // Clear storage
       authStorage.clear();
       TokenManager.clearTokens();
-
-      // Reset state
       this.initialized = false;
     } catch (error) {
       logger.error("Failed to cleanup storage", error);
@@ -108,65 +79,12 @@ class AuthService {
       if (!data.session?.user)
         throw new AuthSessionError("No session data returned");
 
-      // Create our session
       const session = await this.createSession(data.session.user);
-
-      // Start refresh timer
-      await this.startRefreshTimer();
-
-      // Set initialized state
       this.initialized = true;
-
       return session;
     } catch (error) {
       logger.error("Sign in failed", error);
       throw new AuthError("Invalid email or password");
-    }
-  }
-
-  private async startRefreshTimer(): Promise<void> {
-    this.stopRefreshTimer();
-
-    // Immediately try to refresh to ensure we have the latest session
-    try {
-      const {
-        data: { session },
-        error,
-      } = await supabase.auth.refreshSession();
-      if (error) throw error;
-      if (!session?.user)
-        throw new AuthSessionError("No session returned from refresh");
-
-      await this.createSession(session.user);
-    } catch (error) {
-      logger.error("Initial session refresh failed", error);
-      throw error;
-    }
-
-    // Set up refresh timer
-    this.refreshTimer = setInterval(async () => {
-      try {
-        const {
-          data: { session },
-          error,
-        } = await supabase.auth.refreshSession();
-        if (error) throw error;
-        if (!session?.user)
-          throw new AuthSessionError("No session returned from refresh");
-
-        await this.createSession(session.user);
-        logger.debug("Session refreshed successfully");
-      } catch (error) {
-        logger.error("Failed to refresh session", error);
-        await this.handleNoSession();
-      }
-    }, AUTH_CONSTANTS.SESSION.REFRESH_THRESHOLD);
-  }
-
-  private stopRefreshTimer(): void {
-    if (this.refreshTimer) {
-      clearInterval(this.refreshTimer);
-      this.refreshTimer = null;
     }
   }
 
@@ -206,6 +124,10 @@ class AuthService {
 
   async signOut(): Promise<void> {
     await this.cleanupStorage();
+  }
+
+  async getSession(): Promise<AuthSession | null> {
+    return authStorage.getItem("session");
   }
 }
 

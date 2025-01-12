@@ -37,64 +37,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize auth state
   useEffect(() => {
-    let mounted = true;
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+        setIsDev(session.user.user_metadata?.system_role === "dev");
+        const orgId = session.user.user_metadata?.organizationId;
+        setOrganizationId(orgId);
+        setHasAdminAccess(
+          session.user.user_metadata?.role === "owner" ||
+            session.user.user_metadata?.role === "admin",
+        );
 
-    const initializeAuth = async () => {
-      try {
-        // Get initial session
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession();
-        if (sessionError) throw sessionError;
-
-        if (session?.user && mounted) {
-          setUser(session.user);
-          setIsDev(session.user.user_metadata?.system_role === "dev");
-          const orgId = session.user.user_metadata?.organizationId;
-          setOrganizationId(orgId);
-          setHasAdminAccess(
-            session.user.user_metadata?.role === "owner" ||
-              session.user.user_metadata?.role === "admin",
-          );
-
-          // Fetch organization if we have an orgId
-          if (orgId) {
-            const { data: org, error: orgError } = await supabase
-              .from("organizations")
-              .select("*")
-              .eq("id", orgId)
-              .single();
-
-            if (!orgError && mounted) {
-              setOrganization(org);
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Auth initialization error:", error);
-        if (mounted) {
-          setError(
-            error instanceof Error
-              ? error.message
-              : "Failed to initialize auth",
-          );
-        }
-      } finally {
-        if (mounted) {
-          setIsLoading(false);
+        // Fetch organization if we have an orgId
+        if (orgId) {
+          supabase
+            .from("organizations")
+            .select("*")
+            .eq("id", orgId)
+            .single()
+            .then(({ data: org }) => {
+              if (org) setOrganization(org);
+            });
         }
       }
-    };
+      setIsLoading(false);
+    });
 
-    // Set up auth state listener
+    // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return;
-
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         setUser(session.user);
         setIsDev(session.user.user_metadata?.system_role === "dev");
@@ -106,15 +80,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         );
 
         if (orgId) {
-          const { data: org, error: orgError } = await supabase
+          supabase
             .from("organizations")
             .select("*")
             .eq("id", orgId)
-            .single();
-
-          if (!orgError && mounted) {
-            setOrganization(org);
-          }
+            .single()
+            .then(({ data: org }) => {
+              if (org) setOrganization(org);
+            });
         }
       } else {
         setUser(null);
@@ -125,47 +98,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    // Start initialization
-    initializeAuth();
-
-    // Cleanup
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    try {
-      setError(null);
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password: password.trim(),
-      });
-
-      if (error) throw error;
-      if (!data.user) throw new Error("No user data returned");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to sign in";
-      setError(message);
-      throw error;
-    }
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password: password.trim(),
+    });
+    if (error) throw error;
   };
 
   const signOut = async () => {
-    try {
-      setIsLoading(true);
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to sign out";
-      setError(message);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
+    await supabase.auth.signOut();
   };
 
   const value = {

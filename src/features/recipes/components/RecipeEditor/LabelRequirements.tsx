@@ -1,212 +1,223 @@
-import React, { useState, useRef } from 'react';
-import { Printer, Calendar, Info, AlertCircle, Camera, Upload, X } from 'lucide-react';
-import { AllergenBadge } from '@/features/allergens/components';
-import type { Recipe } from '../../../types/recipe';
-import { supabase } from '@/lib/supabase';
-import toast from 'react-hot-toast';
+import React, { useState, useEffect } from "react";
+import {
+  Printer,
+  Upload,
+  Download,
+  Settings,
+  AlertTriangle,
+} from "lucide-react";
+import type { Recipe } from "../../types/recipe";
+import { mediaService } from "@/lib/media-service";
+import { useAuth } from "@/hooks/useAuth";
+import toast from "react-hot-toast";
 
 interface LabelRequirementsProps {
   recipe: Recipe;
   onChange: (updates: Partial<Recipe>) => void;
 }
 
+interface PrinterConfig {
+  width: number;
+  height: number;
+  dpi: number;
+  model: string;
+}
+
+const BROTHER_QL810W: PrinterConfig = {
+  width: 62, // 62mm
+  height: 29, // 29mm
+  dpi: 300,
+  model: "QL-810W",
+};
+
 export const LabelRequirements: React.FC<LabelRequirementsProps> = ({
   recipe,
-  onChange
+  onChange,
 }) => {
-  const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { organization } = useAuth();
+  const [isPrinterConnected, setIsPrinterConnected] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setIsUploading(true);
-    try {
-      // Create file path: org_id/recipes/recipe_id/labels/timestamp_filename
-      const timestamp = Date.now();
-      const filePath = `${recipe.organizationId}/recipes/${recipe.id}/labels/${timestamp}_${file.name}`;
-
-      // Upload file to Supabase storage
-      const { data, error } = await supabase.storage
-        .from('recipe-media')
-        .upload(filePath, file);
-
-      if (error) throw error;
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('recipe-media')
-        .getPublicUrl(filePath);
-
-      // Update recipe with label image URL
-      onChange({
-        storage: {
-          ...recipe.storage,
-          labelImageUrl: publicUrl
+  // Check for Brother b-PAC SDK
+  useEffect(() => {
+    const checkPrinter = async () => {
+      if (window.bpac) {
+        try {
+          const printer = new window.bpac.Printer();
+          printer.modelName = BROTHER_QL810W.model;
+          const isReady = await printer.isPrinterReady();
+          setIsPrinterConnected(isReady);
+        } catch (error) {
+          console.error("Printer check failed:", error);
+          setIsPrinterConnected(false);
         }
-      });
-
-      toast.success('Label image uploaded successfully');
-    } catch (error) {
-      console.error('Error uploading label image:', error);
-      toast.error('Failed to upload label image');
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
       }
+    };
+
+    checkPrinter();
+  }, []);
+
+  const handleLabelImageUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file || !organization?.id) return;
+
+    try {
+      const url = await mediaService.uploadLabelTemplate(file, organization.id);
+      onChange({ label_image_url: url });
+      toast.success("Label template uploaded successfully");
+    } catch (error) {
+      toast.error("Failed to upload label template");
+    }
+  };
+
+  const printLabel = async () => {
+    if (!window.bpac) {
+      toast.error("Brother b-PAC SDK not found");
+      return;
+    }
+
+    try {
+      setIsGenerating(true);
+      const printer = new window.bpac.Printer();
+      printer.modelName = BROTHER_QL810W.model;
+
+      if (!(await printer.isPrinterReady())) {
+        throw new Error("Printer not ready");
+      }
+
+      printer.startJob();
+      printer.setMediaById("102", "29"); // 62mm x 29mm
+      printer.clearFormat();
+
+      // Add recipe name
+      printer.setFont("Arial", 10);
+      printer.addText(recipe.name);
+
+      // Add date
+      const date = new Date().toLocaleDateString();
+      printer.addText(`Date: ${date}`);
+
+      // Add yield
+      if (recipe.yield_amount) {
+        printer.addText(`Yield: ${recipe.yield_amount}`);
+      }
+
+      const success = await printer.print();
+      if (success) {
+        toast.success("Label printed successfully");
+      } else {
+        throw new Error("Print failed");
+      }
+    } catch (error) {
+      console.error("Print error:", error);
+      toast.error("Failed to print label");
+    } finally {
+      setIsGenerating(false);
     }
   };
 
   return (
-    <div className="card p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-medium text-white flex items-center gap-2">
-          <Printer className="w-5 h-5 text-purple-400" />
-          Label Requirements
-        </h3>
-        <button className="btn-ghost text-sm">
-          <Printer className="w-4 h-4 mr-2" />
-          Preview Label
-        </button>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+            <Printer className="w-5 h-5 text-purple-400" />
+          </div>
+          <div>
+            <h2 className="text-lg font-medium text-white">
+              Label Requirements
+            </h2>
+            <p className="text-sm text-gray-400">
+              Configure recipe labeling options
+            </p>
+          </div>
+        </div>
       </div>
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-gray-800/50 rounded-lg p-4">
-            <h4 className="text-sm font-medium text-gray-400 mb-2">Required Information</h4>
-            <ul className="space-y-2 text-sm">
-              <li className="flex items-center gap-2 text-gray-300">
-                <Calendar className="w-4 h-4 text-primary-400" />
-                Prep Date & Time
-              </li>
-              <li className="flex items-center gap-2 text-gray-300">
-                <Calendar className="w-4 h-4 text-rose-400" />
-                Use By Date & Time
-              </li>
-              <li className="flex items-center gap-2 text-gray-300">
-                <Info className="w-4 h-4 text-amber-400" />
-                Product Name & Batch
-              </li>
-              <li className="flex items-center gap-2 text-gray-300">
-                <AlertCircle className="w-4 h-4 text-yellow-400" />
-                Allergen Warnings
-              </li>
-            </ul>
-          </div>
-          <div className="bg-gray-800/50 rounded-lg p-4">
-            <h4 className="text-sm font-medium text-gray-400 mb-2">Storage Instructions</h4>
-            <div className="space-y-2 text-sm">
-              {recipe.storage?.temperature && (
-                <p className="text-gray-300">
-                  Store between {recipe.storage.temperature.value - recipe.storage.temperature.tolerance}° and{' '}
-                  {recipe.storage.temperature.value + recipe.storage.temperature.tolerance}°
-                  {recipe.storage.temperature.unit}
-                </p>
-              )}
-              {recipe.storage?.specialInstructions?.map((instruction, index) => (
-                <p key={index} className="text-gray-300">
-                  • {instruction}
-                </p>
-              ))}
-            </div>
-          </div>
-        </div>
 
-        {/* Label Image Upload */}
-        <div className="mt-6">
-          <label className="block text-sm font-medium text-gray-400 mb-2">
-            Label Example Image
+      {/* Label Preview */}
+      <div className="bg-gray-800/50 rounded-lg p-6">
+        <h3 className="text-sm font-medium text-gray-300 mb-4">
+          Label Preview
+        </h3>
+
+        {recipe.label_image_url ? (
+          <div className="relative w-[248px] h-[116px] bg-white rounded-lg overflow-hidden">
+            <img
+              src={recipe.label_image_url}
+              alt="Label preview"
+              className="w-full h-full object-contain"
+            />
+            <button
+              onClick={() => onChange({ label_image_url: null })}
+              className="absolute top-2 right-2 p-1 bg-rose-500/20 text-rose-400 rounded-lg hover:bg-rose-500/30 transition-colors"
+            >
+              <AlertTriangle className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <label className="flex flex-col items-center justify-center w-[248px] h-[116px] border-2 border-dashed border-gray-700 rounded-lg hover:border-purple-500/50 transition-colors cursor-pointer">
+            <Upload className="w-5 h-5 text-gray-400 mb-2" />
+            <span className="text-sm text-gray-400">Upload label template</span>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleLabelImageUpload}
+              className="hidden"
+            />
           </label>
-          <div className="relative aspect-video bg-gray-800 rounded-lg overflow-hidden">
-            {recipe.storage?.labelImageUrl ? (
-              <div className="relative">
-                <img
-                  src={recipe.storage.labelImageUrl}
-                  alt="Label example"
-                  className="w-full h-full object-cover"
-                />
-                <button
-                  onClick={() => onChange({
-                    storage: {
-                      ...recipe.storage,
-                      labelImageUrl: undefined
-                    }
-                  })}
-                  className="absolute top-2 right-2 p-1 bg-black/50 rounded-full text-white"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            ) : (
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-                <div className="flex gap-4">
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="btn-ghost"
-                  >
-                    <Upload className="w-4 h-4 mr-2" />
-                    Upload Image
-                  </button>
-                  <button
-                    className="btn-ghost"
-                  >
-                    <Camera className="w-4 h-4 mr-2" />
-                    Take Photo
-                  </button>
-                </div>
-                <p className="text-sm text-gray-500 mt-2">
-                  Upload an example of how this item should be labeled
-                </p>
-              </div>
-            )}
-          </div>
+        )}
+      </div>
+
+      {/* Printer Status */}
+      <div className="bg-gray-800/50 rounded-lg p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-medium text-gray-300">Label Printer</h3>
+          <button
+            onClick={() => window.open("ms-settings:printers")}
+            className="text-sm text-purple-400 hover:text-purple-300 transition-colors"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
         </div>
 
-        {/* Allergen Warnings */}
-        {recipe.allergenInfo?.contains.length > 0 && (
-          <div className="bg-rose-500/10 rounded-lg p-4 mt-4">
-            <div className="flex gap-3">
-              <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0" />
-              <div>
-                <p className="text-rose-400 font-medium">Required Allergen Warnings</p>
-                <div className="mt-2 space-y-2">
-                  <p className="text-sm text-gray-300">
-                    <span className="font-medium">Contains:</span>{' '}
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {recipe.allergenInfo.contains.map(allergen => (
-                        <AllergenBadge 
-                          key={allergen} 
-                          type={allergen}
-                          size="sm"
-                        />
-                      ))}
-                    </div>
-                  </p>
-                  {recipe.allergenInfo.mayContain.length > 0 && (
-                    <p className="text-sm text-gray-300">
-                      <span className="font-medium">May Contain:</span>{' '}
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {recipe.allergenInfo.mayContain.map(allergen => (
-                          <AllergenBadge 
-                            key={allergen} 
-                            type={allergen}
-                            size="sm"
-                          />
-                        ))}
-                      </div>
-                    </p>
-                  )}
-                </div>
-              </div>
+        {!window.bpac ? (
+          <div className="flex items-start gap-3 bg-amber-500/10 text-amber-400 p-4 rounded-lg">
+            <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+            <div>
+              <p className="font-medium">Brother b-PAC SDK Required</p>
+              <p className="text-sm mt-1">
+                Please install the Brother b-PAC SDK to enable label printing.
+                <a
+                  href="https://support.brother.com/g/b/downloadlist.aspx?c=us&lang=en&prod=lpql810weus&os=10"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-amber-300 hover:text-amber-200 ml-1"
+                >
+                  Download SDK
+                </a>
+              </p>
             </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-3 h-3 rounded-full ${isPrinterConnected ? "bg-emerald-400" : "bg-gray-400"}`}
+              />
+              <span className="text-sm text-gray-300">
+                {isPrinterConnected ? "Printer Connected" : "Printer Not Found"}
+              </span>
+            </div>
+            <button
+              onClick={printLabel}
+              disabled={!isPrinterConnected || isGenerating}
+              className="btn-primary text-sm"
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              {isGenerating ? "Printing..." : "Print Label"}
+            </button>
           </div>
         )}
       </div>

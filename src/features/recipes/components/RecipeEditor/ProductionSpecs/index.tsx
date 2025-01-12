@@ -1,104 +1,122 @@
-import React from 'react';
-import { Clock, Thermometer, Scale, AlertCircle, Plus, Trash2 } from 'lucide-react';
-import type { Recipe, RecipeStep } from '../../../types/recipe';
+import React from "react";
+import { Scale, Clock, ThermometerSun, Info } from "lucide-react";
+import type { Recipe } from "../../../types/recipe";
 
 interface ProductionSpecsProps {
   recipe: Recipe;
   onChange: (updates: Partial<Recipe>) => void;
 }
 
-export const ProductionSpecs: React.FC<ProductionSpecsProps> = ({ recipe, onChange }) => {
-  const handleTimeChange = (field: 'prepTime' | 'cookTime' | 'restTime', value: number) => {
-    onChange({
-      [field]: value,
-      totalTime: (field === 'prepTime' ? value : recipe.prepTime) +
-                (field === 'cookTime' ? value : recipe.cookTime) +
-                (field === 'restTime' ? value : recipe.restTime || 0)
-    });
-  };
-
+export const ProductionSpecs: React.FC<ProductionSpecsProps> = ({
+  recipe,
+  onChange,
+}) => {
   return (
     <div className="space-y-6">
-      {/* Station Assignment */}
-      <div className="card p-6">
-        <h3 className="text-lg font-medium text-white mb-4">Station Assignment</h3>
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+          <Scale className="w-5 h-5 text-emerald-400" />
+        </div>
         <div>
-          <label className="block text-sm font-medium text-gray-400 mb-1">
-            Station Responsible for Production
+          <h2 className="text-lg font-medium text-white">
+            Production Specifications
+          </h2>
+          <p className="text-sm text-gray-400">
+            Define recipe yield and timing requirements
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Yield Section */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-medium text-gray-300">Recipe Yield</h3>
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-1.5">
+              Yield Amount
+            </label>
+            <input
+              type="text"
+              value={recipe.yield_amount || ""}
+              onChange={(e) => onChange({ yield_amount: e.target.value })}
+              className="input w-full"
+              placeholder="Enter yield amount..."
+            />
+          </div>
+        </div>
+
+        {/* Timing Section */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-medium text-gray-300">Timing</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1.5">
+                <Clock className="w-4 h-4 inline-block mr-1.5 opacity-70" />
+                Prep Time (min)
+              </label>
+              <input
+                type="number"
+                value={recipe.prep_time || ""}
+                onChange={(e) =>
+                  onChange({ prep_time: parseInt(e.target.value) || null })
+                }
+                className="input w-full"
+                placeholder="0"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1.5">
+                <Clock className="w-4 h-4 inline-block mr-1.5 opacity-70" />
+                Cook Time (min)
+              </label>
+              <input
+                type="number"
+                value={recipe.cook_time || ""}
+                onChange={(e) =>
+                  onChange({ cook_time: parseInt(e.target.value) || null })
+                }
+                className="input w-full"
+                placeholder="0"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Additional Notes Section */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-medium text-gray-300">Additional Notes</h3>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-400 mb-1.5">
+            <ThermometerSun className="w-4 h-4 inline-block mr-1.5 opacity-70" />
+            Working Temperature Notes
           </label>
-          <select
-            value={recipe.station}
-            onChange={(e) => onChange({ station: e.target.value })}
-            className="input w-full"
-            required
-          >
-            <option value="">Select station...</option>
-            <option value="grill">Grill</option>
-            <option value="saute">Sauté</option>
-            <option value="fry">Fry</option>
-            <option value="prep">Prep</option>
-            <option value="pantry">Pantry</option>
-            <option value="pizza">Pizza</option>
-            <option value="expo">Expo</option>
-          </select>
+          <textarea
+            value={recipe.working_temperature_notes || ""}
+            onChange={(e) =>
+              onChange({ working_temperature_notes: e.target.value })
+            }
+            className="input w-full h-24"
+            placeholder="Enter working temperature notes..."
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-400 mb-1.5">
+            <Info className="w-4 h-4 inline-block mr-1.5 opacity-70" />
+            Time Management Notes
+          </label>
+          <textarea
+            value={recipe.time_management_notes || ""}
+            onChange={(e) =>
+              onChange({ time_management_notes: e.target.value })
+            }
+            className="input w-full h-24"
+            placeholder="Enter time management notes..."
+          />
         </div>
       </div>
-
-      {/* Timing Requirements */}
-      <div className="card p-6">
-        <h3 className="text-lg font-medium text-white mb-4">Time Requirements</h3>
-        <div className="grid grid-cols-3 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">
-              Prep Time (minutes)
-            </label>
-            <input
-              type="number"
-              value={recipe.prepTime}
-              onChange={(e) => handleTimeChange('prepTime', parseInt(e.target.value))}
-              className="input w-full"
-              min="0"
-              step="1"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">
-              Cook Time (minutes)
-            </label>
-            <input
-              type="number"
-              value={recipe.cookTime}
-              onChange={(e) => handleTimeChange('cookTime', parseInt(e.target.value))}
-              className="input w-full"
-              min="0"
-              step="1"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">
-              Rest/Cooling Time (minutes)
-            </label>
-            <input
-              type="number"
-              value={recipe.restTime || 0}
-              onChange={(e) => handleTimeChange('restTime', parseInt(e.target.value))}
-              className="input w-full"
-              min="0"
-              step="1"
-            />
-          </div>
-        </div>
-        <div className="mt-4 pt-4 border-t border-gray-700">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-400">Total Time</span>
-            <span className="text-xl font-medium text-white">
-              {recipe.totalTime} minutes
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Rest of production specs... */}
     </div>
   );
 };
