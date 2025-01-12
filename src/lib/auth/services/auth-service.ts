@@ -5,24 +5,95 @@ import { TokenManager } from "../utils/token-manager";
 import { logger } from "../utils/logger";
 import { AuthError, AuthSessionError } from "../errors/auth-errors";
 import { AUTH_CONSTANTS } from "../constants/auth-constants";
+import toast from "react-hot-toast";
 
 class AuthService {
   private refreshTimer: NodeJS.Timeout | null = null;
   private initialized = false;
+  private initializationTimeout: NodeJS.Timeout | null = null;
+  private isInitializing = false;
 
   async initialize(): Promise<void> {
-    if (this.initialized) return;
+    // Prevent multiple simultaneous initializations
+    if (this.initialized || this.isInitializing) return;
+
+    this.isInitializing = true;
 
     try {
-      const session = await this.getSession();
-      if (session) {
-        await this.startRefreshTimer();
+      // First try to get the Supabase session
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError) {
+        throw sessionError;
       }
-      this.initialized = true;
-      logger.info("Auth service initialized");
+
+      // If we have a session, try to refresh it
+      if (session) {
+        const {
+          data: { session: refreshedSession },
+          error: refreshError,
+        } = await supabase.auth.refreshSession();
+
+        if (refreshError) {
+          throw refreshError;
+        }
+
+        if (refreshedSession) {
+          // Successfully refreshed, create our session
+          const authSession = await this.createSession(refreshedSession.user);
+          await this.startRefreshTimer();
+          this.initialized = true;
+          this.isInitializing = false;
+          return;
+        }
+      }
+
+      // No valid session, check if we're on auth page
+      const isAuthPage = window.location.pathname.includes("/auth/");
+      if (!isAuthPage) {
+        await this.handleNoSession();
+      }
     } catch (error) {
       logger.error("Failed to initialize auth service", error);
-      throw new AuthError(AUTH_CONSTANTS.ERRORS.INITIALIZATION);
+      await this.handleNoSession();
+    } finally {
+      this.isInitializing = false;
+    }
+  }
+
+  private async handleNoSession() {
+    // Clear any existing data
+    await this.cleanupStorage();
+
+    // Reset state
+    this.initialized = false;
+    this.isInitializing = false;
+
+    // Redirect if not on auth page
+    if (!window.location.pathname.includes("/auth/")) {
+      window.location.href = "/auth/signin";
+    }
+  }
+
+  private async cleanupStorage(): Promise<void> {
+    try {
+      // Stop refresh timer first
+      this.stopRefreshTimer();
+
+      // Clear Supabase session
+      await supabase.auth.signOut();
+
+      // Clear storage
+      authStorage.clear();
+      TokenManager.clearTokens();
+
+      // Reset state
+      this.initialized = false;
+    } catch (error) {
+      logger.error("Failed to cleanup storage", error);
     }
   }
 
@@ -34,10 +105,17 @@ class AuthService {
       });
 
       if (error) throw error;
-      if (!data.session) throw new AuthSessionError("No session data returned");
+      if (!data.session?.user)
+        throw new AuthSessionError("No session data returned");
 
+      // Create our session
       const session = await this.createSession(data.session.user);
+
+      // Start refresh timer
       await this.startRefreshTimer();
+
+      // Set initialized state
+      this.initialized = true;
 
       return session;
     } catch (error) {
@@ -46,47 +124,60 @@ class AuthService {
     }
   }
 
-  async signOut(): Promise<void> {
-    try {
-      await supabase.auth.signOut();
-      this.stopRefreshTimer();
-      authStorage.clear();
-      TokenManager.clearTokens();
-      logger.info("User signed out successfully");
-    } catch (error) {
-      logger.error("Sign out failed", error);
-      throw new AuthError("Failed to sign out");
-    }
-  }
+  private async startRefreshTimer(): Promise<void> {
+    this.stopRefreshTimer();
 
-  async getSession(): Promise<AuthSession | null> {
+    // Immediately try to refresh to ensure we have the latest session
     try {
       const {
         data: { session },
         error,
-      } = await supabase.auth.getSession();
+      } = await supabase.auth.refreshSession();
       if (error) throw error;
-      if (!session) return null;
+      if (!session?.user)
+        throw new AuthSessionError("No session returned from refresh");
 
-      return this.createSession(session.user);
+      await this.createSession(session.user);
     } catch (error) {
-      logger.error("Failed to get session", error);
-      return null;
+      logger.error("Initial session refresh failed", error);
+      throw error;
+    }
+
+    // Set up refresh timer
+    this.refreshTimer = setInterval(async () => {
+      try {
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.refreshSession();
+        if (error) throw error;
+        if (!session?.user)
+          throw new AuthSessionError("No session returned from refresh");
+
+        await this.createSession(session.user);
+        logger.debug("Session refreshed successfully");
+      } catch (error) {
+        logger.error("Failed to refresh session", error);
+        await this.handleNoSession();
+      }
+    }, AUTH_CONSTANTS.SESSION.REFRESH_THRESHOLD);
+  }
+
+  private stopRefreshTimer(): void {
+    if (this.refreshTimer) {
+      clearInterval(this.refreshTimer);
+      this.refreshTimer = null;
     }
   }
 
   private async createSession(user: User): Promise<AuthSession> {
     try {
-      // Query the organization role and user metadata in parallel
       const [{ data: orgRole }, { data: metadata }] = await Promise.all([
-        // Query organization roles table for the user's organization and role
         supabase
           .from("organization_roles")
           .select("organization_id, role")
           .eq("user_id", user.id)
           .maybeSingle(),
-
-        // Query user metadata
         supabase
           .from("users")
           .select("user_metadata")
@@ -94,17 +185,14 @@ class AuthService {
           .maybeSingle(),
       ]);
 
-      const isDev = false; // No more static dev access
-      const hasAdminAccess = Boolean(
-        orgRole?.role === "owner" || orgRole?.role === "admin",
-      );
-
       const session: AuthSession = {
         user,
         organizationId: orgRole?.organization_id || null,
         metadata: metadata?.user_metadata || {},
-        isDev,
-        hasAdminAccess,
+        isDev: false,
+        hasAdminAccess: Boolean(
+          orgRole?.role === "owner" || orgRole?.role === "admin",
+        ),
         lastRefreshed: new Date().toISOString(),
       };
 
@@ -116,35 +204,8 @@ class AuthService {
     }
   }
 
-  private async startRefreshTimer(): Promise<void> {
-    this.stopRefreshTimer();
-
-    this.refreshTimer = setInterval(async () => {
-      try {
-        const {
-          data: { session },
-          error,
-        } = await supabase.auth.refreshSession();
-        if (error) throw error;
-        if (!session)
-          throw new AuthSessionError("No session returned from refresh");
-
-        await this.createSession(session.user);
-        logger.debug("Session refreshed successfully");
-      } catch (error) {
-        logger.error("Failed to refresh session", error);
-        this.stopRefreshTimer();
-        authStorage.clear();
-        window.location.href = "/auth/signin";
-      }
-    }, AUTH_CONSTANTS.SESSION.REFRESH_THRESHOLD);
-  }
-
-  private stopRefreshTimer(): void {
-    if (this.refreshTimer) {
-      clearInterval(this.refreshTimer);
-      this.refreshTimer = null;
-    }
+  async signOut(): Promise<void> {
+    await this.cleanupStorage();
   }
 }
 
