@@ -92,6 +92,7 @@ export const mediaService = {
       const fileExt = file.name.split(".").pop();
       const fileName = `${uuidv4()}.${fileExt}`;
       const filePath = `${organizationId}/${fileName}`;
+      console.log("Attempting upload to path:", filePath);
 
       const { error: uploadError, data } = await supabase.storage
         .from("label-templates")
@@ -99,6 +100,7 @@ export const mediaService = {
           cacheControl: "3600",
           upsert: false,
         });
+      console.log("Upload response:", { error: uploadError, data });
 
       if (uploadError) {
         console.error("Upload error:", uploadError);

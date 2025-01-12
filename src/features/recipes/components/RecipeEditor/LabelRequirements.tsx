@@ -1,11 +1,8 @@
 import React, { useState, useEffect } from "react";
 import * as Icons from "lucide-react";
 import type { Recipe } from "../../types/recipe";
-import {
-  mediaService,
-  ALLOWED_LABEL_FILE_TYPES,
-  supabase,
-} from "@/lib/media-service";
+import { mediaService, ALLOWED_LABEL_FILE_TYPES } from "@/lib/media-service";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import toast from "react-hot-toast";
 
@@ -119,16 +116,31 @@ export const LabelRequirements: React.FC<LabelRequirementsProps> = ({
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0];
-    if (!file || !organization?.id) return;
+    if (!file || !organization?.id) {
+      console.error("Missing file or organization ID:", {
+        file,
+        orgId: organization?.id,
+      });
+      return;
+    }
 
     try {
+      console.log("Uploading label template:", {
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: file.size,
+        orgId: organization.id,
+      });
       const path = await mediaService.uploadLabelTemplate(
         file,
         organization.id,
       );
+      console.log("Upload successful, got path:", path);
+
       const {
         data: { publicUrl },
       } = supabase.storage.from("label-templates").getPublicUrl(path);
+      console.log("Generated public URL:", publicUrl);
 
       onChange({
         label_requirements: {
@@ -138,6 +150,7 @@ export const LabelRequirements: React.FC<LabelRequirementsProps> = ({
       });
       toast.success("Label template uploaded successfully");
     } catch (error) {
+      console.error("Label upload failed:", error);
       toast.error("Failed to upload label template");
     }
   };
