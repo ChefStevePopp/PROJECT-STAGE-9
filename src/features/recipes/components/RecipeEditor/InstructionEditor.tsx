@@ -4,7 +4,7 @@ import {
   AlertTriangle,
   RefreshCw,
   Upload,
-  Image,
+  ImagePlus,
   Printer,
   CheckCircle,
   UtensilsCrossed,
@@ -20,6 +20,11 @@ import {
   GripVertical,
   ThermometerSun,
   Shield,
+  Youtube,
+  Link,
+  Video,
+  PenLine,
+  StickyNote,
 } from "lucide-react";
 import {
   DndContext,
@@ -98,12 +103,65 @@ const SortableStep = ({
     }
   };
 
+  const handleExternalVideoAdd = () => {
+    const url = prompt("Enter YouTube or Vimeo URL:");
+    if (!url) return;
+
+    // Simple URL validation
+    const youtubeMatch = url.match(
+      /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/,
+    );
+    const vimeoMatch = url.match(/vimeo\.com\/([0-9]+)/);
+
+    if (youtubeMatch) {
+      onUpdate(index, {
+        media: [
+          ...(step.media || []),
+          {
+            id: `media-${Date.now()}`,
+            type: "external-video",
+            provider: "youtube",
+            url: `https://www.youtube.com/embed/${youtubeMatch[1]}`,
+            title: "YouTube Video",
+            step_id: step.id,
+            sort_order: (step.media || []).length,
+          },
+        ],
+      });
+      toast.success("YouTube video added successfully");
+    } else if (vimeoMatch) {
+      onUpdate(index, {
+        media: [
+          ...(step.media || []),
+          {
+            id: `media-${Date.now()}`,
+            type: "external-video",
+            provider: "vimeo",
+            url: `https://player.vimeo.com/video/${vimeoMatch[1]}`,
+            title: "Vimeo Video",
+            step_id: step.id,
+            sort_order: (step.media || []).length,
+          },
+        ],
+      });
+      toast.success("Vimeo video added successfully");
+    } else {
+      toast.error("Invalid YouTube or Vimeo URL");
+    }
+  };
+
   const handleMediaDelete = async (mediaUrl: string, mediaIndex: number) => {
     try {
-      await mediaService.deleteStepMedia(mediaUrl);
+      if (
+        !mediaUrl.includes("youtube.com") &&
+        !mediaUrl.includes("vimeo.com")
+      ) {
+        await mediaService.deleteStepMedia(mediaUrl);
+      }
       const updatedMedia = [...(step.media || [])];
       updatedMedia.splice(mediaIndex, 1);
       onUpdate(index, { media: updatedMedia });
+      toast.success("Media removed successfully");
     } catch (error) {
       toast.error("Failed to delete media");
     }
@@ -149,7 +207,10 @@ const SortableStep = ({
           {/* Instruction */}
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-1.5">
-              Instruction
+              <div className="inline-flex items-center gap-2">
+                <PenLine className="w-4 h-4 text-emerald-400" />
+                <span>Instruction</span>
+              </div>
             </label>
             <textarea
               value={step.instruction}
@@ -165,8 +226,10 @@ const SortableStep = ({
             {/* Time */}
             <div>
               <label className="block text-sm font-medium text-gray-400 mb-1.5">
-                <Clock className="w-4 h-4 inline-block mr-1.5 opacity-70" />
-                Time (minutes)
+                <div className="inline-flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-blue-400" />
+                  <span>Time (minutes)</span>
+                </div>
               </label>
               <input
                 type="number"
@@ -184,8 +247,10 @@ const SortableStep = ({
             {/* Temperature */}
             <div>
               <label className="block text-sm font-medium text-gray-400 mb-1.5">
-                <ThermometerSun className="w-4 h-4 inline-block mr-1.5 opacity-70" />
-                Temperature
+                <div className="inline-flex items-center gap-2">
+                  <ThermometerSun className="w-4 h-4 text-amber-400" />
+                  <span>Temperature</span>
+                </div>
               </label>
               <div className="flex gap-2">
                 <input
@@ -258,8 +323,10 @@ const SortableStep = ({
           {/* Warning Level */}
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-1.5">
-              <AlertTriangle className="w-4 h-4 inline-block mr-1.5 opacity-70" />
-              Warning Level
+              <div className="inline-flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-400" />
+                <span>Warning Level</span>
+              </div>
             </label>
             <select
               value={step.warning_level || "low"}
@@ -279,7 +346,10 @@ const SortableStep = ({
           {/* Notes */}
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-1.5">
-              Notes
+              <div className="inline-flex items-center gap-2">
+                <StickyNote className="w-4 h-4 text-purple-400" />
+                <span>Notes</span>
+              </div>
             </label>
             <textarea
               value={step.notes || ""}
@@ -292,18 +362,21 @@ const SortableStep = ({
           {/* Media Section */}
           <div className="border-t border-gray-700 pt-4 mt-4">
             <label className="block text-sm font-medium text-gray-400 mb-2">
-              Step Media
+              <div className="inline-flex items-center gap-2">
+                <ImagePlus className="w-4 h-4 text-teal-400" />
+                <span>Step Media</span>
+              </div>
             </label>
             <div className="grid grid-cols-2 gap-4">
               {(step.media || []).map((media, mediaIndex) => (
                 <div
                   key={media.id}
-                  className="bg-gray-900/50 rounded-lg p-3 flex items-start gap-2"
+                  className="bg-gray-900/50 rounded-lg overflow-hidden"
                 >
-                  <div className="flex-grow">
+                  <div className="p-3">
                     <input
                       type="text"
-                      value={media.title || media.url.split("/").pop() || ""}
+                      value={media.title || ""}
                       onChange={(e) => {
                         const updatedMedia = [...(step.media || [])];
                         updatedMedia[mediaIndex] = {
@@ -315,30 +388,67 @@ const SortableStep = ({
                       className="input w-full mb-2"
                       placeholder="Media title..."
                     />
-                    {media.type === "image" ? (
-                      <img
-                        src={media.url}
-                        alt={media.title || "Step image"}
-                        className="w-full h-32 object-cover rounded-lg"
-                      />
-                    ) : (
-                      <video
-                        src={media.url}
-                        className="w-full h-32 object-cover rounded-lg"
-                        controls
-                      />
-                    )}
+                    <div className="relative aspect-video bg-gray-800 rounded-lg overflow-hidden">
+                      {media.type === "external-video" ? (
+                        <iframe
+                          src={media.url}
+                          className="absolute inset-0 w-full h-full"
+                          frameBorder="0"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      ) : media.type === "video" ? (
+                        <video
+                          src={media.url}
+                          className="absolute inset-0 w-full h-full object-cover"
+                          controls
+                        />
+                      ) : (
+                        <img
+                          src={media.url}
+                          alt={media.title || "Step image"}
+                          className="absolute inset-0 w-full h-full object-cover"
+                        />
+                      )}
+                    </div>
                   </div>
-                  <button
-                    onClick={() => handleMediaDelete(media.url, mediaIndex)}
-                    className="text-gray-400 hover:text-rose-400 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center justify-between p-3 border-t border-gray-800">
+                    <div className="flex items-center gap-2 text-sm">
+                      {media.type === "image" && (
+                        <Camera className="w-4 h-4 text-blue-400" />
+                      )}
+                      {media.type === "video" && (
+                        <Video className="w-4 h-4 text-purple-400" />
+                      )}
+                      {media.type === "external-video" &&
+                        (media.provider === "youtube" ? (
+                          <Youtube className="w-4 h-4 text-red-400" />
+                        ) : (
+                          <Link className="w-4 h-4 text-teal-400" />
+                        ))}
+                      <span className="text-gray-400">
+                        {media.type === "image"
+                          ? "Image"
+                          : media.type === "video"
+                            ? "Video"
+                            : media.provider === "youtube"
+                              ? "YouTube"
+                              : "Vimeo"}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleMediaDelete(media.url, mediaIndex)}
+                      className="p-1 text-gray-400 hover:text-rose-400 hover:bg-gray-800/50 rounded transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               ))}
+            </div>
 
-              <label className="flex items-center justify-center gap-2 text-sm text-primary-400 hover:text-primary-300 bg-gray-900/50 rounded-lg p-3 border-2 border-dashed border-gray-700 hover:border-primary-400/50 transition-colors cursor-pointer">
+            <div className="flex gap-2 mt-4">
+              <label className="flex-1 flex items-center justify-center gap-2 text-sm text-blue-400 hover:text-blue-300 bg-gray-900/50 rounded-lg p-3 border-2 border-dashed border-gray-700 hover:border-blue-400/50 transition-colors cursor-pointer">
                 <input
                   type="file"
                   accept="image/*,video/*"
@@ -346,8 +456,15 @@ const SortableStep = ({
                   className="hidden"
                 />
                 <Upload className="w-4 h-4" />
-                Add Media
+                Upload Media
               </label>
+              <button
+                onClick={handleExternalVideoAdd}
+                className="flex-1 flex items-center justify-center gap-2 text-sm text-purple-400 hover:text-purple-300 bg-gray-900/50 rounded-lg p-3 border-2 border-dashed border-gray-700 hover:border-purple-400/50 transition-colors"
+              >
+                <Youtube className="w-4 h-4" />
+                Add Video URL
+              </button>
             </div>
           </div>
         </div>
@@ -387,7 +504,6 @@ export const InstructionEditor: React.FC<InstructionEditorProps> = ({
       is_quality_control_point: false,
       is_critical_control_point: false,
       media: [],
-      sort_order: recipe.steps?.length || 0,
     };
 
     onChange({
@@ -402,7 +518,9 @@ export const InstructionEditor: React.FC<InstructionEditorProps> = ({
     if (step.media?.length) {
       try {
         await Promise.all(
-          step.media.map((media) => mediaService.deleteStepMedia(media.url)),
+          step.media
+            .filter((media) => media.type !== "external-video")
+            .map((media) => mediaService.deleteStepMedia(media.url)),
         );
       } catch (error) {
         console.error("Error deleting step media:", error);

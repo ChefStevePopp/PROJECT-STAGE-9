@@ -46,8 +46,9 @@ export interface RecipeStep {
 
 export interface RecipeMedia {
   id: string;
-  type: "image" | "video";
+  type: "image" | "video" | "external-video";
   url: string;
+  provider?: "youtube" | "vimeo";
   title?: string;
   description?: string;
   step_id?: string;

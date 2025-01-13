@@ -46,7 +46,7 @@ export const mediaService = {
       }
 
       const fileExt = file.name.split(".").pop();
-      const filePath = `recipes/${user.user_metadata.organizationId}/${recipeId}/steps/${stepId}/${uuidv4()}.${fileExt}`;
+      const filePath = `${user.user_metadata.organizationId}/recipes/${recipeId}/steps/${stepId}/${uuidv4()}.${fileExt}`;
 
       const { error: uploadError, data } = await supabase.storage
         .from("recipe-media")
@@ -61,7 +61,6 @@ export const mediaService = {
         data: { publicUrl },
       } = supabase.storage.from("recipe-media").getPublicUrl(data.path);
 
-      // Return the public URL instead of just the path
       return publicUrl;
     } catch (error) {
       console.error("Error uploading media:", error);
@@ -98,7 +97,6 @@ export const mediaService = {
       const fileExt = file.name.split(".").pop();
       const fileName = `${uuidv4()}.${fileExt}`;
       const filePath = `${organizationId}/${fileName}`;
-      console.log("Attempting upload to path:", filePath);
 
       const { error: uploadError, data } = await supabase.storage
         .from("label-templates")
@@ -106,12 +104,8 @@ export const mediaService = {
           cacheControl: "3600",
           upsert: false,
         });
-      console.log("Upload response:", { error: uploadError, data });
 
-      if (uploadError) {
-        console.error("Upload error:", uploadError);
-        throw uploadError;
-      }
+      if (uploadError) throw uploadError;
 
       return data.path;
     } catch (error) {
@@ -123,21 +117,8 @@ export const mediaService = {
   async deleteStepMedia(url: string): Promise<void> {
     try {
       // Extract the path from the URL
-      const path = decodeURIComponent(url.split("/recipe-media/")[1]);
+      const path = decodeURIComponent(url.split("/recipe-media/").pop() || "");
       if (!path) throw new Error("Invalid media URL");
-
-      // Get organization ID from user metadata
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user?.user_metadata?.organizationId) {
-        throw new Error("No organization ID found");
-      }
-
-      // Verify the path belongs to the organization
-      if (!path.startsWith(`recipes/${user.user_metadata.organizationId}/`)) {
-        throw new Error("Unauthorized to delete this media");
-      }
 
       const { error } = await supabase.storage
         .from("recipe-media")
