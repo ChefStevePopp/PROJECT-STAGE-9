@@ -1,5 +1,20 @@
 import React, { useState, useEffect } from "react";
-import * as Icons from "lucide-react";
+import {
+  ChefHat,
+  AlertTriangle,
+  RefreshCw,
+  Upload,
+  Image,
+  Printer,
+  CheckCircle,
+  UtensilsCrossed,
+  Calendar,
+  Clock,
+  User,
+  Hash,
+  Thermometer,
+  Soup,
+} from "lucide-react";
 import type { Recipe } from "../../types/recipe";
 import { mediaService, ALLOWED_LABEL_FILE_TYPES } from "@/lib/media-service";
 import { supabase } from "@/lib/supabase";
@@ -11,42 +26,6 @@ interface LabelRequirementsProps {
   onChange: (updates: Partial<Recipe>) => void;
 }
 
-const LABEL_CRITERIA = [
-  {
-    value: "product-name",
-    label: "Product Name",
-    icon: "UtensilsCrossed",
-    color: "blue",
-  },
-  {
-    value: "date-prepared",
-    label: "Date Prepared",
-    icon: "Calendar",
-    color: "emerald",
-  },
-  { value: "use-by", label: "Use By Date", icon: "Clock", color: "amber" },
-  { value: "prepared-by", label: "Prepared By", icon: "User", color: "purple" },
-  { value: "batch-number", label: "Batch Number", icon: "Hash", color: "rose" },
-  {
-    value: "storage-temp",
-    label: "Storage Temperature",
-    icon: "Thermometer",
-    color: "blue",
-  },
-  {
-    value: "allergens",
-    label: "Allergen Warnings",
-    icon: "AlertTriangle",
-    color: "amber",
-  },
-  {
-    value: "ingredients",
-    label: "Ingredients",
-    icon: "Soup",
-    color: "emerald",
-  },
-];
-
 export const LabelRequirements: React.FC<LabelRequirementsProps> = ({
   recipe,
   onChange,
@@ -56,7 +35,7 @@ export const LabelRequirements: React.FC<LabelRequirementsProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Initialize selected criteria and custom fields
-  const [selectedCriteria, setSelectedCriteria] = useState<string[]>(
+  const [selectedFields, setSelectedFields] = useState<string[]>(
     recipe.label_requirements?.required_fields || [],
   );
   const [customField1, setCustomField1] = useState(
@@ -88,16 +67,16 @@ export const LabelRequirements: React.FC<LabelRequirementsProps> = ({
     checkPrinter();
   }, []);
 
-  const toggleCriteria = (value: string) => {
-    const newCriteria = selectedCriteria.includes(value)
-      ? selectedCriteria.filter((v) => v !== value)
-      : [...selectedCriteria, value];
+  const toggleField = (value: string) => {
+    const newFields = selectedFields.includes(value)
+      ? selectedFields.filter((v) => v !== value)
+      : [...selectedFields, value];
 
-    setSelectedCriteria(newCriteria);
+    setSelectedFields(newFields);
     onChange({
       label_requirements: {
         ...recipe.label_requirements,
-        required_fields: newCriteria,
+        required_fields: newFields,
       },
     });
   };
@@ -116,31 +95,16 @@ export const LabelRequirements: React.FC<LabelRequirementsProps> = ({
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0];
-    if (!file || !organization?.id) {
-      console.error("Missing file or organization ID:", {
-        file,
-        orgId: organization?.id,
-      });
-      return;
-    }
+    if (!file || !organization?.id) return;
 
     try {
-      console.log("Uploading label template:", {
-        fileName: file.name,
-        fileType: file.type,
-        fileSize: file.size,
-        orgId: organization.id,
-      });
       const path = await mediaService.uploadLabelTemplate(
         file,
         organization.id,
       );
-      console.log("Upload successful, got path:", path);
-
       const {
         data: { publicUrl },
       } = supabase.storage.from("label-templates").getPublicUrl(path);
-      console.log("Generated public URL:", publicUrl);
 
       onChange({
         label_requirements: {
@@ -171,7 +135,7 @@ export const LabelRequirements: React.FC<LabelRequirementsProps> = ({
       <div className="bg-gray-800/50 rounded-lg p-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
-            <Icons.ListChecks className="w-5 h-5 text-blue-400" />
+            <ChefHat className="w-5 h-5 text-blue-400" />
           </div>
           <div>
             <h3 className="text-lg font-medium text-white">Required Fields</h3>
@@ -181,46 +145,70 @@ export const LabelRequirements: React.FC<LabelRequirementsProps> = ({
           </div>
         </div>
 
-        {/* Instructions */}
-        <div className="mb-6">
-          <h4 className="text-sm font-medium text-gray-300 mb-2">
-            Labeling Instructions
-          </h4>
-          <textarea
-            value={recipe.label_requirements?.instructions || ""}
-            onChange={(e) =>
-              onChange({
-                label_requirements: {
-                  ...recipe.label_requirements,
-                  instructions: e.target.value,
-                },
-              })
-            }
-            placeholder="Enter detailed instructions for labeling this recipe..."
-            className="input w-full h-32"
-          />
-        </div>
-
         <div className="grid grid-cols-2 gap-4">
-          {LABEL_CRITERIA.map((criteria) => {
-            const Icon = Icons[criteria.icon as keyof typeof Icons];
-            return (
-              <button
-                key={criteria.value}
-                onClick={() => toggleCriteria(criteria.value)}
-                className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                  selectedCriteria.includes(criteria.value)
-                    ? `bg-${criteria.color}-500/20 border border-${criteria.color}-500/50`
-                    : "bg-gray-800/50 border border-transparent hover:border-gray-700"
-                }`}
-              >
-                <div className={`text-${criteria.color}-400`}>
-                  <Icon className="w-5 h-5" />
-                </div>
-                <span className="text-sm text-gray-300">{criteria.label}</span>
-              </button>
-            );
-          })}
+          <button
+            onClick={() => toggleField("product-name")}
+            className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${selectedFields.includes("product-name") ? "bg-blue-500/20 border border-blue-500/50" : "bg-gray-800/50 border border-transparent hover:border-gray-700"}`}
+          >
+            <UtensilsCrossed className="w-4 h-4 text-blue-400" />
+            <span className="text-sm text-gray-300">Product Name</span>
+          </button>
+
+          <button
+            onClick={() => toggleField("date-prepared")}
+            className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${selectedFields.includes("date-prepared") ? "bg-emerald-500/20 border border-emerald-500/50" : "bg-gray-800/50 border border-transparent hover:border-gray-700"}`}
+          >
+            <Calendar className="w-4 h-4 text-emerald-400" />
+            <span className="text-sm text-gray-300">Date Prepared</span>
+          </button>
+
+          <button
+            onClick={() => toggleField("use-by")}
+            className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${selectedFields.includes("use-by") ? "bg-amber-500/20 border border-amber-500/50" : "bg-gray-800/50 border border-transparent hover:border-gray-700"}`}
+          >
+            <Clock className="w-4 h-4 text-amber-400" />
+            <span className="text-sm text-gray-300">Use By Date</span>
+          </button>
+
+          <button
+            onClick={() => toggleField("prepared-by")}
+            className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${selectedFields.includes("prepared-by") ? "bg-purple-500/20 border border-purple-500/50" : "bg-gray-800/50 border border-transparent hover:border-gray-700"}`}
+          >
+            <User className="w-4 h-4 text-purple-400" />
+            <span className="text-sm text-gray-300">Prepared By</span>
+          </button>
+
+          <button
+            onClick={() => toggleField("batch-number")}
+            className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${selectedFields.includes("batch-number") ? "bg-rose-500/20 border border-rose-500/50" : "bg-gray-800/50 border border-transparent hover:border-gray-700"}`}
+          >
+            <Hash className="w-4 h-4 text-rose-400" />
+            <span className="text-sm text-gray-300">Batch Number</span>
+          </button>
+
+          <button
+            onClick={() => toggleField("storage-temp")}
+            className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${selectedFields.includes("storage-temp") ? "bg-blue-500/20 border border-blue-500/50" : "bg-gray-800/50 border border-transparent hover:border-gray-700"}`}
+          >
+            <Thermometer className="w-4 h-4 text-blue-400" />
+            <span className="text-sm text-gray-300">Storage Temperature</span>
+          </button>
+
+          <button
+            onClick={() => toggleField("allergens")}
+            className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${selectedFields.includes("allergens") ? "bg-amber-500/20 border border-amber-500/50" : "bg-gray-800/50 border border-transparent hover:border-gray-700"}`}
+          >
+            <AlertTriangle className="w-4 h-4 text-amber-400" />
+            <span className="text-sm text-gray-300">Allergen Warnings</span>
+          </button>
+
+          <button
+            onClick={() => toggleField("ingredients")}
+            className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${selectedFields.includes("ingredients") ? "bg-emerald-500/20 border border-emerald-500/50" : "bg-gray-800/50 border border-transparent hover:border-gray-700"}`}
+          >
+            <Soup className="w-4 h-4 text-emerald-400" />
+            <span className="text-sm text-gray-300">Ingredients</span>
+          </button>
         </div>
 
         {/* Custom Fields */}
@@ -252,7 +240,7 @@ export const LabelRequirements: React.FC<LabelRequirementsProps> = ({
       <div className="bg-gray-800/50 rounded-lg p-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
-            <Icons.Image className="w-5 h-5 text-amber-400" />
+            <Image className="w-5 h-5 text-amber-400" />
           </div>
           <div>
             <h3 className="text-lg font-medium text-white">Example Photo</h3>
@@ -279,7 +267,7 @@ export const LabelRequirements: React.FC<LabelRequirementsProps> = ({
                 }
                 className="absolute top-2 right-2 p-2 bg-rose-500/20 text-rose-400 rounded-lg hover:bg-rose-500/30 transition-colors"
               >
-                <Icons.Trash2 className="w-4 h-4" />
+                <AlertTriangle className="w-4 h-4" />
               </button>
             </div>
             <textarea
@@ -299,7 +287,7 @@ export const LabelRequirements: React.FC<LabelRequirementsProps> = ({
           </div>
         ) : (
           <label className="flex flex-col items-center justify-center h-48 border-2 border-dashed border-gray-700 rounded-lg hover:border-primary-500/50 transition-colors cursor-pointer">
-            <Icons.Upload className="w-6 h-6 text-gray-400 mb-2" />
+            <Upload className="w-6 h-6 text-gray-400 mb-2" />
             <span className="text-sm text-gray-400">
               Upload an example of a properly labeled container
             </span>
@@ -319,28 +307,43 @@ export const LabelRequirements: React.FC<LabelRequirementsProps> = ({
       {/* Label Printer Toggle */}
       <div className="bg-gray-800/50 rounded-lg p-6">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
-            <Icons.Printer className="w-5 h-5 text-purple-400" />
+          <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+            <Printer className="w-5 h-5 text-emerald-400" />
           </div>
           <div>
             <h3 className="text-lg font-medium text-white">Label Printer</h3>
             <p className="text-sm text-gray-400">
-              Enable automatic label printing
+              Brother QL-810W Label Printer Integration
             </p>
           </div>
         </div>
 
-        <div className="flex items-center justify-end">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <div className="text-sm text-gray-300">
+              {recipe.use_label_printer ? (
+                <span className="flex items-center gap-2 text-emerald-400">
+                  <CheckCircle className="w-4 h-4" />
+                  Labels will print automatically in recipe viewer
+                </span>
+              ) : (
+                <span className="text-gray-400">
+                  Upgrade to enable automatic label printing
+                </span>
+              )}
+            </div>
+            <div className="text-xs text-gray-500">
+              Supports 62mm × 29mm address labels (DK-11209)
+            </div>
+          </div>
+
           <label className="relative inline-flex items-center cursor-pointer">
             <input
               type="checkbox"
-              checked={recipe.label_requirements?.use_label_printer}
+              checked={recipe.use_label_printer}
               onChange={(e) =>
                 onChange({
-                  label_requirements: {
-                    ...recipe.label_requirements,
-                    use_label_printer: e.target.checked,
-                  },
+                  use_label_printer: e.target.checked,
                 })
               }
               className="sr-only peer"
