@@ -1,16 +1,24 @@
 import React, { useCallback } from "react";
 import {
   Book,
-  Info,
+  AlertTriangle,
+  RefreshCw,
+  Upload,
+  Image,
+  Printer,
+  CheckCircle,
+  UtensilsCrossed,
+  Calendar,
+  Clock,
+  User,
+  Hash,
+  Thermometer,
+  Soup,
   Plus,
   Trash2,
   Camera,
-  AlertCircle,
   GripVertical,
   ThermometerSun,
-  Upload,
-  Clock,
-  AlertTriangle,
   Shield,
 } from "lucide-react";
 import {
@@ -96,7 +104,6 @@ const SortableStep = ({
       const updatedMedia = [...(step.media || [])];
       updatedMedia.splice(mediaIndex, 1);
       onUpdate(index, { media: updatedMedia });
-      toast.success("Media deleted successfully");
     } catch (error) {
       toast.error("Failed to delete media");
     }
@@ -183,20 +190,26 @@ const SortableStep = ({
               <div className="flex gap-2">
                 <input
                   type="number"
-                  value={step.temperature_value || ""}
+                  value={step.temperature?.value || ""}
                   onChange={(e) =>
                     onUpdate(index, {
-                      temperature_value: parseInt(e.target.value) || null,
+                      temperature: {
+                        value: parseInt(e.target.value) || null,
+                        unit: step.temperature?.unit || "F",
+                      },
                     })
                   }
                   className="input flex-1"
                   placeholder="Enter temp..."
                 />
                 <select
-                  value={step.temperature_unit}
+                  value={step.temperature?.unit || "F"}
                   onChange={(e) =>
                     onUpdate(index, {
-                      temperature_unit: e.target.value as "F" | "C",
+                      temperature: {
+                        value: step.temperature?.value || null,
+                        unit: e.target.value as "F" | "C",
+                      },
                     })
                   }
                   className="input w-20"
@@ -290,7 +303,7 @@ const SortableStep = ({
                   <div className="flex-grow">
                     <input
                       type="text"
-                      value={media.title || ""}
+                      value={media.title || media.url.split("/").pop() || ""}
                       onChange={(e) => {
                         const updatedMedia = [...(step.media || [])];
                         updatedMedia[mediaIndex] = {
@@ -367,8 +380,10 @@ export const InstructionEditor: React.FC<InstructionEditorProps> = ({
       notes: "",
       warning_level: "low",
       time_in_minutes: null,
-      temperature_value: null,
-      temperature_unit: "F",
+      temperature: {
+        value: null,
+        unit: "F",
+      },
       is_quality_control_point: false,
       is_critical_control_point: false,
       media: [],

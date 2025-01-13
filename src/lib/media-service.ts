@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { v4 as uuidv4 } from "uuid";
+import toast from "react-hot-toast";
 
 export const ALLOWED_FILE_TYPES = [
   "image/jpeg",
@@ -56,7 +57,12 @@ export const mediaService = {
 
       if (uploadError) throw uploadError;
 
-      return data.path;
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("recipe-media").getPublicUrl(data.path);
+
+      // Return the public URL instead of just the path
+      return publicUrl;
     } catch (error) {
       console.error("Error uploading media:", error);
       throw error;
@@ -117,7 +123,7 @@ export const mediaService = {
   async deleteStepMedia(url: string): Promise<void> {
     try {
       // Extract the path from the URL
-      const path = url.split("/recipe-media/")[1];
+      const path = decodeURIComponent(url.split("/recipe-media/")[1]);
       if (!path) throw new Error("Invalid media URL");
 
       // Get organization ID from user metadata
@@ -138,6 +144,7 @@ export const mediaService = {
         .remove([path]);
 
       if (error) throw error;
+      toast.success("Media deleted successfully");
     } catch (error) {
       console.error("Error deleting media:", error);
       throw error;
