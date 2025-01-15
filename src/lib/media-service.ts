@@ -151,4 +151,62 @@ export const mediaService = {
       throw error;
     }
   },
+
+  async uploadStorageImage(file: File): Promise<string> {
+    try {
+      if (!file.type.startsWith("image/")) {
+        throw new Error("Only image files are allowed for storage locations.");
+      }
+
+      if (file.size > MAX_FILE_SIZE) {
+        throw new Error("File size too large. Maximum size is 10MB.");
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user?.user_metadata?.organizationId) {
+        throw new Error("No organization ID found");
+      }
+
+      const fileExt = file.name.split(".").pop();
+      const filePath = `${user.user_metadata.organizationId}/storage-locations/${uuidv4()}.${fileExt}`;
+
+      const { error: uploadError, data } = await supabase.storage
+        .from("storage-images")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("storage-images").getPublicUrl(data.path);
+
+      return publicUrl;
+    } catch (error) {
+      console.error("Error uploading storage image:", error);
+      throw error;
+    }
+  },
+
+  async deleteStorageImage(url: string): Promise<void> {
+    try {
+      const path = decodeURIComponent(
+        url.split("/storage-images/").pop() || "",
+      );
+      if (!path) throw new Error("Invalid storage image URL");
+
+      const { error } = await supabase.storage
+        .from("storage-images")
+        .remove([path]);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error deleting storage image:", error);
+      throw error;
+    }
+  },
 };
