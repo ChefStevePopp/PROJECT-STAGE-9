@@ -1,44 +1,53 @@
-import React from 'react';
-import { 
-  GraduationCap, 
-  AlertTriangle, 
-  Award, 
-  CheckCircle2, 
+import React from "react";
+import {
+  GraduationCap,
+  AlertTriangle,
+  Award,
+  Book,
+  CheckCircle2,
   TrendingUp,
   Plus,
   Trash2,
   FileText,
   BookOpen,
-  ShieldAlert
-} from 'lucide-react';
-import type { Recipe, RecipeTraining } from '../../types/recipe';
+  ShieldAlert,
+} from "lucide-react";
+import type { Recipe, RecipeTraining } from "../../types/recipe";
 
 interface TrainingModuleProps {
   recipe: Recipe;
   onChange: (updates: Partial<Recipe>) => void;
 }
 
-export const TrainingModule: React.FC<TrainingModuleProps> = ({ recipe, onChange }) => {
+export const TrainingModule: React.FC<TrainingModuleProps> = ({
+  recipe,
+  onChange,
+}) => {
   const updateTraining = (updates: Partial<RecipeTraining>) => {
     onChange({
-      training: { ...recipe.training, ...updates }
+      training: { ...recipe.training, ...updates },
     });
   };
 
   const addCertification = () => {
     updateTraining({
-      certificationRequired: [...(recipe.training.certificationRequired || []), '']
+      certificationRequired: [
+        ...(recipe.training.certificationRequired || []),
+        "",
+      ],
     });
   };
 
   const removeCertification = (index: number) => {
-    const certs = recipe.training.certificationRequired?.filter((_, i) => i !== index);
+    const certs = recipe.training.certificationRequired?.filter(
+      (_, i) => i !== index,
+    );
     updateTraining({ certificationRequired: certs });
   };
 
   const addCommonError = () => {
     updateTraining({
-      commonErrors: [...(recipe.training.commonErrors || []), '']
+      commonErrors: [...(recipe.training.commonErrors || []), ""],
     });
   };
 
@@ -49,39 +58,62 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ recipe, onChange
 
   const addKeyTechnique = () => {
     updateTraining({
-      keyTechniques: [...(recipe.training.keyTechniques || []), '']
+      keyTechniques: [...(recipe.training.keyTechniques || []), ""],
     });
   };
 
   const removeKeyTechnique = (index: number) => {
-    const techniques = recipe.training.keyTechniques?.filter((_, i) => i !== index);
+    const techniques = recipe.training.keyTechniques?.filter(
+      (_, i) => i !== index,
+    );
     updateTraining({ keyTechniques: techniques });
   };
 
   const addSafetyProtocol = () => {
     updateTraining({
-      safetyProtocols: [...(recipe.training.safetyProtocols || []), '']
+      safetyProtocols: [...(recipe.training.safetyProtocols || []), ""],
     });
   };
 
   const removeSafetyProtocol = (index: number) => {
-    const protocols = recipe.training.safetyProtocols?.filter((_, i) => i !== index);
+    const protocols = recipe.training.safetyProtocols?.filter(
+      (_, i) => i !== index,
+    );
     updateTraining({ safetyProtocols: protocols });
   };
 
   const addQualityStandard = () => {
     updateTraining({
-      qualityStandards: [...(recipe.training.qualityStandards || []), '']
+      qualityStandards: [...(recipe.training.qualityStandards || []), ""],
     });
   };
 
   const removeQualityStandard = (index: number) => {
-    const standards = recipe.training.qualityStandards?.filter((_, i) => i !== index);
+    const standards = recipe.training.qualityStandards?.filter(
+      (_, i) => i !== index,
+    );
     updateTraining({ qualityStandards: standards });
   };
 
   return (
     <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+            <Book className="w-5 h-5 text-blue-400" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white mb-2">
+              Training Requirements
+            </h2>
+            <p className="text-gray-400">
+              Define skill levels and training specifications
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Skill Level Requirements */}
       <div className="card p-6">
         <h3 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
@@ -95,9 +127,12 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ recipe, onChange
             </label>
             <select
               value={recipe.training.requiredSkillLevel}
-              onChange={(e) => updateTraining({
-                requiredSkillLevel: e.target.value as RecipeTraining['requiredSkillLevel']
-              })}
+              onChange={(e) =>
+                updateTraining({
+                  requiredSkillLevel: e.target
+                    .value as RecipeTraining["requiredSkillLevel"],
+                })
+              }
               className="input w-full"
             >
               <option value="beginner">Beginner</option>
@@ -122,7 +157,9 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ recipe, onChange
                       type="text"
                       value={cert}
                       onChange={(e) => {
-                        const certs = [...(recipe.training.certificationRequired || [])];
+                        const certs = [
+                          ...(recipe.training.certificationRequired || []),
+                        ];
                         certs[index] = e.target.value;
                         updateTraining({ certificationRequired: certs });
                       }}
@@ -212,7 +249,9 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ recipe, onChange
                 <textarea
                   value={technique}
                   onChange={(e) => {
-                    const techniques = [...(recipe.training.keyTechniques || [])];
+                    const techniques = [
+                      ...(recipe.training.keyTechniques || []),
+                    ];
                     techniques[index] = e.target.value;
                     updateTraining({ keyTechniques: techniques });
                   }}
@@ -256,7 +295,9 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ recipe, onChange
                 <textarea
                   value={protocol}
                   onChange={(e) => {
-                    const protocols = [...(recipe.training.safetyProtocols || [])];
+                    const protocols = [
+                      ...(recipe.training.safetyProtocols || []),
+                    ];
                     protocols[index] = e.target.value;
                     updateTraining({ safetyProtocols: protocols });
                   }}
@@ -300,7 +341,9 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ recipe, onChange
                 <textarea
                   value={standard}
                   onChange={(e) => {
-                    const standards = [...(recipe.training.qualityStandards || [])];
+                    const standards = [
+                      ...(recipe.training.qualityStandards || []),
+                    ];
                     standards[index] = e.target.value;
                     updateTraining({ qualityStandards: standards });
                   }}
@@ -339,7 +382,7 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ recipe, onChange
               Training Notes
             </label>
             <textarea
-              value={recipe.training.notes || ''}
+              value={recipe.training.notes || ""}
               onChange={(e) => updateTraining({ notes: e.target.value })}
               className="input w-full h-32"
               placeholder="Enter any additional training notes or instructions..."
@@ -349,10 +392,13 @@ export const TrainingModule: React.FC<TrainingModuleProps> = ({ recipe, onChange
             <div className="flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0" />
               <div>
-                <p className="text-yellow-400 font-medium">Training Requirements</p>
+                <p className="text-yellow-400 font-medium">
+                  Training Requirements
+                </p>
                 <p className="text-sm text-gray-300 mt-1">
-                  Staff must complete all required certifications and demonstrate proficiency
-                  in all key techniques before being assigned to this recipe.
+                  Staff must complete all required certifications and
+                  demonstrate proficiency in all key techniques before being
+                  assigned to this recipe.
                 </p>
               </div>
             </div>

@@ -35,7 +35,7 @@ export interface CodeChange {
   handled?: boolean;
   handledBy?: string;
   handledAt?: string;
-  action?: 'update' | 'new_item';
+  action?: "update" | "new_item";
   notes?: string;
 }
 

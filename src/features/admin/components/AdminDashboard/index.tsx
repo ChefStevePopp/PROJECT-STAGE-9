@@ -1,58 +1,47 @@
-import React from 'react';
-import { Users, Package, AlertTriangle, TrendingUp } from 'lucide-react';
-import { useAdminStore } from '@/stores/adminStore';
-import { StatsCard } from '../StatsCard';
-import { ActivityFeed } from '../ActivityFeed';
-import { AlertsList } from '../AlertsList';
+import React from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { ActivityFeed } from "../ActivityFeed";
 
-export function AdminDashboard() {
-  const { stats, activities, alerts } = useAdminStore();
-
-  const statsCards = [
-    { 
-      icon: Users, 
-      label: 'Active Staff', 
-      value: stats.activeStaff, 
-      change: '+2', 
-      color: 'blue' 
-    },
-    { 
-      icon: Package, 
-      label: 'Low Stock Items', 
-      value: stats.lowStockItems, 
-      change: '-3', 
-      color: 'yellow' 
-    },
-    { 
-      icon: AlertTriangle, 
-      label: 'Pending Tasks', 
-      value: stats.pendingTasks, 
-      change: '+5', 
-      color: 'orange' 
-    },
-    { 
-      icon: TrendingUp, 
-      label: 'Prep Completion', 
-      value: `${stats.prepCompletion}%`, 
-      change: '+12%', 
-      color: 'green' 
-    },
-  ];
+export const AdminDashboard: React.FC = () => {
+  const { user, organization } = useAuth();
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statsCards.map((stat) => (
-          <StatsCard key={stat.label} {...stat} />
-        ))}
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold text-white mb-2">Admin Dashboard</h1>
+        <p className="text-gray-400">
+          Welcome back, {user?.user_metadata?.firstName || "Admin"}
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ActivityFeed activities={activities} />
-        <AlertsList alerts={alerts} />
+      {/* Debug Info - Remove in production */}
+      <div className="p-4 bg-gray-800/50 rounded-lg text-xs font-mono text-gray-400">
+        <div>Organization ID: {organization?.id}</div>
+        <div>User Role: {user?.user_metadata?.role || "None"}</div>
+      </div>
+
+      {/* Dashboard Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Quick Actions */}
+        <div className="card p-6">
+          <h2 className="text-lg font-medium text-white mb-2">Quick Actions</h2>
+          <p className="text-gray-400 text-sm">
+            Dashboard content coming soon...
+          </p>
+        </div>
+
+        {/* System Status */}
+        <div className="card p-6">
+          <h2 className="text-lg font-medium text-white mb-2">System Status</h2>
+          <p className="text-gray-400 text-sm">System metrics coming soon...</p>
+        </div>
+
+        {/* Activity Feed */}
+        <div className="lg:col-span-1">
+          <ActivityFeed />
+        </div>
       </div>
     </div>
   );
-}
+};

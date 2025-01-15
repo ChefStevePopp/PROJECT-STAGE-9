@@ -1,16 +1,16 @@
 // hooks/useVendorInvoice.ts
 
-import { useState, useCallback, useMemo } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { useMasterIngredientsStore } from '@/stores/masterIngredientsStore';
-import { useOperationsStore } from '@/stores/operationsStore';
+import { useState, useCallback, useMemo } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { useMasterIngredientsStore } from "@/stores/masterIngredientsStore";
+import { useOperationsStore } from "@/stores/operationsStore";
 import {
   PriceChange,
   CodeChange,
   QuickFilters,
   VendorInvoiceStats,
-} from '@/types/vendor-invoice';
-import { toast } from 'react-hot-toast';
+} from "@/types/vendor-invoice";
+import { toast } from "react-hot-toast";
 
 export const useVendorInvoice = () => {
   const { user } = useAuth();
@@ -18,10 +18,10 @@ export const useVendorInvoice = () => {
   const { settings } = useOperationsStore();
 
   // State
-  const [selectedVendor, setSelectedVendor] = useState('');
+  const [selectedVendor, setSelectedVendor] = useState("");
   const [priceChanges, setPriceChanges] = useState<PriceChange[]>([]);
   const [codeChanges, setCodeChanges] = useState<CodeChange[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [quickFilters, setQuickFilters] = useState<QuickFilters>({
     significantChanges: false,
     codeChanges: false,
@@ -32,13 +32,13 @@ export const useVendorInvoice = () => {
   // Calculate stats
   const stats: VendorInvoiceStats = useMemo(() => {
     const significantChanges = priceChanges.filter(
-      (change) => Math.abs(change.percentChange) > 10
+      (change) => Math.abs(change.percentChange) > 10,
     );
 
     const alternateVendors = ingredients.filter((ing) =>
       ing.vendorCodes?.some(
-        (code) => code.vendorId !== selectedVendor && code.isActive
-      )
+        (code) => code.vendorId !== selectedVendor && code.isActive,
+      ),
     );
 
     return {
@@ -79,7 +79,7 @@ export const useVendorInvoice = () => {
   const handleInvoiceImport = useCallback(
     async (data: any[], sheetName: string) => {
       if (!selectedVendor) {
-        toast.error('Please select a vendor first');
+        toast.error("Please select a vendor first");
         return;
       }
 
@@ -98,7 +98,8 @@ export const useVendorInvoice = () => {
             if (
               ing.vendorCodes?.history?.some(
                 (code) =>
-                  code.code === row.itemCode && code.vendorId === selectedVendor
+                  code.code === row.itemCode &&
+                  code.vendorId === selectedVendor,
               )
             )
               return true;
@@ -117,7 +118,7 @@ export const useVendorInvoice = () => {
             newCodeChanges.push({
               ingredientId: ingredient.id,
               productName: ingredient.product,
-              oldCode: ingredient.vendorCodes?.current?.code || '',
+              oldCode: ingredient.vendorCodes?.current?.code || "",
               newCode: row.itemCode,
               vendorId: selectedVendor,
               invoiceDate: timestamp,
@@ -150,13 +151,13 @@ export const useVendorInvoice = () => {
           toast.error(`${unmatchedItems.length} items could not be matched`);
         }
 
-        toast.success('Invoice processed successfully');
+        toast.success("Invoice processed successfully");
       } catch (error) {
-        console.error('Error processing invoice:', error);
-        toast.error('Failed to process invoice');
+        console.error("Error processing invoice:", error);
+        toast.error("Failed to process invoice");
       }
     },
-    [selectedVendor, ingredients]
+    [selectedVendor, ingredients],
   );
 
   return {

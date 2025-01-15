@@ -1,7 +1,7 @@
-import { 
+import {
   User,
-  Building2, 
-  Users, 
+  Building2,
+  Users,
   Clock,
   FileText,
   HelpCircle,
@@ -14,69 +14,105 @@ import {
   Box,
   ChefHat,
   CircleDollarSign,
-} from 'lucide-react';
+  History,
+  Bell,
+} from "lucide-react";
 
 export const menuItems = (isDev: boolean) => {
   const items = [
     {
-      id: 'account',
-      items: [
-        { icon: User, label: 'My Account', path: '/admin/my-account' }
-      ]
+      id: "account",
+      items: [{ icon: User, label: "My Account", path: "/admin/account" }],
     },
     {
-      id: 'kitchen',
-      label: 'KITCHEN',
+      id: "kitchen",
+      label: "KITCHEN",
       items: [
-        { icon: ChefHat, label: 'Recipe Manager', path: '/admin/recipes' }
-      ]
+        { icon: ChefHat, label: "Recipe Manager", path: "/admin/recipes" },
+      ],
     },
     {
-      id: 'team',
-      label: 'TEAM',
+      id: "team",
+      label: "TEAM",
       items: [
-        { icon: Users, label: 'Team Management', path: '/admin/team' },
-        { icon: Clock, label: 'Notifications', path: '/admin/notifications' },
-        { icon: Shield, label: 'Permissions', path: '/admin/permissions' }
-      ]
+        { icon: Users, label: "Team Management", path: "/admin/team" },
+        {
+          icon: Bell,
+          label: "Notification Settings",
+          path: "/admin/notifications",
+        },
+        { icon: Shield, label: "Permissions", path: "/admin/permissions" },
+      ],
     },
     {
-      id: 'organization',
-      label: 'ORGANIZATION',
+      id: "organization",
+      label: "ORGANIZATION",
       items: [
-        { icon: Building2, label: 'Organization', path: '/admin/organizations' },
-        { icon: FileText, label: 'Activity Log', path: '/admin/activity' }
-      ]
+        {
+          icon: Building2,
+          label: "Organization",
+          path: "/admin/organizations",
+        },
+        {
+          icon: History,
+          label: "Activity Log",
+          path: "/admin/activity",
+        },
+      ],
     },
     {
-      id: 'data',
-      label: 'DATA MANAGEMENT',
+      id: "data",
+      label: "DATA MANAGEMENT",
       items: [
-        { icon: Database, label: 'Master Ingredient List', path: '/admin/excel-imports#ingredients' },
-        { icon: CircleDollarSign, label: 'Vendor Invoices', path: '/admin/excel-imports#prepared' },
-        { icon: Package, label: 'Food Inventory Review', path: '/admin/excel-imports#inventory' },
-        { icon: Settings, label: 'Operation Variables', path: '/admin/excel-imports#operations' },
-        { icon: Box, label: 'Food Relationships', path: '/admin/excel-imports#relationships' }
-      ]
+        {
+          icon: Database,
+          label: "Master Ingredient List",
+          path: "/admin/excel-imports#ingredients",
+        },
+        {
+          icon: CircleDollarSign,
+          label: "Vendor Invoices",
+          path: "/admin/vendor-invoices",
+        },
+        {
+          icon: Package,
+          label: "Food Inventory Review",
+          path: "/admin/excel-imports#inventory",
+        },
+        {
+          icon: Settings,
+          label: "Operation Variables",
+          path: "/admin/excel-imports#operations",
+        },
+        {
+          icon: Box,
+          label: "Food Relationships",
+          path: "/admin/excel-imports#relationships",
+        },
+      ],
     },
     {
-      id: 'support',
-      label: 'SUPPORT',
+      id: "support",
+      label: "SUPPORT",
       items: [
-        { icon: HelpCircle, label: 'Help & Support', path: '/admin/help' },
-        { icon: Share2, label: 'Refer a Friend', path: '/admin/refer' }
-      ]
-    }
+        { icon: HelpCircle, label: "Help & Support", path: "/admin/help" },
+        { icon: Share2, label: "Refer a Friend", path: "/admin/refer" },
+      ],
+    },
   ];
 
   // Add Dev Management section only for dev users
   if (isDev) {
     items.push({
-      id: 'dev',
-      label: 'DEVELOPMENT',
+      id: "dev",
+      label: "DEVELOPMENT",
       items: [
-        { icon: Shield, label: 'Dev Management', path: '/admin/dev-management' }
-      ]
+        {
+          icon: Shield,
+          label: "Dev Management",
+          path: "/admin/dev-management",
+        },
+      ],
     });
   }
 

@@ -1,30 +1,36 @@
-import React, { useState } from 'react';
-import { 
-  History, 
-  Check, 
-  X, 
-  AlertTriangle, 
+import React, { useState } from "react";
+import {
+  History,
+  Check,
+  X,
+  AlertTriangle,
   RefreshCw,
   User,
+  Book,
   Clock,
-  FileText
-} from 'lucide-react';
-import type { Recipe, RecipeVersion } from '../../types/recipe';
-import { format } from 'date-fns';
-import toast from 'react-hot-toast';
+  FileText,
+} from "lucide-react";
+import type { Recipe, RecipeVersion } from "../../types/recipe";
+import { format } from "date-fns";
+import toast from "react-hot-toast";
 
 interface VersionHistoryProps {
   recipe: Recipe;
   onChange: (updates: Partial<Recipe>) => void;
 }
 
-export const VersionHistory: React.FC<VersionHistoryProps> = ({ recipe, onChange }) => {
+export const VersionHistory: React.FC<VersionHistoryProps> = ({
+  recipe,
+  onChange,
+}) => {
   const [isApproving, setIsApproving] = useState(false);
-  const [approvalNotes, setApprovalNotes] = useState('');
-  const [selectedVersion, setSelectedVersion] = useState<RecipeVersion | null>(null);
+  const [approvalNotes, setApprovalNotes] = useState("");
+  const [selectedVersion, setSelectedVersion] = useState<RecipeVersion | null>(
+    null,
+  );
 
   const handleCreateVersion = async () => {
-    const changes = prompt('Please describe the changes made in this version:');
+    const changes = prompt("Please describe the changes made in this version:");
     if (!changes) return;
 
     const newVersion: RecipeVersion = {
@@ -32,15 +38,15 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({ recipe, onChange
       version: `${recipe.versions.length + 1}.0`,
       createdAt: new Date().toISOString(),
       createdBy: recipe.modifiedBy,
-      changes: [changes]
+      changes: [changes],
     };
 
     onChange({
       versions: [...recipe.versions, newVersion],
-      version: newVersion.version
+      version: newVersion.version,
     });
 
-    toast.success('New version created successfully');
+    toast.success("New version created successfully");
   };
 
   const handleApproveVersion = async (version: RecipeVersion) => {
@@ -57,28 +63,32 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({ recipe, onChange
         approved: {
           by: recipe.modifiedBy,
           at: new Date().toISOString(),
-          notes: approvalNotes
-        }
+          notes: approvalNotes,
+        },
       };
 
       onChange({
-        versions: recipe.versions.map(v =>
-          v.id === selectedVersion.id ? updatedVersion : v
-        )
+        versions: recipe.versions.map((v) =>
+          v.id === selectedVersion.id ? updatedVersion : v,
+        ),
       });
 
       setIsApproving(false);
-      setApprovalNotes('');
+      setApprovalNotes("");
       setSelectedVersion(null);
-      toast.success('Version approved successfully');
+      toast.success("Version approved successfully");
     } catch (error) {
-      console.error('Error approving version:', error);
-      toast.error('Failed to approve version');
+      console.error("Error approving version:", error);
+      toast.error("Failed to approve version");
     }
   };
 
   const handleRevertToVersion = async (version: RecipeVersion) => {
-    if (!window.confirm('Are you sure you want to revert to this version? This action cannot be undone.')) {
+    if (
+      !window.confirm(
+        "Are you sure you want to revert to this version? This action cannot be undone.",
+      )
+    ) {
       return;
     }
 
@@ -90,38 +100,54 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({ recipe, onChange
         createdAt: new Date().toISOString(),
         createdBy: recipe.modifiedBy,
         changes: [`Reverted to version ${version.version}`],
-        revertedFrom: version.id
+        revertedFrom: version.id,
       };
 
       onChange({
         versions: [...recipe.versions, revertVersion],
-        version: revertVersion.version
+        version: revertVersion.version,
       });
 
       toast.success(`Successfully reverted to version ${version.version}`);
     } catch (error) {
-      console.error('Error reverting version:', error);
-      toast.error('Failed to revert version');
+      console.error("Error reverting version:", error);
+      toast.error("Failed to revert version");
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Version History Header */}
+      {/* Header */}
       <div className="flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+            <Book className="w-5 h-5 text-blue-400" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white mb-2">
+              Version History
+            </h2>
+            <p className="text-gray-400">
+              Track recipe evolution, maintain standards, and ensure kitchen
+              consistency
+            </p>
+          </div>
+        </div>
+      </div>
+      {/* Version History Header */}
+      <div className="flex justify-between items-center card p-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-primary-500/20 flex items-center justify-center">
             <History className="w-5 h-5 text-primary-400" />
           </div>
           <div>
             <h3 className="text-lg font-medium text-white">Version History</h3>
-            <p className="text-sm text-gray-400">Current Version: {recipe.version}</p>
+            <p className="text-sm text-gray-400">
+              Current Version: {recipe.version}
+            </p>
           </div>
         </div>
-        <button
-          onClick={handleCreateVersion}
-          className="btn-primary"
-        >
+        <button onClick={handleCreateVersion} className="btn-primary">
           Create New Version
         </button>
       </div>
@@ -132,7 +158,7 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({ recipe, onChange
           <div
             key={version.id}
             className={`bg-gray-800/50 rounded-lg p-4 ${
-              version.approved ? 'border border-green-500/20' : ''
+              version.approved ? "border border-green-500/20" : ""
             }`}
           >
             <div className="flex justify-between items-start">
@@ -156,7 +182,7 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({ recipe, onChange
                 <div className="flex items-center gap-4 text-sm text-gray-400">
                   <div className="flex items-center gap-1">
                     <Clock className="w-4 h-4" />
-                    {format(new Date(version.createdAt), 'MMM d, yyyy h:mm a')}
+                    {format(new Date(version.createdAt), "MMM d, yyyy h:mm a")}
                   </div>
                   <div className="flex items-center gap-1">
                     <User className="w-4 h-4" />
@@ -165,10 +191,15 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({ recipe, onChange
                 </div>
 
                 <div className="space-y-2">
-                  <h5 className="text-sm font-medium text-gray-300">Changes:</h5>
+                  <h5 className="text-sm font-medium text-gray-300">
+                    Changes:
+                  </h5>
                   <ul className="space-y-1">
                     {version.changes.map((change, index) => (
-                      <li key={index} className="text-sm text-gray-400 flex items-start gap-2">
+                      <li
+                        key={index}
+                        className="text-sm text-gray-400 flex items-start gap-2"
+                      >
                         <FileText className="w-4 h-4 flex-shrink-0 mt-0.5" />
                         {change}
                       </li>
@@ -182,7 +213,8 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({ recipe, onChange
                       <Check className="w-4 h-4 text-green-400 mt-1" />
                       <div>
                         <p className="text-sm text-gray-300">
-                          Approved by {version.approved.by} on {format(new Date(version.approved.at), 'MMM d, yyyy')}
+                          Approved by {version.approved.by} on{" "}
+                          {format(new Date(version.approved.at), "MMM d, yyyy")}
                         </p>
                         {version.approved.notes && (
                           <p className="text-sm text-gray-400 mt-1">
@@ -227,7 +259,7 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({ recipe, onChange
               <button
                 onClick={() => {
                   setIsApproving(false);
-                  setApprovalNotes('');
+                  setApprovalNotes("");
                   setSelectedVersion(null);
                 }}
                 className="text-gray-400 hover:text-white"
@@ -253,10 +285,13 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({ recipe, onChange
                 <div className="flex gap-3">
                   <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0" />
                   <div>
-                    <p className="text-yellow-400 font-medium">Important Notice</p>
+                    <p className="text-yellow-400 font-medium">
+                      Important Notice
+                    </p>
                     <p className="text-sm text-gray-300 mt-1">
-                      Approving a version indicates that it has been reviewed and meets all quality standards.
-                      This action will be logged and cannot be undone.
+                      Approving a version indicates that it has been reviewed
+                      and meets all quality standards. This action will be
+                      logged and cannot be undone.
                     </p>
                   </div>
                 </div>
@@ -266,17 +301,14 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({ recipe, onChange
                 <button
                   onClick={() => {
                     setIsApproving(false);
-                    setApprovalNotes('');
+                    setApprovalNotes("");
                     setSelectedVersion(null);
                   }}
                   className="btn-ghost"
                 >
                   Cancel
                 </button>
-                <button
-                  onClick={submitApproval}
-                  className="btn-primary"
-                >
+                <button onClick={submitApproval} className="btn-primary">
                   <Check className="w-4 h-4 mr-2" />
                   Approve Version
                 </button>
