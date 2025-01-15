@@ -1,14 +1,14 @@
-import React from 'react';
-import { 
-  Book, 
-  Info, 
-  Plus, 
-  Trash2, 
-  Camera, 
-  AlertCircle, 
-  GripVertical, 
-  ThermometerSun 
-} from 'lucide-react';
+import React from "react";
+import {
+  Book,
+  Info,
+  Plus,
+  Trash2,
+  Camera,
+  AlertCircle,
+  GripVertical,
+  ThermometerSun,
+} from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -16,41 +16,36 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  DragEndEvent
-} from '@dnd-kit/core';
+  DragEndEvent,
+} from "@dnd-kit/core";
 import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import type { Recipe, RecipeStep } from '../../types/recipe';
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import type { Recipe, RecipeStep } from "../../types/recipe";
 
 interface InstructionEditorProps {
   recipe: Recipe;
   onChange: (updates: Partial<Recipe>) => void;
 }
 
-const SortableStep = ({ 
-  step, 
-  index, 
-  onUpdate, 
-  onDelete 
-}: { 
-  step: RecipeStep; 
+const SortableStep = ({
+  step,
+  index,
+  onUpdate,
+  onDelete,
+}: {
+  step: RecipeStep;
   index: number;
   onUpdate: (index: number, updates: Partial<RecipeStep>) => void;
   onDelete: (index: number) => void;
 }) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: step.id });
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id: step.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -58,17 +53,13 @@ const SortableStep = ({
   };
 
   return (
-    <div 
-      ref={setNodeRef} 
+    <div
+      ref={setNodeRef}
       style={style}
       className="bg-gray-800/50 rounded-lg p-4 space-y-4"
     >
       <div className="flex items-start gap-4">
-        <div 
-          {...attributes} 
-          {...listeners}
-          className="mt-2 cursor-grab"
-        >
+        <div {...attributes} {...listeners} className="mt-2 cursor-grab">
           <GripVertical className="w-5 h-5 text-gray-500 hover:text-gray-400" />
         </div>
 
@@ -104,10 +95,14 @@ const SortableStep = ({
               </label>
               <input
                 type="number"
-                value={step.time_in_minutes || ''}
-                onChange={(e) => onUpdate(index, { 
-                  time_in_minutes: e.target.value ? parseInt(e.target.value) : null 
-                })}
+                value={step.time_in_minutes || ""}
+                onChange={(e) =>
+                  onUpdate(index, {
+                    time_in_minutes: e.target.value
+                      ? parseInt(e.target.value)
+                      : null,
+                  })
+                }
                 className="input w-full"
                 placeholder="Duration"
                 min="0"
@@ -120,18 +115,24 @@ const SortableStep = ({
               <div className="flex gap-2">
                 <input
                   type="number"
-                  value={step.temperature_value || ''}
-                  onChange={(e) => onUpdate(index, { 
-                    temperature_value: e.target.value ? parseInt(e.target.value) : null 
-                  })}
+                  value={step.temperature_value || ""}
+                  onChange={(e) =>
+                    onUpdate(index, {
+                      temperature_value: e.target.value
+                        ? parseInt(e.target.value)
+                        : null,
+                    })
+                  }
                   className="input flex-1"
                   placeholder="Temperature"
                 />
                 <select
-                  value={step.temperature_unit || 'F'}
-                  onChange={(e) => onUpdate(index, { 
-                    temperature_unit: e.target.value as 'F' | 'C' 
-                  })}
+                  value={step.temperature_unit || "F"}
+                  onChange={(e) =>
+                    onUpdate(index, {
+                      temperature_unit: e.target.value as "F" | "C",
+                    })
+                  }
                   className="input w-20"
                 >
                   <option value="F">°F</option>
@@ -146,7 +147,7 @@ const SortableStep = ({
               Notes
             </label>
             <textarea
-              value={step.notes || ''}
+              value={step.notes || ""}
               onChange={(e) => onUpdate(index, { notes: e.target.value })}
               className="input w-full h-20"
               placeholder="Add any additional notes, warnings, or tips..."
@@ -160,17 +161,20 @@ const SortableStep = ({
             </label>
             <div className="grid grid-cols-2 gap-4">
               {(step.media || []).map((media, mediaIndex) => (
-                <div 
-                  key={media.id} 
+                <div
+                  key={media.id}
                   className="bg-gray-900/50 rounded-lg p-3 flex items-start gap-2"
                 >
                   <div className="flex-grow">
                     <input
                       type="text"
-                      value={media.title || ''}
+                      value={media.title || ""}
                       onChange={(e) => {
                         const updatedMedia = [...(step.media || [])];
-                        updatedMedia[mediaIndex] = { ...media, title: e.target.value };
+                        updatedMedia[mediaIndex] = {
+                          ...media,
+                          title: e.target.value,
+                        };
                         onUpdate(index, { media: updatedMedia });
                       }}
                       className="input w-full mb-2"
@@ -178,10 +182,13 @@ const SortableStep = ({
                     />
                     <input
                       type="text"
-                      value={media.url || ''}
+                      value={media.url || ""}
                       onChange={(e) => {
                         const updatedMedia = [...(step.media || [])];
-                        updatedMedia[mediaIndex] = { ...media, url: e.target.value };
+                        updatedMedia[mediaIndex] = {
+                          ...media,
+                          url: e.target.value,
+                        };
                         onUpdate(index, { media: updatedMedia });
                       }}
                       className="input w-full text-sm"
@@ -190,7 +197,9 @@ const SortableStep = ({
                   </div>
                   <button
                     onClick={() => {
-                      const updatedMedia = (step.media || []).filter((_, i) => i !== mediaIndex);
+                      const updatedMedia = (step.media || []).filter(
+                        (_, i) => i !== mediaIndex,
+                      );
                       onUpdate(index, { media: updatedMedia });
                     }}
                     className="text-gray-400 hover:text-rose-400 transition-colors"
@@ -199,25 +208,23 @@ const SortableStep = ({
                   </button>
                 </div>
               ))}
-              
+
               <button
                 onClick={() => {
                   const newMedia = {
                     id: `media-${Date.now()}`,
-                    type: 'image',
-                    url: '',
-                    title: '',
+                    type: "image",
+                    url: "",
+                    title: "",
                     step_id: step.id,
                     is_primary: false,
-                    sort_order: (step.media || []).length
+                    sort_order: (step.media || []).length,
                   };
-                  onUpdate(index, { 
-                    media: [...(step.media || []), newMedia] 
+                  onUpdate(index, {
+                    media: [...(step.media || []), newMedia],
                   });
                 }}
-                className="flex items-center justify-center gap-2 text-sm text-primary-400 hover:text-primary-300 
-                           bg-gray-900/50 rounded-lg p-3 border-2 border-dashed border-gray-700 
-                           hover:border-primary-400/50 transition-colors"
+                className="flex items-center justify-center gap-2 text-sm text-primary-400 hover:text-primary-300 bg-gray-900/50 rounded-lg p-3 border-2 border-dashed border-gray-700 hover:border-primary-400/50 transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 Add Media
@@ -230,23 +237,31 @@ const SortableStep = ({
               <input
                 type="checkbox"
                 checked={step.is_quality_control_point || false}
-                onChange={(e) => onUpdate(index, { 
-                  is_quality_control_point: e.target.checked 
-                })}
+                onChange={(e) =>
+                  onUpdate(index, {
+                    is_quality_control_point: e.target.checked,
+                  })
+                }
                 className="form-checkbox rounded bg-gray-700 border-gray-600 text-primary-500"
               />
-              <span className="text-sm text-gray-300">Quality Control Point</span>
+              <span className="text-sm text-gray-300">
+                Quality Control Point
+              </span>
             </label>
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
                 checked={step.is_critical_control_point || false}
-                onChange={(e) => onUpdate(index, { 
-                  is_critical_control_point: e.target.checked 
-                })}
+                onChange={(e) =>
+                  onUpdate(index, {
+                    is_critical_control_point: e.target.checked,
+                  })
+                }
                 className="form-checkbox rounded bg-gray-700 border-gray-600 text-rose-500"
               />
-              <span className="text-sm text-gray-300">Critical Control Point</span>
+              <span className="text-sm text-gray-300">
+                Critical Control Point
+              </span>
             </label>
           </div>
 
@@ -254,9 +269,12 @@ const SortableStep = ({
             <div className="bg-rose-500/10 rounded-lg p-4 mt-4 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0" />
               <div>
-                <p className="text-rose-400 font-medium">Critical Control Point</p>
+                <p className="text-rose-400 font-medium">
+                  Critical Control Point
+                </p>
                 <p className="text-sm text-gray-300 mt-1">
-                  This step requires specific monitoring and documentation. Ensure all quality checks are performed and recorded.
+                  This step requires specific monitoring and documentation.
+                  Ensure all quality checks are performed and recorded.
                 </p>
               </div>
             </div>
@@ -267,12 +285,15 @@ const SortableStep = ({
   );
 };
 
-export const InstructionEditor: React.FC<InstructionEditorProps> = ({ recipe, onChange }) => {
+export const InstructionEditor: React.FC<InstructionEditorProps> = ({
+  recipe,
+  onChange,
+}) => {
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   const handleStepChange = (index: number, updates: Partial<RecipeStep>) => {
@@ -284,20 +305,20 @@ export const InstructionEditor: React.FC<InstructionEditorProps> = ({ recipe, on
   const addStep = () => {
     const newStep: RecipeStep = {
       id: `step-${Date.now()}`,
-      recipe_id: recipe.id || '',
-      instruction: '',
-      notes: '',
-      warning_level: 'low',
+      recipe_id: recipe.id || "",
+      instruction: "",
+      notes: "",
+      warning_level: "low",
       time_in_minutes: null,
       temperature_value: null,
-      temperature_unit: 'F',
+      temperature_unit: "F",
       is_quality_control_point: false,
       is_critical_control_point: false,
-      sort_order: (recipe.steps?.length || 0)
+      sort_order: recipe.steps?.length || 0,
     };
-    
-    onChange({ 
-      steps: [...(recipe.steps || []), newStep] 
+
+    onChange({
+      steps: [...(recipe.steps || []), newStep],
     });
   };
 
@@ -309,8 +330,8 @@ export const InstructionEditor: React.FC<InstructionEditorProps> = ({ recipe, on
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
-      const oldIndex = recipe.steps?.findIndex(step => step.id === active.id);
-      const newIndex = recipe.steps?.findIndex(step => step.id === over.id);
+      const oldIndex = recipe.steps?.findIndex((step) => step.id === active.id);
+      const newIndex = recipe.steps?.findIndex((step) => step.id === over.id);
       if (oldIndex !== undefined && newIndex !== undefined) {
         const newSteps = arrayMove(recipe.steps || [], oldIndex, newIndex);
         onChange({ steps: newSteps });
@@ -327,16 +348,21 @@ export const InstructionEditor: React.FC<InstructionEditorProps> = ({ recipe, on
             <Book className="w-5 h-5 text-amber-400" />
           </div>
           <div>
-            <h3 className="text-lg font-medium text-white">Instructions Editor Guide</h3>
+            <h3 className="text-lg font-medium text-white">
+              Instructions Editor Guide
+            </h3>
             <p className="text-gray-400 mt-1">
-              Create clear, detailed instructions for consistent recipe execution.
+              Create clear, detailed instructions for consistent recipe
+              execution.
             </p>
-            
+
             <div className="mt-4 space-y-3">
               <div className="flex items-start gap-3">
                 <Info className="w-5 h-5 text-primary-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-white">Best Practices</p>
+                  <p className="text-sm font-medium text-white">
+                    Best Practices
+                  </p>
                   <ul className="mt-1 space-y-1 text-sm text-gray-400">
                     <li>• Write clear, action-oriented instructions</li>
                     <li>• Include specific measurements and temperatures</li>
@@ -346,23 +372,30 @@ export const InstructionEditor: React.FC<InstructionEditorProps> = ({ recipe, on
                   </ul>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-3">
                 <Camera className="w-5 h-5 text-primary-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-white">Media Support</p>
+                  <p className="text-sm font-medium text-white">
+                    Media Support
+                  </p>
                   <p className="text-sm text-gray-400">
-                    Add photos or videos in the Media section to illustrate specific techniques or quality standards.
+                    Add photos or videos in the Media section to illustrate
+                    specific techniques or quality standards.
                   </p>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-3">
                 <ThermometerSun className="w-5 h-5 text-primary-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-white">Temperature & Time</p>
+                  <p className="text-sm font-medium text-white">
+                    Temperature & Time
+                  </p>
                   <p className="text-sm text-gray-400">
-                    Always specify temperatures and times for critical steps. Mark steps requiring temperature monitoring as Critical Control Points.
+                    Always specify temperatures and times for critical steps.
+                    Mark steps requiring temperature monitoring as Critical
+                    Control Points.
                   </p>
                 </div>
               </div>
@@ -375,10 +408,7 @@ export const InstructionEditor: React.FC<InstructionEditorProps> = ({ recipe, on
       <div className="card p-6">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-lg font-medium text-white">Recipe Steps</h3>
-          <button
-            onClick={addStep}
-            className="btn-ghost text-sm"
-          >
+          <button onClick={addStep} className="btn-ghost text-sm">
             <Plus className="w-4 h-4 mr-2" />
             Add Step
           </button>
@@ -390,7 +420,7 @@ export const InstructionEditor: React.FC<InstructionEditorProps> = ({ recipe, on
           onDragEnd={handleDragEnd}
         >
           <SortableContext
-            items={(recipe.steps || []).map(step => step.id)}
+            items={(recipe.steps || []).map((step) => step.id)}
             strategy={verticalListSortingStrategy}
           >
             <div className="space-y-4">
@@ -409,7 +439,8 @@ export const InstructionEditor: React.FC<InstructionEditorProps> = ({ recipe, on
 
         {(!recipe.steps || recipe.steps.length === 0) && (
           <div className="text-center py-8 text-gray-400">
-            No steps added yet. Click "Add Step" to begin building your recipe instructions.
+            No steps added yet. Click "Add Step" to begin building your recipe
+            instructions.
           </div>
         )}
       </div>
