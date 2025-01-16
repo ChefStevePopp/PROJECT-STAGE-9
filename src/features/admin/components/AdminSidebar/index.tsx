@@ -1,11 +1,12 @@
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { menuItems } from './menuItems';
-import { useAuth } from '@/hooks/useAuth';
+import React from "react";
+import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { menuItems } from "./menuItems";
 
 export const AdminSidebar: React.FC = () => {
   const location = useLocation();
   const { isDev } = useAuth();
+  console.log("Is Dev User:", isDev); // Debug log
   const items = menuItems(isDev);
 
   return (
@@ -19,8 +20,8 @@ export const AdminSidebar: React.FC = () => {
             className="w-10 h-10 rounded-lg object-cover"
           />
           <div>
-            <h1 className="text-xl font-semibold text-white">JOSHi AI</h1>
-            <h2 className="text-xs font-status text-primary-400">Organization Settings</h2>
+            <h1 className="text-xl font-semibold text-white">KITCHEN AI</h1>
+            <h2 className="text-xs font-status text-primary-400">ADMIN</h2>
           </div>
         </div>
       </div>
@@ -42,8 +43,8 @@ export const AdminSidebar: React.FC = () => {
                       to={item.path}
                       className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
                         location.pathname === item.path
-                          ? 'bg-gray-800 text-white'
-                          : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                          ? "bg-gray-800 text-white"
+                          : "text-gray-400 hover:text-white hover:bg-gray-800"
                       }`}
                     >
                       <item.icon className="w-5 h-5" />

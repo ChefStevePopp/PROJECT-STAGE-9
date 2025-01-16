@@ -1,132 +1,140 @@
-import React, { useState, useCallback } from 'react';
-import { X, Search, UserPlus, RefreshCw } from 'lucide-react';
-import { useTeamStore } from '@/stores/teamStore';
-import type { KitchenRole } from '@/config/kitchen-roles';
-import type { TeamMemberData } from '@/features/team/types';
-import toast from 'react-hot-toast';
+import React, { useState } from "react";
+import { X, Search, Users } from "lucide-react";
+import type { TeamMember } from "@/features/team/types";
 
 interface AssignMembersModalProps {
-  isOpen: boolean;
+  role: string;
+  allMembers: TeamMember[];
+  currentMembers: TeamMember[];
   onClose: () => void;
-  role: KitchenRole;
-  onAssign: () => Promise<void>;
+  onAssign: (memberId: string, role: string) => Promise<void>;
 }
 
 export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
-  isOpen,
-  onClose,
   role,
-  onAssign
+  allMembers,
+  currentMembers,
+  onClose,
+  onAssign,
 }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [assigningMemberId, setAssigningMemberId] = useState<string | null>(null);
-  const { members, updateMember } = useTeamStore();
-
-  // Filter out members who already have this role
-  const availableMembers = members.filter(m => m.kitchenRole !== role);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // Filter members based on search
-  const filteredMembers = availableMembers.filter(member => 
-    `${member.firstName} ${member.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    member.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredMembers = allMembers.filter((member) => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      member.first_name.toLowerCase().includes(searchLower) ||
+      member.last_name.toLowerCase().includes(searchLower) ||
+      member.email.toLowerCase().includes(searchLower)
+    );
+  });
 
-  const handleAssign = useCallback(async (member: TeamMemberData) => {
-    setAssigningMemberId(member.id);
+  const handleAssign = async (memberId: string) => {
+    if (isUpdating) return;
+    setIsUpdating(true);
     try {
-      await updateMember(member.id, { kitchenRole: role });
-      await onAssign();
-      toast.success(`${member.firstName} ${member.lastName} assigned as ${role}`);
-      onClose();
-    } catch (error) {
-      console.error('Error assigning role:', error);
-      toast.error('Failed to assign role');
+      await onAssign(memberId, role);
     } finally {
-      setAssigningMemberId(null);
+      setIsUpdating(false);
     }
-  }, [role, updateMember, onAssign, onClose]);
-
-  if (!isOpen) return null;
+  };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-900 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-800 rounded-xl p-6 w-full max-w-2xl">
         {/* Header */}
-        <div className="p-6 border-b border-gray-800 flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-white">Assign Team Members</h2>
-          <button 
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-semibold text-white">Assign Members</h2>
+            <p className="text-sm text-gray-400 mt-1">
+              Select team members to assign to this role
+            </p>
+          </div>
+          <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors"
+            className="text-gray-400 hover:text-white p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-6 flex-1 overflow-auto">
-          {/* Search */}
-          <div className="relative">
-            <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search team members..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="input w-full pl-10"
-              autoFocus
-            />
-          </div>
+        {/* Search */}
+        <div className="relative mb-6">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white placeholder:text-gray-500 focus:ring-2 focus:ring-primary-500/50 outline-none"
+            placeholder="Search team members..."
+          />
+        </div>
 
-          {/* Members List */}
-          <div className="space-y-2">
-            {filteredMembers.length === 0 ? (
-              <div className="text-center py-8 text-gray-400">
-                {searchTerm ? (
-                  <p>No team members match your search</p>
-                ) : (
-                  <p>No team members available to assign</p>
-                )}
-              </div>
-            ) : (
-              filteredMembers.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg hover:bg-gray-800/70 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
+        {/* Members List */}
+        <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+          {filteredMembers.map((member) => {
+            const isAssigned = currentMembers.some((m) => m.id === member.id);
+            const currentRole = member.kitchen_role || "team_member";
+
+            return (
+              <div
+                key={member.id}
+                className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-full bg-gray-800 overflow-hidden flex-shrink-0">
                     <img
-                      src={member.avatar}
-                      alt={`${member.firstName} ${member.lastName}`}
-                      className="w-10 h-10 rounded-lg object-cover"
+                      src={
+                        member.avatar_url ||
+                        `https://api.dicebear.com/7.x/avataaars/svg?seed=${member.first_name}`
+                      }
+                      alt={member.first_name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${member.first_name}`;
+                      }}
                     />
-                    <div>
-                      <p className="text-white font-medium">
-                        {member.firstName} {member.lastName}
-                      </p>
-                      <p className="text-sm text-gray-400">{member.email}</p>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-white truncate">
+                      {member.first_name} {member.last_name}
+                    </div>
+                    <div className="text-sm text-gray-400 truncate">
+                      Current Role: {currentRole}
                     </div>
                   </div>
-                  <button
-                    onClick={() => handleAssign(member)}
-                    disabled={assigningMemberId === member.id}
-                    className="btn-ghost text-sm text-primary-400 hover:text-primary-300 disabled:opacity-50"
-                  >
-                    {assigningMemberId === member.id ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                        Assigning...
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus className="w-4 h-4 mr-2" />
-                        Assign Role
-                      </>
-                    )}
-                  </button>
                 </div>
-              ))
-            )}
-          </div>
+
+                <button
+                  onClick={() => handleAssign(member.id)}
+                  disabled={isUpdating}
+                  className={`flex-shrink-0 px-4 py-1 rounded-full text-sm font-medium transition-colors ${
+                    isAssigned
+                      ? "bg-primary-500/20 text-primary-400 hover:bg-primary-500/30"
+                      : "bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700"
+                  }`}
+                >
+                  {isAssigned ? "Remove" : "Assign"}
+                </button>
+              </div>
+            );
+          })}
+
+          {filteredMembers.length === 0 && (
+            <div className="text-center py-8 text-gray-400">
+              {searchTerm
+                ? "No team members found matching your search."
+                : "No team members available."}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end mt-6 pt-6 border-t border-gray-700">
+          <button onClick={onClose} className="btn-ghost text-sm">
+            Done
+          </button>
         </div>
       </div>
     </div>

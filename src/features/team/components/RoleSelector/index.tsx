@@ -1,62 +1,65 @@
-import React from 'react';
-import { Shield } from 'lucide-react';
-import { KITCHEN_ROLES, type KitchenRole } from '@/config/kitchen-roles';
-import { useUserRole } from '@/hooks/useUserRole';
-import toast from 'react-hot-toast';
+import React from "react";
+import { Shield } from "lucide-react";
+import { ROLE_DEFINITIONS } from "@/lib/auth/roles/roleDefinitions";
 
 interface RoleSelectorProps {
-  selectedRole: KitchenRole;
-  onRoleChange: (role: KitchenRole) => void;
+  value: string;
+  onChange: (value: string) => void;
   disabled?: boolean;
 }
 
 export const RoleSelector: React.FC<RoleSelectorProps> = ({
-  selectedRole,
-  onRoleChange,
-  disabled = false
+  value,
+  onChange,
+  disabled = false,
 }) => {
-  const { kitchenRole } = useUserRole();
-
-  const handleRoleChange = (role: KitchenRole) => {
-    // Check if current user has permission to assign this role
-    if (disabled || !kitchenRole) {
-      toast.error('You do not have permission to change roles');
-      return;
-    }
-
-    // Only allow assigning roles of equal or lower level
-    const currentRoleIndex = Object.keys(KITCHEN_ROLES).indexOf(kitchenRole);
-    const newRoleIndex = Object.keys(KITCHEN_ROLES).indexOf(role);
-
-    if (newRoleIndex <= currentRoleIndex) {
-      toast.error('You cannot assign a role higher than or equal to your own');
-      return;
-    }
-
-    onRoleChange(role);
-  };
+  // Filter out the dev role and convert role definitions to array
+  const roles = Object.entries(ROLE_DEFINITIONS)
+    .filter(([id]) => id !== "dev")
+    .map(([id, role]) => ({
+      id,
+      label: role.label,
+      description: role.description,
+      level: role.level,
+    }));
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-400">
-        <Shield className="w-4 h-4 inline-block mr-2" />
-        Kitchen Role
-      </label>
-      <select
-        value={selectedRole}
-        onChange={(e) => handleRoleChange(e.target.value as KitchenRole)}
-        className="input w-full"
-        disabled={disabled}
-      >
-        {Object.entries(KITCHEN_ROLES).map(([role, config]) => (
-          <option key={role} value={role}>
-            {config.label}
-          </option>
-        ))}
-      </select>
-      <p className="text-xs text-gray-500">
-        {KITCHEN_ROLES[selectedRole].description}
-      </p>
+      {roles.map((role) => (
+        <label
+          key={role.id}
+          className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+            value === role.id
+              ? "bg-primary-500/20 border border-primary-500/50"
+              : "bg-gray-800/50 border border-transparent hover:border-gray-700"
+          } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+        >
+          <input
+            type="radio"
+            name="role"
+            value={role.id}
+            checked={value === role.id}
+            onChange={(e) => onChange(e.target.value)}
+            className="sr-only"
+            disabled={disabled}
+          />
+          <Shield
+            className={`w-5 h-5 mt-0.5 ${
+              value === role.id ? "text-primary-400" : "text-gray-400"
+            }`}
+          />
+          <div>
+            <div
+              className={`font-medium ${
+                value === role.id ? "text-primary-400" : "text-white"
+              }`}
+            >
+              {role.label}
+            </div>
+            <div className="text-sm text-gray-400">{role.description}</div>
+          </div>
+        </label>
+      ))}
     </div>
   );
 };

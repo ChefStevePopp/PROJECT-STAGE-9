@@ -1,6 +1,6 @@
-import React from 'react';
-import { History } from 'lucide-react';
-import type { PriceChange } from '@/types/vendor-invoice';
+import React from "react";
+import { History } from "lucide-react";
+import type { PriceChange } from "@/types/vendor-invoice";
 
 interface PriceChangeCardProps {
   change: PriceChange;
@@ -13,7 +13,7 @@ export const PriceChangeCard: React.FC<PriceChangeCardProps> = ({
   change,
   onApprove,
   onReject,
-  showHistory
+  showHistory,
 }) => (
   <div className="bg-gray-800/50 rounded-lg p-4">
     <div className="flex items-center justify-between">
@@ -31,16 +31,16 @@ export const PriceChangeCard: React.FC<PriceChangeCardProps> = ({
             Old: ${change.oldPrice.toFixed(2)}
           </span>
           <span className="text-gray-400">→</span>
-          <span className="text-white">
-            New: ${change.newPrice.toFixed(2)}
-          </span>
-          <span className={`px-2 py-0.5 rounded-full text-xs font-medium
-            ${Math.abs(change.percentChange) > 10
-              ? 'bg-rose-500/20 text-rose-400'
-              : 'bg-emerald-500/20 text-emerald-400'
+          <span className="text-white">New: ${change.newPrice.toFixed(2)}</span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-xs font-medium
+            ${
+              Math.abs(change.percentChange) > 10
+                ? "bg-rose-500/20 text-rose-400"
+                : "bg-emerald-500/20 text-emerald-400"
             }`}
           >
-            {change.percentChange > 0 ? '+' : ''}
+            {change.percentChange > 0 ? "+" : ""}
             {change.percentChange.toFixed(1)}%
           </span>
         </div>

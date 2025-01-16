@@ -1,8 +1,7 @@
-// src/lib/auth/utils/auth-storage.ts
-import { AUTH_CONSTANTS } from '../constants/auth-constants';
-import { AuthStorageError } from '../errors/auth-errors';
-import { logger } from './logger';
-import { TokenManager } from './token-manager';
+import { AUTH_CONSTANTS } from "../constants/auth-constants";
+import { AuthStorageError } from "../errors/auth-errors";
+import { logger } from "./logger";
+import { TokenManager } from "./token-manager";
 
 interface StorageOptions {
   prefix?: string;
@@ -20,13 +19,20 @@ export class AuthStorage {
 
   setItem<T>(key: string, value: T): void {
     try {
-      const serializedValue = JSON.stringify(value);
+      const timestamp = new Date().getTime();
+      const storageValue = {
+        value,
+        timestamp,
+        expiry: timestamp + AUTH_CONSTANTS.SESSION.MAX_AGE,
+      };
+
+      const serializedValue = JSON.stringify(storageValue);
       const storageKey = this.getFullKey(key);
       localStorage.setItem(storageKey, serializedValue);
       logger.debug(`Storage: Set item for key ${key}`);
     } catch (error) {
-      logger.error('Storage: Failed to set item', { key, error });
-      throw new AuthStorageError('Failed to set storage item');
+      logger.error("Storage: Failed to set item", { key, error });
+      throw new AuthStorageError("Failed to set storage item");
     }
   }
 
@@ -34,10 +40,22 @@ export class AuthStorage {
     try {
       const storageKey = this.getFullKey(key);
       const item = localStorage.getItem(storageKey);
-      return item ? JSON.parse(item) : null;
+
+      if (!item) return null;
+
+      const storageValue = JSON.parse(item);
+      const now = new Date().getTime();
+
+      // Check if item has expired
+      if (storageValue.expiry && now > storageValue.expiry) {
+        this.removeItem(key);
+        return null;
+      }
+
+      return storageValue.value;
     } catch (error) {
-      logger.error('Storage: Failed to get item', { key, error });
-      throw new AuthStorageError('Failed to get storage item');
+      logger.error("Storage: Failed to get item", { key, error });
+      return null;
     }
   }
 
@@ -49,8 +67,8 @@ export class AuthStorage {
   clear(): void {
     TokenManager.clearTokens();
     Object.keys(localStorage)
-      .filter(key => key.startsWith(this.storageKey))
-      .forEach(key => localStorage.removeItem(key));
+      .filter((key) => key.startsWith(this.storageKey))
+      .forEach((key) => localStorage.removeItem(key));
   }
 
   private getFullKey(key: string): string {
@@ -59,4 +77,3 @@ export class AuthStorage {
 }
 
 export const authStorage = new AuthStorage();
-

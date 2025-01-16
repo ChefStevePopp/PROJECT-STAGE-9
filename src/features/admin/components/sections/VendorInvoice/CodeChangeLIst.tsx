@@ -1,5 +1,5 @@
-import React from 'react';
-import type { CodeChange } from '@/types/vendor-invoice';
+import React from "react";
+import type { CodeChange } from "@/types/vendor-invoice";
 
 interface CodeChangesListProps {
   changes: CodeChange[];
@@ -10,7 +10,7 @@ interface CodeChangesListProps {
 export const CodeChangesList: React.FC<CodeChangesListProps> = ({
   changes,
   onUpdateCode,
-  onCreateNewItem
+  onCreateNewItem,
 }) => (
   <div className="space-y-4">
     <h3 className="text-lg font-medium text-white">Item Code Changes</h3>

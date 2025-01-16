@@ -1,27 +1,28 @@
-export interface TeamMemberData {
+export interface TeamMember {
   id: string;
-  firstName: string;
-  lastName: string;
+  created_at?: string;
+  updated_at?: string;
+  organization_id: string;
+  first_name: string;
+  last_name: string;
+  display_name?: string;
   email: string;
-  phone: string;
-  punchId: string;
-  avatar: string;
-  departments: string[];
-  roles: string[];
-  locations: string[];
-  kitchenRole?: string;
-  lastUpdated?: string;
+  phone?: string;
+  punch_id?: string;
+  avatar_url?: string;
+  roles?: string[];
+  departments?: string[];
+  locations?: string[];
+  notification_preferences?: Record<string, any>;
+  kitchen_role?: string;
 }
 
 export interface TeamStore {
-  members: TeamMemberData[];
+  members: TeamMember[];
   isLoading: boolean;
-  isImporting: boolean;
   error: string | null;
   fetchTeamMembers: () => Promise<void>;
-  importTeam: (data: any[]) => Promise<void>;
-  clearTeam: () => Promise<void>;
-  saveTeam: () => Promise<void>;
-  updateMember: (id: string, updates: Partial<TeamMemberData>) => Promise<void>;
-  deleteMember: (id: string) => Promise<void>;
+  createTeamMember: (member: Omit<TeamMember, "id">) => Promise<void>;
+  updateTeamMember: (id: string, updates: Partial<TeamMember>) => Promise<void>;
+  deleteTeamMember: (id: string) => Promise<void>;
 }
