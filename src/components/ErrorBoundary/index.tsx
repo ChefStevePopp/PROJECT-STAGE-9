@@ -1,10 +1,5 @@
-<<<<<<< HEAD
-// src/components/ErrorBoundary/index.tsx
-import React from "react";
-=======
 import React from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
->>>>>>> cb87c5dc74a44d0aec8ec39585a20d54ed8acafa
 
 interface Props {
   children: React.ReactNode;
@@ -14,22 +9,12 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
-<<<<<<< HEAD
-=======
   errorType: "gateway" | "network" | "general";
->>>>>>> cb87c5dc74a44d0aec8ec39585a20d54ed8acafa
 }
 
 export class ErrorBoundary extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props);
-<<<<<<< HEAD
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
-=======
     this.state = {
       hasError: false,
       error: null,
@@ -57,7 +42,6 @@ export class ErrorBoundary extends React.Component<Props, State> {
       error,
       errorType,
     };
->>>>>>> cb87c5dc74a44d0aec8ec39585a20d54ed8acafa
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
@@ -65,25 +49,6 @@ export class ErrorBoundary extends React.Component<Props, State> {
     this.props.onError?.(error);
   }
 
-<<<<<<< HEAD
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center p-4">
-          <div className="text-center space-y-4">
-            <h2 className="text-2xl font-bold text-white">
-              Something went wrong
-            </h2>
-            <p className="text-gray-400">
-              Please try again. If the problem persists, contact support.
-            </p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
-            >
-              Reload Page
-            </button>
-=======
   getErrorMessage() {
     switch (this.state.errorType) {
       case "gateway":
@@ -136,7 +101,6 @@ export class ErrorBoundary extends React.Component<Props, State> {
                 working on it.
               </p>
             )}
->>>>>>> cb87c5dc74a44d0aec8ec39585a20d54ed8acafa
           </div>
         </div>
       );

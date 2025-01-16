@@ -32,31 +32,37 @@ export const AllergenBadge: React.FC<AllergenBadgeProps> = ({
 
   return (
     <div className={`group relative inline-flex items-center ${className}`}>
+      {/* Badge Circle */}
       <div
         className={`
-        ${sizeClasses[size]}
-        rounded-full
-        flex items-center justify-center
-        bg-${allergen.color}-500/20
-        text-${allergen.color}-400
-        transition-transform
-        hover:scale-110
-        cursor-help
-      `}
+          ${sizeClasses[size]}
+          rounded-full
+          flex items-center justify-center
+          bg-${allergen.color}-500/20
+          text-${allergen.color}-400
+          transition-transform
+          hover:scale-110
+          cursor-help
+        `}
+        role="img"
+        aria-label={`${allergen.label} allergen indicator`}
       >
-        <Icon className={size === "sm" ? "w-4 h-4" : "w-5 h-5"} />
+        <Icon
+          className={size === "sm" ? "w-4 h-4" : "w-5 h-5"}
+          aria-hidden="true"
+        />
       </div>
 
+      {/* Optional Label */}
       {showLabel && (
         <span className="ml-2 text-sm text-gray-300">{allergen.label}</span>
       )}
 
       {/* Tooltip */}
-<<<<<<< HEAD
-      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded bg-gray-800 text-white text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-=======
-      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded bg-gray-800 text-white text-xs whitespace-nowrap opacity-0 group-hover:opacity-100    transition-opacity pointer-events-none z-10">
->>>>>>> cb87c5dc74a44d0aec8ec39585a20d54ed8acafa
+      <div
+        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded bg-gray-800 text-white text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10"
+        role="tooltip"
+      >
         <div className="font-medium mb-1 flex items-center gap-2">
           {allergen.label}
           <span
@@ -66,7 +72,10 @@ export const AllergenBadge: React.FC<AllergenBadgeProps> = ({
           </span>
         </div>
         <p className="text-gray-300 text-xs">{allergen.description}</p>
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full border-4 border-transparent border-t-gray-800" />
+        <div
+          className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full border-4 border-transparent border-t-gray-800"
+          aria-hidden="true"
+        />
       </div>
     </div>
   );
