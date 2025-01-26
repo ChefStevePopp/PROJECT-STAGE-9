@@ -219,7 +219,7 @@ export const IngredientsInput: React.FC<{
 
   return (
     <div className="space-y-4">
-      <div className="sticky top-0 bg-gray-800 z-20 pb-4">
+      <div className="sticky top-0 bg-gray-800 z-20 pr-[6] pb-[4] pb-[4] px-[6] py-[6] py-[6] p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
@@ -245,7 +245,6 @@ export const IngredientsInput: React.FC<{
           <div>Total Cost</div>
         </div>
       </div>
-
       {/* Ingredients List */}
       <div className="space-y-2">
         {recipe.ingredients.map((ingredient, index) => (
@@ -331,14 +330,12 @@ export const IngredientsInput: React.FC<{
           </div>
         ))}
       </div>
-
       {recipe.ingredients.length === 0 && (
         <div className="text-center py-8 text-gray-400">
           No ingredients added yet. Click "Add Ingredient" to start building
           your recipe.
         </div>
       )}
-
       {/* Total Cost Summary */}
       {recipe.ingredients.length > 0 && (
         <div className="mt-6 p-4 bg-emerald-500/10 rounded-lg">
