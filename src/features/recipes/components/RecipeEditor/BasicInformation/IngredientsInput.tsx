@@ -5,7 +5,24 @@ import {
   Trash2,
   AlertTriangle,
   Search,
+  GripVertical,
 } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useMasterIngredientsStore } from "@/stores/masterIngredientsStore";
 import type { Recipe, RecipeIngredient } from "../../../types/recipe";
 import toast from "react-hot-toast";
@@ -107,10 +124,130 @@ const IngredientSelect: React.FC<{
 };
 
 // Main IngredientsInput Component
+const SortableIngredientRow = ({
+  ingredient,
+  index,
+  handleIngredientChange,
+  removeIngredient,
+  masterIngredients,
+}) => {
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id: ingredient.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="grid grid-cols-7 gap-4 items-center bg-gray-800/50 px-4 py-3 rounded-lg"
+    >
+      <div className="col-span-2 flex items-center gap-2">
+        <div {...attributes} {...listeners} className="cursor-grab">
+          <GripVertical className="w-5 h-5 text-gray-500" />
+        </div>
+        <div className="flex-1">
+          <IngredientSelect
+            value={ingredient.name}
+            onChange={(value) => handleIngredientChange(index, "name", value)}
+            ingredients={masterIngredients}
+          />
+        </div>
+      </div>
+
+      <div>
+        <input
+          type="text"
+          value={ingredient.commonMeasure || ""}
+          onChange={(e) =>
+            handleIngredientChange(index, "commonMeasure", e.target.value)
+          }
+          className="input w-full bg-gray-800/50"
+          placeholder="e.g., 2 cups"
+        />
+      </div>
+
+      <div>
+        <input
+          type="text"
+          value={ingredient.unit}
+          className="input w-full bg-gray-800/50"
+          disabled
+        />
+      </div>
+
+      <div>
+        <input
+          type="text"
+          value={ingredient.quantity}
+          onChange={(e) =>
+            handleIngredientChange(index, "quantity", e.target.value)
+          }
+          className="input w-full text-right bg-gray-800/50"
+          placeholder="0"
+          required
+        />
+      </div>
+
+      <div>
+        <input
+          type="text"
+          value={`${ingredient.cost.toFixed(2)}`}
+          className="input w-full bg-gray-800/50 text-right"
+          disabled
+        />
+      </div>
+
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          value={`${(
+            parseFloat(ingredient.quantity || "0") * ingredient.cost
+          ).toFixed(2)}`}
+          className="input w-full bg-gray-800/50 text-right"
+          disabled
+        />
+        <button
+          onClick={() => removeIngredient(index)}
+          className="text-gray-400 hover:text-rose-400"
+        >
+          <Trash2 className="w-5 h-5" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
 export const IngredientsInput: React.FC<{
   recipe: Recipe;
   onChange: (updates: Partial<Recipe>) => void;
 }> = ({ recipe, onChange }) => {
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = recipe.ingredients.findIndex(
+        (ing) => ing.id === active.id,
+      );
+      const newIndex = recipe.ingredients.findIndex(
+        (ing) => ing.id === over.id,
+      );
+
+      onChange({
+        ingredients: arrayMove(recipe.ingredients, oldIndex, newIndex),
+      });
+    }
+  };
   const {
     ingredients: masterIngredients,
     fetchIngredients,
@@ -162,12 +299,36 @@ export const IngredientsInput: React.FC<{
           ingredient.name = value;
           ingredient.unit = masterIngredient.recipe_unit_type || "";
           ingredient.cost = Number(masterIngredient.cost_per_recipe_unit) || 0;
+
+          // Update recipe allergens when ingredient changes
+          const currentAllergens = new Set(recipe.allergenInfo?.contains || []);
+          if (masterIngredient.allergens?.length) {
+            masterIngredient.allergens.forEach((allergen) =>
+              currentAllergens.add(allergen),
+            );
+          }
+
+          // Recalculate all allergens from all ingredients
+          const allAllergens = new Set<string>();
+          newIngredients.forEach((ing) => {
+            const mi = masterIngredients.find((m) => m.id === ing.name);
+            if (mi?.allergens?.length) {
+              mi.allergens.forEach((allergen) => allAllergens.add(allergen));
+            }
+          });
+
+          onChange({
+            ingredients: newIngredients,
+            allergenInfo: {
+              ...recipe.allergenInfo,
+              contains: Array.from(allAllergens),
+            },
+          });
         }
       } else {
         ingredient[field] = value;
+        onChange({ ingredients: newIngredients });
       }
-
-      onChange({ ingredients: newIngredients });
     } catch (error) {
       console.error("Error updating ingredient:", error);
       toast.error("Error updating ingredient");
@@ -189,8 +350,23 @@ export const IngredientsInput: React.FC<{
   };
 
   const removeIngredient = (index: number) => {
+    const newIngredients = recipe.ingredients.filter((_, i) => i !== index);
+
+    // Recalculate allergens after removing ingredient
+    const allAllergens = new Set<string>();
+    newIngredients.forEach((ing) => {
+      const mi = masterIngredients.find((m) => m.id === ing.name);
+      if (mi?.allergens?.length) {
+        mi.allergens.forEach((allergen) => allAllergens.add(allergen));
+      }
+    });
+
     onChange({
-      ingredients: recipe.ingredients.filter((_, i) => i !== index),
+      ingredients: newIngredients,
+      allergenInfo: {
+        ...recipe.allergenInfo,
+        contains: Array.from(allAllergens),
+      },
     });
   };
 
@@ -246,90 +422,29 @@ export const IngredientsInput: React.FC<{
         </div>
       </div>
       {/* Ingredients List */}
-      <div className="space-y-2">
-        {recipe.ingredients.map((ingredient, index) => (
-          <div
-            key={ingredient.id}
-            className="grid grid-cols-7 gap-4 items-center bg-gray-800/50 px-4 py-3 rounded-lg"
-          >
-            {/* Ingredient Selection */}
-            <div className="col-span-2">
-              <IngredientSelect
-                value={ingredient.name}
-                onChange={(value) =>
-                  handleIngredientChange(index, "name", value)
-                }
-                ingredients={masterIngredients}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={recipe.ingredients.map((ing) => ing.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="space-y-2">
+            {recipe.ingredients.map((ingredient, index) => (
+              <SortableIngredientRow
+                key={ingredient.id}
+                ingredient={ingredient}
+                index={index}
+                handleIngredientChange={handleIngredientChange}
+                removeIngredient={removeIngredient}
+                masterIngredients={masterIngredients}
               />
-            </div>
-
-            {/* Common Measure */}
-            <div>
-              <input
-                type="text"
-                value={ingredient.commonMeasure || ""}
-                onChange={(e) =>
-                  handleIngredientChange(index, "commonMeasure", e.target.value)
-                }
-                className="input w-full bg-gray-800/50"
-                placeholder="e.g., 2 cups"
-              />
-            </div>
-
-            {/* Recipe Unit Type */}
-            <div>
-              <input
-                type="text"
-                value={ingredient.unit}
-                className="input w-full bg-gray-800/50"
-                disabled
-              />
-            </div>
-
-            {/* Number of Recipe Units */}
-            <div>
-              <input
-                type="text"
-                value={ingredient.quantity}
-                onChange={(e) =>
-                  handleIngredientChange(index, "quantity", e.target.value)
-                }
-                className="input w-full text-right bg-gray-800/50"
-                placeholder="0"
-                required
-              />
-            </div>
-
-            {/* Recipe Unit Cost */}
-            <div>
-              <input
-                type="text"
-                value={`$${ingredient.cost.toFixed(2)}`}
-                className="input w-full bg-gray-800/50 text-right"
-                disabled
-              />
-            </div>
-
-            {/* Total Cost */}
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={`$${(
-                  parseFloat(ingredient.quantity || "0") * ingredient.cost
-                ).toFixed(2)}`}
-                className="input w-full bg-gray-800/50 text-right"
-                disabled
-              />
-              <button
-                onClick={() => removeIngredient(index)}
-                className="text-gray-400 hover:text-rose-400"
-              >
-                <Trash2 className="w-5 h-5" />
-              </button>
-            </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </SortableContext>
+      </DndContext>
       {recipe.ingredients.length === 0 && (
         <div className="text-center py-8 text-gray-400">
           No ingredients added yet. Click "Add Ingredient" to start building

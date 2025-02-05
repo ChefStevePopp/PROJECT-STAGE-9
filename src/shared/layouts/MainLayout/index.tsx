@@ -11,13 +11,12 @@ export const MainLayout: React.FC = () => {
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       <Header className="sticky top-0 z-40 border-b border-gray-800" />
-
       <div className="min-h-[calc(100vh-73px)]">
         <Sidebar className="fixed left-0 top-[73px] bottom-0 w-20 z-30 border-r border-gray-800" />
 
         {/* Main Content Area */}
-        <main className="ml-20 lg:mr-80">
-          <div className="max-w-[1200px] mx-auto p-4">
+        <main className="ml-20 mr-[2.15rem]">
+          <div className="mx-auto p-4 max-w-full">
             <Outlet />
           </div>
         </main>
@@ -45,9 +44,9 @@ export const MainLayout: React.FC = () => {
         {/* Desktop TeamChat */}
         <div
           className={`
-            hidden lg:block fixed right-[5%] top-[123px] bottom-[3rem]
+            hidden lg:block fixed right-[-625px] top-[123px] bottom-[3rem]
             w-[625px] z-50 transform transition-all duration-300 ease-in-out
-            ${isChatOpen ? "translate-x-0" : "translate-x-full"}
+            ${isChatOpen ? "translate-x-[-630px]" : "translate-x-0"}
           `}
         >
           <TeamChat

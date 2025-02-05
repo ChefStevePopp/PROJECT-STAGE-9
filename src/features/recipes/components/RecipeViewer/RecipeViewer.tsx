@@ -1,23 +1,19 @@
 import React, { useState, useEffect } from "react";
 import { ChefHat, UtensilsCrossed, Search, Book, Printer } from "lucide-react";
+import { Navigate } from "react-router-dom";
 import { useRecipeStore } from "@/stores/recipeStore";
 import RecipeCard from "../RecipeCard";
-import ViewerModal from "./ViewerModal";
 import type { Recipe } from "../../types/recipe";
 import { useSupabase } from "@/context/SupabaseContext";
 import toast from "react-hot-toast";
 
 export const RecipeViewer: React.FC = () => {
-  const diagnosticPath =
-    "src/features/recipes/components/RecipeViewer/RecipeViewer.tsx";
-
   const [activeTab, setActiveTab] = useState<"prepared" | "final">("prepared");
   const [searchTerm, setSearchTerm] = useState("");
   const [viewingRecipe, setViewingRecipe] = useState<Recipe | null>(null);
   const [organizationId, setOrganizationId] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
 
-  // Get recipes from store but handle filtering locally
   const { recipes, fetchRecipes } = useRecipeStore();
   const { supabase } = useSupabase();
 
@@ -60,7 +56,6 @@ export const RecipeViewer: React.FC = () => {
     return matchesType && matchesSearch;
   });
 
-  // Rest of component remains the same...
   const tabs = [
     {
       id: "prepared" as const,
@@ -82,9 +77,6 @@ export const RecipeViewer: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Diagnostic Text */}
-      <div className="text-xs text-gray-500 font-mono">{diagnosticPath}</div>
-
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -174,10 +166,7 @@ export const RecipeViewer: React.FC = () => {
 
       {/* Navigate to full page viewer when recipe is selected */}
       {viewingRecipe && (
-        <>
-          {window.location.pathname !== `/recipes/${viewingRecipe.id}` &&
-            window.location.assign(`/recipes/${viewingRecipe.id}`)}
-        </>
+        <Navigate to={`/kitchen/recipes/${viewingRecipe.id}`} replace />
       )}
     </div>
   );
