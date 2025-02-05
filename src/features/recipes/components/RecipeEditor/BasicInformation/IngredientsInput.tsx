@@ -253,7 +253,12 @@ export const IngredientsInput: React.FC<{
     fetchIngredients,
     isLoading,
     error,
-  } = useMasterIngredientsStore();
+  } = useMasterIngredientsStore((state) => ({
+    ingredients: state.ingredients,
+    fetchIngredients: state.fetchIngredients,
+    isLoading: state.isLoading,
+    error: state.error,
+  }));
 
   // Fetch master ingredients on mount
   useEffect(() => {
@@ -296,9 +301,14 @@ export const IngredientsInput: React.FC<{
           (mi) => mi.id === value,
         );
         if (masterIngredient) {
+          // Update ingredient with master ingredient information
           ingredient.name = value;
           ingredient.unit = masterIngredient.recipe_unit_type || "";
           ingredient.cost = Number(masterIngredient.cost_per_recipe_unit) || 0;
+
+          // Log for debugging
+          console.log("Selected master ingredient:", masterIngredient);
+          console.log("Updated ingredient:", ingredient);
 
           // Update recipe allergens when ingredient changes
           const currentAllergens = new Set(recipe.allergenInfo?.contains || []);
