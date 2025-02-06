@@ -1,189 +1,156 @@
-import React, { useState, useEffect } from 'react';
-import { X, Save } from 'lucide-react';
-import { BasicInformation } from './BasicInformation';
-import { PurchaseUnits } from './PurchaseUnits';
-import { RecipeUnits } from './RecipeUnits';
-import { AllergenSection } from './AllergenSection';
-import { useOperationsStore } from '@/stores/operationsStore';
-import { useFoodRelationshipsStore } from '@/stores/foodRelationshipsStore';
-import type { MasterIngredient } from '@/types/master-ingredient';
-import toast from 'react-hot-toast';
+import React from "react";
+import { X } from "lucide-react";
+import { BasicInformation } from "./BasicInformation";
+import { AllergenSection } from "./AllergenSection";
+import { RecipeUnits } from "./RecipeUnits";
+import { PurchaseUnits } from "./PurchaseUnits";
+import { MasterIngredient } from "@/types/master-ingredient";
+import { useMasterIngredientsStore } from "@/stores/masterIngredientsStore";
+import toast from "react-hot-toast";
 
 interface EditIngredientModalProps {
-  isOpen: boolean;
-  onClose: () => void;
   ingredient: MasterIngredient;
-  onSave: (id: string, updates: Partial<MasterIngredient>) => Promise<void>;
+  onClose: () => void;
+  onSave: (ingredient: MasterIngredient) => Promise<void>;
 }
 
 export const EditIngredientModal: React.FC<EditIngredientModalProps> = ({
-  isOpen,
+  ingredient: initialIngredient,
   onClose,
-  ingredient,
-  onSave
+  onSave,
 }) => {
-  const [formData, setFormData] = useState<MasterIngredient>(ingredient);
-  const [isSaving, setIsSaving] = useState(false);
-  const { settings, fetchSettings } = useOperationsStore();
-  const { fetchGroups } = useFoodRelationshipsStore();
+  // Use ref to track if component is mounted
+  const isMounted = React.useRef(true);
 
-  // Fetch required data on mount
-  useEffect(() => {
-    if (isOpen) {
-      fetchSettings();
-      fetchGroups();
-    }
-  }, [isOpen, fetchSettings, fetchGroups]);
+  // Initialize form data with memoized deep clone of initial ingredient
+  const [formData, setFormData] = React.useState(() => ({
+    ...JSON.parse(JSON.stringify(initialIngredient)),
+  }));
 
-  // Reset form data when ingredient changes
-  useEffect(() => {
-    setFormData(ingredient);
-  }, [ingredient]);
+  const [activeTab, setActiveTab] = React.useState("basic");
+  const [isSaving, setIsSaving] = React.useState(false);
+  const { fetchIngredients } = useMasterIngredientsStore();
 
-  // Calculate cost per recipe unit whenever relevant fields change
-  useEffect(() => {
-    const casePrice = Number(formData.currentPrice) || 0;
-    const recipeUnitsPerCase = Number(formData.recipeUnitPerPurchaseUnit) || 1;
-    const yieldPercent = (Number(formData.yieldPercent) || 1);
+  // Cleanup on unmount
+  React.useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
-    const costPerUnit = casePrice / recipeUnitsPerCase;
-    const adjustedCost = costPerUnit * (1 / yieldPercent);
+  // Handle form updates
+  const handleUpdate = React.useCallback(
+    (updates: Partial<MasterIngredient>) => {
+      setFormData((prev) => ({ ...prev, ...updates }));
+    },
+    [],
+  );
 
-    // Only update if the cost has actually changed
-    if (adjustedCost !== formData.costPerRecipeUnit) {
-      setFormData(prev => ({
-        ...prev,
-        costPerRecipeUnit: Number(adjustedCost.toFixed(4))
-      }));
-    }
-  }, [formData.currentPrice, formData.recipeUnitPerPurchaseUnit, formData.yieldPercent]);
+  // Save changes
+  const handleSave = async () => {
+    if (isSaving) return;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
     setIsSaving(true);
-
     try {
-      // Prepare data for database
-      const dbFormData = {
-        ...formData,
-        // Convert numeric fields
-        current_price: Number(formData.currentPrice),
-        units_per_case: Number(formData.unitsPerCase),
-        recipe_unit_per_purchase_unit: Number(formData.recipeUnitPerPurchaseUnit),
-        yield_percent: Number(formData.yieldPercent),
-        cost_per_recipe_unit: Number(formData.costPerRecipeUnit),
-        
-        // Convert camelCase to snake_case
-        item_code: formData.itemCode,
-        major_group: formData.majorGroup,
-        sub_category: formData.subCategory,
-        case_size: formData.caseSize,
-        unit_of_measure: formData.unitOfMeasure,
-        recipe_unit_type: formData.recipeUnitType,
-        image_url: formData.imageUrl,
-        storage_area: formData.storageArea,
-        
-        // Allergen fields
-        allergen_peanut: formData.allergenPeanut,
-        allergen_crustacean: formData.allergenCrustacean,
-        allergen_treenut: formData.allergenTreenut,
-        allergen_shellfish: formData.allergenShellfish,
-        allergen_sesame: formData.allergenSesame,
-        allergen_soy: formData.allergenSoy,
-        allergen_fish: formData.allergenFish,
-        allergen_wheat: formData.allergenWheat,
-        allergen_milk: formData.allergenMilk,
-        allergen_sulphite: formData.allergenSulphite,
-        allergen_egg: formData.allergenEgg,
-        allergen_gluten: formData.allergenGluten,
-        allergen_mustard: formData.allergenMustard,
-        allergen_celery: formData.allergenCelery,
-        allergen_garlic: formData.allergenGarlic,
-        allergen_onion: formData.allergenOnion,
-        allergen_nitrite: formData.allergenNitrite,
-        allergen_mushroom: formData.allergenMushroom,
-        allergen_hot_pepper: formData.allergenHotPepper,
-        allergen_citrus: formData.allergenCitrus,
-        allergen_pork: formData.allergenPork,
-        allergen_custom1_name: formData.allergenCustom1Name,
-        allergen_custom1_active: formData.allergenCustom1Active,
-        allergen_custom2_name: formData.allergenCustom2Name,
-        allergen_custom2_active: formData.allergenCustom2Active,
-        allergen_custom3_name: formData.allergenCustom3Name,
-        allergen_custom3_active: formData.allergenCustom3Active,
-        allergen_notes: formData.allergenNotes
-      };
-
-      console.log('Saving ingredient with cost:', dbFormData.cost_per_recipe_unit);
-      
-      await onSave(ingredient.id!, dbFormData);
-      toast.success('Ingredient updated successfully');
+      await onSave(formData);
+      await fetchIngredients(); // Refresh ingredient list
+      toast.success("Changes saved successfully");
       onClose();
     } catch (error) {
-      console.error('Error updating ingredient:', error);
-      toast.error('Failed to update ingredient');
+      console.error("Error saving ingredient:", error);
+      toast.error("Failed to save changes");
     } finally {
-      setIsSaving(false);
+      if (isMounted.current) {
+        setIsSaving(false);
+      }
     }
   };
 
-  if (!isOpen) return null;
+  // Memoize tabs to prevent unnecessary rerenders
+  const tabs = React.useMemo(
+    () => [
+      { id: "basic", label: "Basic Information" },
+      { id: "purchase", label: "Inventory Units" },
+      { id: "recipe", label: "Recipe Units" },
+      { id: "costing", label: "Costing" },
+      { id: "allergens", label: "Allergens" },
+    ],
+    [],
+  );
+
+  // Handle tab changes
+  const handleTabChange = React.useCallback((tabId: string) => {
+    setActiveTab(tabId);
+  }, []);
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-900 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-        {/* Diagnostic Text */}
-        <div className="text-xs text-gray-500 font-mono">
-          src/features/admin/components/sections/recipe/MasterIngredientList/EditIngredientModal/index.tsx
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-gray-900 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+        {/* Header */}
+        <div className="p-6 border-b border-gray-800 flex justify-between items-center sticky top-0 bg-gray-900 z-10">
+          <h2 className="text-xl font-semibold text-white">
+            Edit {formData.product}
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
-          <div className="sticky top-0 bg-gray-900 p-6 border-b border-gray-800 flex justify-between items-center z-10">
-            <h2 className="text-2xl font-bold text-white">Edit Master Ingredient</h2>
-            <div className="flex gap-4">
+        {/* Tabs */}
+        <div className="border-b border-gray-800 sticky top-[81px] bg-gray-900 z-10">
+          <div className="flex gap-4 px-6">
+            {tabs.map((tab) => (
               <button
-                type="button"
-                onClick={onClose}
-                className="btn-ghost"
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id)}
+                className={`py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id ? "text-primary-400 border-primary-400" : "text-gray-400 border-transparent hover:text-gray-300"}`}
               >
-                Cancel
+                {tab.label}
               </button>
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="btn-primary"
-              >
-                <Save className="w-5 h-5 mr-2" />
-                {isSaving ? 'Saving...' : 'Save Changes'}
-              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+          {activeTab === "basic" && (
+            <BasicInformation formData={formData} onChange={handleUpdate} />
+          )}
+          {activeTab === "purchase" && (
+            <PurchaseUnits formData={formData} onChange={handleUpdate} />
+          )}
+          {activeTab === "recipe" && (
+            <RecipeUnits formData={formData} onChange={handleUpdate} />
+          )}
+          {activeTab === "costing" && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-medium text-white">
+                Costing Information
+              </h3>
+              {/* Add costing fields here */}
             </div>
-          </div>
+          )}
+          {activeTab === "allergens" && (
+            <AllergenSection formData={formData} onChange={handleUpdate} />
+          )}
+        </div>
 
-          <div className="p-6 space-y-8">
-            <BasicInformation 
-              formData={formData}
-              settings={settings}
-              onChange={setFormData}
-            />
-
-            <PurchaseUnits 
-              formData={formData}
-              settings={settings}
-              onChange={setFormData}
-            />
-
-            <RecipeUnits 
-              formData={formData}
-              settings={settings}
-              onChange={setFormData}
-            />
-
-            <AllergenSection 
-              formData={formData}
-              onChange={setFormData}
-            />
-          </div>
-        </form>
+        {/* Footer */}
+        <div className="p-6 border-t border-gray-800 flex justify-end gap-4 sticky bottom-0 bg-gray-900 z-10">
+          <button onClick={onClose} className="btn-ghost" disabled={isSaving}>
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="btn-primary min-w-[100px]"
+          >
+            {isSaving ? "Saving..." : "Save Changes"}
+          </button>
+        </div>
       </div>
     </div>
   );

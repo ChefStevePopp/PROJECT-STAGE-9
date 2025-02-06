@@ -1,18 +1,7 @@
 import { create } from "zustand";
 import { supabase } from "@/lib/supabase";
 
-interface MasterIngredient {
-  id: string;
-  product: string;
-  recipe_unit_type: string;
-  cost_per_recipe_unit: number;
-  allergens?: string[];
-  vendor_codes?: {
-    current?: {
-      code: string;
-    };
-  };
-}
+import { MasterIngredient } from "@/types/master-ingredient";
 
 interface MasterIngredientsStore {
   ingredients: MasterIngredient[];

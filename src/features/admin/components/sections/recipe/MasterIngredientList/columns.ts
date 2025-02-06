@@ -1,109 +1,57 @@
-import type { ExcelColumn } from '@/types';
+import { MasterIngredient } from "@/types/master-ingredient";
+import type { ReactNode } from "react";
 
-export const masterIngredientColumns: ExcelColumn[] = [
-  { 
-    key: 'itemCode', 
-    name: 'Item Code', 
-    type: 'text', 
-    width: 120 
+interface Column<T> {
+  key: keyof T;
+  header: string;
+  enableSorting?: boolean;
+  cell?: (value: any, row: T) => ReactNode;
+}
+
+export const masterIngredientColumns: Column<MasterIngredient>[] = [
+  {
+    key: "product",
+    header: "Product Name",
+    enableSorting: true,
   },
-  { 
-    key: 'product', 
-    name: 'Product Name', 
-    type: 'text', 
-    width: 200 
+  {
+    key: "major_group_name",
+    header: "Major Group",
+    enableSorting: true,
   },
-  { 
-    key: 'majorGroupName', 
-    name: 'Major Group', 
-    type: 'text', 
-    width: 120 
+  {
+    key: "category_name",
+    header: "Category",
+    enableSorting: true,
   },
-  { 
-    key: 'categoryName', 
-    name: 'Category', 
-    type: 'text', 
-    width: 120 
+  {
+    key: "sub_category_name",
+    header: "Sub Category",
+    enableSorting: true,
   },
-  { 
-    key: 'subCategoryName', 
-    name: 'Sub-Category', 
-    type: 'text', 
-    width: 120 
+  {
+    key: "recipe_unit_type",
+    header: "Recipe Unit",
+    enableSorting: true,
   },
-  { 
-    key: 'vendor', 
-    name: 'Vendor', 
-    type: 'text', 
-    width: 120 
+  {
+    key: "cost_per_recipe_unit",
+    header: "Cost per Unit",
+    enableSorting: true,
+    cell: (value) => (typeof value === "number" ? `$${value.toFixed(2)}` : "-"),
   },
-  { 
-    key: 'caseSize', 
-    name: 'Case Size', 
-    type: 'text', 
-    width: 100 
+  {
+    key: "storage_area",
+    header: "Storage Area",
+    enableSorting: true,
   },
-  { 
-    key: 'unitsPerCase', 
-    name: 'Units/Case', 
-    type: 'text', 
-    width: 100 
+  {
+    key: "id",
+    header: "Allergens",
+    enableSorting: false,
+    cell: (_value, row) => ({ type: "allergen-cell", ingredient: row }),
   },
-  { 
-    key: 'currentPrice', 
-    name: 'Case Price', 
-    type: 'currency', 
-    width: 100 
-  },
-  { 
-    key: 'unitOfMeasure', 
-    name: 'Inventory Unit', 
-    type: 'text', 
-    width: 100 
-  },
-  { 
-    key: 'recipeUnitPerPurchaseUnit', 
-    name: 'Recipe Units/Case', 
-    type: 'number', 
-    width: 120 
-  },
-  { 
-    key: 'costPerRecipeUnit', 
-    name: 'Cost/Recipe Unit', 
-    type: 'currency', 
-    width: 120 
-  },
-  { 
-    key: 'yieldPercent', 
-    name: 'Yield %', 
-    type: 'percent', 
-    width: 80 
-  },
-  { 
-    key: 'imageUrl', 
-    name: 'Image', 
-    type: 'imageUrl', 
-    width: 80 
-  },
-  // Allergen columns
-  { key: 'allergenPeanut', name: 'Peanuts', type: 'boolean', width: 80 },
-  { key: 'allergenCrustacean', name: 'Crustaceans', type: 'boolean', width: 80 },
-  { key: 'allergenTreenut', name: 'Tree Nuts', type: 'boolean', width: 80 },
-  { key: 'allergenShellfish', name: 'Shellfish', type: 'boolean', width: 80 },
-  { key: 'allergenSesame', name: 'Sesame', type: 'boolean', width: 80 },
-  { key: 'allergenSoy', name: 'Soy', type: 'boolean', width: 80 },
-  { key: 'allergenFish', name: 'Fish', type: 'boolean', width: 80 },
-  { key: 'allergenWheat', name: 'Wheat', type: 'boolean', width: 80 },
-  { key: 'allergenMilk', name: 'Milk', type: 'boolean', width: 80 },
-  { key: 'allergenSulphite', name: 'Sulphites', type: 'boolean', width: 80 },
-  { key: 'allergenEgg', name: 'Eggs', type: 'boolean', width: 80 },
-  { key: 'allergenGluten', name: 'Gluten', type: 'boolean', width: 80 },
-  { key: 'allergenMustard', name: 'Mustard', type: 'boolean', width: 80 },
-  { key: 'allergenCelery', name: 'Celery', type: 'boolean', width: 80 },
-  { key: 'allergenGarlic', name: 'Garlic', type: 'boolean', width: 80 },
-  { key: 'allergenOnion', name: 'Onion', type: 'boolean', width: 80 },
-  { key: 'allergenNitrite', name: 'Nitrites', type: 'boolean', width: 80 },
-  { key: 'allergenMushroom', name: 'Mushrooms', type: 'boolean', width: 80 },
-  { key: 'allergenHotPepper', name: 'Hot Peppers', type: 'boolean', width: 80 },
-  { key: 'allergenCitrus', name: 'Citrus', type: 'boolean', width: 80 }
 ];
+
+// For backward compatibility
+export const columns = masterIngredientColumns;
