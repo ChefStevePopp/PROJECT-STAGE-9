@@ -26,7 +26,7 @@ export const CreateIngredientModal: React.FC<CreateIngredientModalProps> = ({
     case_size: "",
     units_per_case: 0,
     recipe_unit_type: "",
-    yield_percent: 100,
+    yield_percent: 100, // Default to 100%
     cost_per_recipe_unit: 0,
     storage_area: "",
     allergen_peanut: false,

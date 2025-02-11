@@ -1,156 +1,168 @@
 import React from "react";
 import { X } from "lucide-react";
+import { MasterIngredientFormData } from "@/types/master-ingredient";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
+import toast from "react-hot-toast";
 import { BasicInformation } from "./BasicInformation";
 import { AllergenSection } from "./AllergenSection";
 import { RecipeUnits } from "./RecipeUnits";
 import { PurchaseUnits } from "./PurchaseUnits";
-import { MasterIngredient } from "@/types/master-ingredient";
-import { useMasterIngredientsStore } from "@/stores/masterIngredientsStore";
-import toast from "react-hot-toast";
 
 interface EditIngredientModalProps {
-  ingredient: MasterIngredient;
+  ingredient: MasterIngredientFormData;
   onClose: () => void;
-  onSave: (ingredient: MasterIngredient) => Promise<void>;
+  onSave: (ingredient: MasterIngredientFormData) => Promise<void>;
+  isNew?: boolean;
 }
+
+// Function to calculate completion status
+const getCompletionStatus = (data: MasterIngredientFormData) => {
+  // Required fields for a complete ingredient
+  const requiredFields = [
+    "product",
+    "major_group",
+    "category",
+    "recipe_unit_type",
+    "recipe_unit_per_purchase_unit",
+    "current_price",
+    "unit_of_measure",
+  ];
+
+  // Count how many required fields are filled
+  const filledFields = requiredFields.filter((field) => {
+    const value = data[field];
+    return value !== null && value !== undefined && value !== "" && value !== 0;
+  }).length;
+
+  const completionPercentage = (filledFields / requiredFields.length) * 100;
+
+  if (completionPercentage === 100) {
+    return { label: "Complete", color: "bg-emerald-500/20 text-emerald-400" };
+  } else if (completionPercentage >= 50) {
+    return { label: "In Progress", color: "bg-amber-500/20 text-amber-400" };
+  } else {
+    return { label: "Draft", color: "bg-gray-500/20 text-gray-400" };
+  }
+};
 
 export const EditIngredientModal: React.FC<EditIngredientModalProps> = ({
   ingredient: initialIngredient,
   onClose,
   onSave,
+  isNew = false,
 }) => {
-  // Use ref to track if component is mounted
-  const isMounted = React.useRef(true);
+  const { organization } = useAuth();
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [formData, setFormData] = React.useState<MasterIngredientFormData>({
+    ...initialIngredient,
+  });
 
-  // Initialize form data with memoized deep clone of initial ingredient
-  const [formData, setFormData] = React.useState(() => ({
-    ...JSON.parse(JSON.stringify(initialIngredient)),
-  }));
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!organization?.id) return;
 
-  const [activeTab, setActiveTab] = React.useState("basic");
-  const [isSaving, setIsSaving] = React.useState(false);
-  const { fetchIngredients } = useMasterIngredientsStore();
-
-  // Cleanup on unmount
-  React.useEffect(() => {
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
-
-  // Handle form updates
-  const handleUpdate = React.useCallback(
-    (updates: Partial<MasterIngredient>) => {
-      setFormData((prev) => ({ ...prev, ...updates }));
-    },
-    [],
-  );
-
-  // Save changes
-  const handleSave = async () => {
-    if (isSaving) return;
-
-    setIsSaving(true);
+    setIsSubmitting(true);
     try {
       await onSave(formData);
-      await fetchIngredients(); // Refresh ingredient list
-      toast.success("Changes saved successfully");
+      toast.success("Ingredient saved successfully");
+      setIsSubmitting(false);
       onClose();
     } catch (error) {
       console.error("Error saving ingredient:", error);
-      toast.error("Failed to save changes");
-    } finally {
-      if (isMounted.current) {
-        setIsSaving(false);
-      }
+      toast.error("Failed to save ingredient");
+      setIsSubmitting(false);
     }
   };
 
-  // Memoize tabs to prevent unnecessary rerenders
-  const tabs = React.useMemo(
-    () => [
-      { id: "basic", label: "Basic Information" },
-      { id: "purchase", label: "Inventory Units" },
-      { id: "recipe", label: "Recipe Units" },
-      { id: "costing", label: "Costing" },
-      { id: "allergens", label: "Allergens" },
-    ],
-    [],
-  );
-
-  // Handle tab changes
-  const handleTabChange = React.useCallback((tabId: string) => {
-    setActiveTab(tabId);
-  }, []);
-
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-gray-900 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
-        {/* Header */}
-        <div className="p-6 border-b border-gray-800 flex justify-between items-center sticky top-0 bg-gray-900 z-10">
-          <h2 className="text-xl font-semibold text-white">
-            Edit {formData.product}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        </div>
-
-        {/* Tabs */}
-        <div className="border-b border-gray-800 sticky top-[81px] bg-gray-900 z-10">
-          <div className="flex gap-4 px-6">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => handleTabChange(tab.id)}
-                className={`py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id ? "text-primary-400 border-primary-400" : "text-gray-400 border-transparent hover:text-gray-300"}`}
-              >
-                {tab.label}
-              </button>
-            ))}
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-gray-900 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 z-10 bg-gray-900">
+          <div className="p-4 border-b border-gray-800">
+            <div className="flex justify-between items-start">
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-2">
+                  {isNew ? "Create New Ingredient" : formData.product}
+                </h2>
+                <div className="flex items-center gap-2">
+                  {!isNew && (
+                    <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-800 text-gray-300">
+                      ID: {formData.id}
+                    </span>
+                  )}
+                  {!isNew && (
+                    <span className="text-xs text-gray-400">
+                      Last edited:{" "}
+                      {new Date(formData.updated_at).toLocaleDateString()}{" "}
+                      {new Date(formData.updated_at).toLocaleTimeString()}
+                    </span>
+                  )}
+                  <span
+                    className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                      getCompletionStatus(formData).color
+                    }`}
+                  >
+                    {getCompletionStatus(formData).label}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={onClose}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-          {activeTab === "basic" && (
-            <BasicInformation formData={formData} onChange={handleUpdate} />
-          )}
-          {activeTab === "purchase" && (
-            <PurchaseUnits formData={formData} onChange={handleUpdate} />
-          )}
-          {activeTab === "recipe" && (
-            <RecipeUnits formData={formData} onChange={handleUpdate} />
-          )}
-          {activeTab === "costing" && (
-            <div className="space-y-6">
-              <h3 className="text-lg font-medium text-white">
-                Costing Information
-              </h3>
-              {/* Add costing fields here */}
-            </div>
-          )}
-          {activeTab === "allergens" && (
-            <AllergenSection formData={formData} onChange={handleUpdate} />
-          )}
-        </div>
+        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+          <div className="space-y-6">
+            <BasicInformation
+              formData={formData}
+              onChange={(updates) =>
+                setFormData((prev) => ({ ...prev, ...updates }))
+              }
+            />
 
-        {/* Footer */}
-        <div className="p-6 border-t border-gray-800 flex justify-end gap-4 sticky bottom-0 bg-gray-900 z-10">
-          <button onClick={onClose} className="btn-ghost" disabled={isSaving}>
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="btn-primary min-w-[100px]"
-          >
-            {isSaving ? "Saving..." : "Save Changes"}
-          </button>
-        </div>
+            <PurchaseUnits
+              formData={formData}
+              onChange={(updates) =>
+                setFormData((prev) => ({ ...prev, ...updates }))
+              }
+            />
+
+            <RecipeUnits
+              formData={formData}
+              onChange={(updates) =>
+                setFormData((prev) => ({ ...prev, ...updates }))
+              }
+            />
+
+            <AllergenSection
+              formData={formData}
+              onChange={(updates) =>
+                setFormData((prev) => ({ ...prev, ...updates }))
+              }
+            />
+          </div>
+
+          <div className="sticky bottom-0 z-10 bg-gray-900 p-4 border-t border-gray-800 flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="btn-ghost">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="btn-primary"
+            >
+              {isSubmitting ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

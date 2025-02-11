@@ -14,6 +14,9 @@ export interface MasterIngredient {
   recipe_unit_type: string;
   yield_percent: number;
   cost_per_recipe_unit: number;
+  current_price: number;
+  recipe_unit_per_purchase_unit: number;
+  unit_of_measure: string;
   image_url: string | null;
   storage_area: string;
   allergen_peanut: boolean;

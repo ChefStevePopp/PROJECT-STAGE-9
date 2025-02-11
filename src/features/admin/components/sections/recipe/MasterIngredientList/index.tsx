@@ -1,212 +1,280 @@
-import React, { useState, useEffect } from 'react';
-import { Package, Plus, Upload, Trash2, PieChart, Save, Download } from 'lucide-react';
-import { useMasterIngredientsStore } from '@/stores/masterIngredientsStore';
-import { ExcelDataGrid } from '@/features/shared/components/ExcelDataGrid';
-import { ImportExcelModal } from '../../../ImportExcelModal';
-import { EditIngredientModal } from './EditIngredientModal';
-import { CreateIngredientModal } from './CreateIngredientModal';
-import { CategoryStats } from './CategoryStats';
-import { masterIngredientColumns } from './columns';
-import { LoadingLogo } from '@/features/shared/components';
-import { generateMasterIngredientsTemplate } from '@/utils/excel';
-import type { MasterIngredient } from '@/types/master-ingredient';
-import toast from 'react-hot-toast';
+import React from "react";
+import { Plus, Search } from "lucide-react";
+import { CategoryStats } from "./CategoryStats";
+import { useMasterIngredientsStore } from "@/stores/masterIngredientsStore";
+import { ExcelDataGrid } from "@/shared/components/ExcelDataGrid";
+import { masterIngredientColumns } from "./columns";
 
-export const MasterIngredientList: React.FC = () => {
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [editingIngredient, setEditingIngredient] = useState<MasterIngredient | null>(null);
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  
-  const { 
-    ingredients, 
-    isLoading, 
-    error,
-    importIngredients, 
-    clearIngredients, 
-    saveIngredients,
-    updateIngredient,
-    fetchIngredients 
-  } = useMasterIngredientsStore();
+import { EditIngredientModal } from "./EditIngredientModal";
+import { MasterIngredient } from "@/types/master-ingredient";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
+import toast from "react-hot-toast";
 
-  // Fetch ingredients on mount
-  useEffect(() => {
-    fetchIngredients();
-  }, [fetchIngredients]);
+export const MasterIngredientList = () => {
+  const { organization } = useAuth();
+  const [newIngredient, setNewIngredient] =
+    React.useState<MasterIngredient | null>(null);
+  const [editingIngredient, setEditingIngredient] =
+    React.useState<MasterIngredient | null>(null);
+  const [searchTerm, setSearchTerm] = React.useState("");
 
-  const handleImport = async (data: any[]) => {
-    try {
-      await importIngredients(data);
-      setIsImportModalOpen(false);
-    } catch (error) {
-      if (error instanceof Error) {
-        toast.error(error.message);
-      } else {
-        toast.error('Failed to import data');
-      }
-    }
-  };
-
-  const handleClearData = async () => {
-    if (!window.confirm('Are you sure you want to clear all master ingredients? This cannot be undone.')) {
-      return;
-    }
-
-    try {
-      await clearIngredients();
-    } catch (error) {
-      toast.error('Failed to clear data');
-    }
-  };
-
-  const handleSaveData = async () => {
-    try {
-      await saveIngredients();
-    } catch (error) {
-      toast.error('Failed to save data');
-    }
-  };
-
-  const handleDownloadTemplate = () => {
-    try {
-      generateMasterIngredientsTemplate();
-      toast.success('Template downloaded successfully');
-    } catch (error) {
-      console.error('Error generating template:', error);
-      toast.error('Failed to generate template');
-    }
-  };
-
-  const toggleCategory = (category: string) => {
-    setSelectedCategories(prev => 
-      prev.includes(category)
-        ? prev.filter(c => c !== category)
-        : [...prev, category]
-    );
-  };
+  const { ingredients, fetchIngredients } = useMasterIngredientsStore();
 
   const filteredIngredients = React.useMemo(() => {
-    return ingredients.filter(item => 
-      selectedCategories.length === 0 || selectedCategories.includes(item.majorGroupName || 'Uncategorized')
+    return ingredients.filter(
+      (ingredient) =>
+        (ingredient.product || "")
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+        (ingredient.major_group || "")
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+        (ingredient.category || "")
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+        (ingredient.sub_category || "")
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+        (ingredient.vendor || "")
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+        (ingredient.item_code || "")
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()),
     );
-  }, [ingredients, selectedCategories]);
+  }, [ingredients, searchTerm]);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingLogo message="Loading master ingredients..." />
-      </div>
-    );
-  }
+  React.useEffect(() => {
+    if (organization?.id) {
+      fetchIngredients();
+    }
+  }, [organization?.id, fetchIngredients]);
 
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
-        <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center mb-4">
-          <Package className="w-6 h-6 text-red-400" />
-        </div>
-        <p className="text-red-400 mb-4">{error}</p>
-        <button 
-          onClick={() => fetchIngredients()}
-          className="btn-ghost text-primary-400"
-        >
-          Try Again
-        </button>
-      </div>
-    );
-  }
+  const handleSaveIngredient = async (ingredient: MasterIngredient) => {
+    if (!organization?.id) return;
+
+    try {
+      // Only send fields that exist in the database
+      const {
+        id,
+        product,
+        major_group,
+        category,
+        sub_category,
+        vendor,
+        item_code,
+        case_size,
+        units_per_case,
+        recipe_unit_type,
+        yield_percent,
+        cost_per_recipe_unit,
+        recipe_unit_per_purchase_unit,
+        current_price,
+        unit_of_measure,
+        storage_area,
+        allergen_peanut,
+        allergen_crustacean,
+        allergen_treenut,
+        allergen_shellfish,
+        allergen_sesame,
+        allergen_soy,
+        allergen_fish,
+        allergen_wheat,
+        allergen_milk,
+        allergen_sulphite,
+        allergen_egg,
+        allergen_gluten,
+        allergen_mustard,
+        allergen_celery,
+        allergen_garlic,
+        allergen_onion,
+        allergen_nitrite,
+        allergen_mushroom,
+        allergen_hot_pepper,
+        allergen_citrus,
+        allergen_pork,
+        allergen_custom1_name,
+        allergen_custom1_active,
+        allergen_custom2_name,
+        allergen_custom2_active,
+        allergen_custom3_name,
+        allergen_custom3_active,
+        allergen_notes,
+      } = ingredient;
+
+      const { error } = await supabase
+        .from("master_ingredients")
+        .update({
+          product,
+          major_group,
+          category,
+          sub_category,
+          vendor,
+          item_code,
+          case_size,
+          units_per_case,
+          recipe_unit_type,
+          yield_percent,
+          cost_per_recipe_unit,
+          storage_area,
+          unit_of_measure,
+          allergen_peanut,
+          allergen_crustacean,
+          allergen_treenut,
+          allergen_shellfish,
+          allergen_sesame,
+          allergen_soy,
+          allergen_fish,
+          allergen_wheat,
+          allergen_milk,
+          allergen_sulphite,
+          allergen_egg,
+          allergen_gluten,
+          allergen_mustard,
+          allergen_celery,
+          allergen_garlic,
+          allergen_onion,
+          allergen_nitrite,
+          allergen_mushroom,
+          allergen_hot_pepper,
+          allergen_citrus,
+          allergen_pork,
+          allergen_custom1_name,
+          allergen_custom1_active,
+          allergen_custom2_name,
+          allergen_custom2_active,
+          allergen_custom3_name,
+          allergen_custom3_active,
+          allergen_notes,
+          organization_id: organization.id,
+        })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      await fetchIngredients();
+      toast.success("Ingredient updated successfully");
+    } catch (error) {
+      console.error("Error updating ingredient:", error);
+      toast.error("Failed to update ingredient");
+      throw error;
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Diagnostic Text */}
-      <div className="text-xs text-gray-500 font-mono">
-        src/features/admin/components/sections/recipe/MasterIngredientList/index.tsx
+    <div className="space-y-4">
+      <CategoryStats ingredients={ingredients} />
+
+      <div className="flex justify-between items-center">
+        <h2 className="text-lg font-medium text-white">Master Ingredients</h2>
+        <button
+          onClick={() =>
+            setNewIngredient({
+              product: "",
+              major_group: "",
+              category: "",
+              sub_category: "",
+              vendor: "",
+              item_code: "",
+              case_size: "",
+              units_per_case: 0,
+              recipe_unit_type: "",
+              yield_percent: 100,
+              cost_per_recipe_unit: 0,
+              current_price: 0,
+              recipe_unit_per_purchase_unit: 0,
+              unit_of_measure: "",
+              storage_area: "",
+              image_url: null,
+              allergen_peanut: false,
+              allergen_crustacean: false,
+              allergen_treenut: false,
+              allergen_shellfish: false,
+              allergen_sesame: false,
+              allergen_soy: false,
+              allergen_fish: false,
+              allergen_wheat: false,
+              allergen_milk: false,
+              allergen_sulphite: false,
+              allergen_egg: false,
+              allergen_gluten: false,
+              allergen_mustard: false,
+              allergen_celery: false,
+              allergen_garlic: false,
+              allergen_onion: false,
+              allergen_nitrite: false,
+              allergen_mushroom: false,
+              allergen_hot_pepper: false,
+              allergen_citrus: false,
+              allergen_pork: false,
+              allergen_custom1_name: null,
+              allergen_custom1_active: false,
+              allergen_custom2_name: null,
+              allergen_custom2_active: false,
+              allergen_custom3_name: null,
+              allergen_custom3_active: false,
+              allergen_notes: null,
+            } as MasterIngredient)
+          }
+          className="btn-primary"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Add Ingredient
+        </button>
       </div>
 
-      <header className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Master Ingredients</h1>
-          <p className="text-gray-400">Manage your master ingredient list and recipe units</p>
-        </div>
-        <div className="flex gap-4">
-          <button
-            onClick={handleClearData}
-            className="btn-ghost-red"
-            disabled={ingredients.length === 0}
-          >
-            <Trash2 className="w-5 h-5" />
-            Clear Data
-          </button>
-          <button
-            onClick={handleSaveData}
-            className="btn-ghost-green"
-            disabled={ingredients.length === 0}
-          >
-            <Save className="w-5 h-5" />
-            Save Data
-          </button>
-          <button
-            onClick={handleDownloadTemplate}
-            className="btn-ghost-blue"
-          >
-            <Download className="w-5 h-5" />
-            Download Template
-          </button>
-          <button
-            onClick={() => setIsImportModalOpen(true)}
-            className="btn-secondary"
-          >
-            <Upload className="w-5 h-5" />
-            Import Excel
-          </button>
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="btn-primary"
-          >
-            <Plus className="w-5 h-5" />
-            Add Ingredient
-          </button>
-        </div>
-      </header>
-
-      <CategoryStats
-        masterIngredients={ingredients}
-        selectedCategories={selectedCategories}
-        onToggleCategory={toggleCategory}
-      />
-
-      <div className="card p-6">
-        <ExcelDataGrid
-          columns={masterIngredientColumns}
-          data={filteredIngredients}
-          categoryFilter={categoryFilter}
-          onCategoryChange={setCategoryFilter}
-          type="master-ingredients"
-          onRowClick={setEditingIngredient}
+      <div className="relative mb-4">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Search ingredients..."
+          className="input w-full pl-10"
         />
       </div>
 
-      <ImportExcelModal
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        onImport={handleImport}
-        type="master-ingredients"
+      <ExcelDataGrid
+        data={filteredIngredients}
+        columns={masterIngredientColumns}
+        onRowClick={(row) => setEditingIngredient(row)}
       />
 
-      {isCreateModalOpen && (
-        <CreateIngredientModal
-          isOpen={true}
-          onClose={() => setIsCreateModalOpen(false)}
-        />
-      )}
-
-      {editingIngredient && (
+      {(editingIngredient || newIngredient) && (
         <EditIngredientModal
-          isOpen={true}
-          onClose={() => setEditingIngredient(null)}
-          ingredient={editingIngredient}
-          onSave={updateIngredient}
+          ingredient={editingIngredient || newIngredient}
+          onClose={() =>
+            editingIngredient
+              ? setEditingIngredient(null)
+              : setNewIngredient(null)
+          }
+          onSave={async (ingredient) => {
+            if (editingIngredient) {
+              await handleSaveIngredient(ingredient);
+            } else {
+              // Handle create
+              try {
+                const { error } = await supabase
+                  .from("master_ingredients")
+                  .insert([
+                    {
+                      ...ingredient,
+                      organization_id: organization?.id,
+                    },
+                  ]);
+                if (error) throw error;
+                await fetchIngredients();
+                setNewIngredient(null);
+                toast.success("Ingredient created successfully");
+              } catch (error) {
+                console.error("Error creating ingredient:", error);
+                toast.error("Failed to create ingredient");
+                throw error;
+              }
+            }
+          }}
+          isNew={!editingIngredient}
         />
       )}
     </div>
