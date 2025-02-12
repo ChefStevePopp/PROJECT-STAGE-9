@@ -188,7 +188,9 @@ export const EditIngredientModal: React.FC<EditIngredientModalProps> = ({
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500">
                       <Image className="w-12 h-12 mb-2 opacity-50" />
                       <p>No image available</p>
-                      <p className="text-sm">Upload or take a photo</p>
+                      <p className="text-sm">
+                        Upload, take a photo, or add URL
+                      </p>
                     </div>
                   )}
                 </div>
@@ -288,8 +290,30 @@ export const EditIngredientModal: React.FC<EditIngredientModalProps> = ({
                   </button>
                 </div>
 
+                {/* URL Input */}
+                <div className="relative">
+                  <input
+                    type="url"
+                    placeholder="Or paste an image URL from supplier website..."
+                    value={formData.image_url || ""}
+                    onChange={(e) => {
+                      if (e.target.value.trim() === "") {
+                        setFormData((prev) => ({ ...prev, image_url: null }));
+                      } else {
+                        setFormData((prev) => ({
+                          ...prev,
+                          image_url: e.target.value,
+                        }));
+                      }
+                    }}
+                    className="input w-full pl-10"
+                  />
+                  <Image className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                </div>
+
                 <p className="text-xs text-gray-500 text-center">
-                  Supported formats: JPG, PNG, WebP (max 5MB)
+                  Supported formats: JPG, PNG, WebP (max 5MB) or direct image
+                  URL
                 </p>
               </div>
             </div>

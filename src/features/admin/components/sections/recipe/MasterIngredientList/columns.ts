@@ -38,7 +38,10 @@ export const masterIngredientColumns: Column<MasterIngredient>[] = [
     key: "cost_per_recipe_unit",
     header: "Cost per Unit",
     enableSorting: true,
-    cell: (value) => (typeof value === "number" ? `$${value.toFixed(2)}` : "-"),
+    cell: (value, row) => {
+      const cost = row.cost_per_recipe_unit;
+      return typeof cost === "number" ? `${cost.toFixed(2)}` : "-";
+    },
   },
   {
     key: "storage_area",

@@ -35,6 +35,13 @@ export const RecipeUnits: React.FC<RecipeUnitsProps> = ({
     ? baseUnitCost / (formData.yield_percent / 100)
     : baseUnitCost;
 
+  // Update cost_per_recipe_unit whenever the calculation changes
+  React.useEffect(() => {
+    onChange({
+      cost_per_recipe_unit: adjustedUnitCost,
+    });
+  }, [adjustedUnitCost, onChange]);
+
   return (
     <div className="bg-emerald-500/10 rounded-lg p-6">
       <div className="flex items-center gap-2 mb-4">

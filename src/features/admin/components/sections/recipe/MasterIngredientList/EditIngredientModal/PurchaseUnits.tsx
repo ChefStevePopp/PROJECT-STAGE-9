@@ -135,6 +135,15 @@ export const PurchaseUnits: React.FC<PurchaseUnitsProps> = ({
                 ))}
               </optgroup>
             )}
+            {settings?.batch_units?.length > 0 && (
+              <optgroup label="Batch Units">
+                {settings.batch_units.map((measure) => (
+                  <option key={measure} value={measure}>
+                    {measure}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
         </div>
       </div>
