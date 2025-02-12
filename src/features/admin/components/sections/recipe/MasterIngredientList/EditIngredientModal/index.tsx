@@ -1,5 +1,5 @@
 import React from "react";
-import { X } from "lucide-react";
+import { X, Image, Upload, Camera, Trash2 } from "lucide-react";
 import { MasterIngredientFormData } from "@/types/master-ingredient";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
@@ -148,6 +148,151 @@ export const EditIngredientModal: React.FC<EditIngredientModalProps> = ({
                 setFormData((prev) => ({ ...prev, ...updates }))
               }
             />
+
+            {/* Image Management Section */}
+            <div className="bg-gray-800/50 rounded-lg p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                  <Image className="w-5 h-5 text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium text-white">
+                    Product Image
+                  </h3>
+                  <p className="text-sm text-gray-400">
+                    Add or update product image
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {/* Image Preview */}
+                <div className="relative aspect-video bg-gray-900/50 rounded-lg overflow-hidden">
+                  {formData.image_url ? (
+                    <>
+                      <img
+                        src={formData.image_url}
+                        alt={formData.product}
+                        className="w-full h-full object-contain"
+                      />
+                      <button
+                        onClick={() =>
+                          setFormData((prev) => ({ ...prev, image_url: null }))
+                        }
+                        className="absolute top-2 right-2 p-2 bg-gray-900/80 text-gray-400 hover:text-rose-400 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500">
+                      <Image className="w-12 h-12 mb-2 opacity-50" />
+                      <p>No image available</p>
+                      <p className="text-sm">Upload or take a photo</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Image Actions */}
+                <div className="flex gap-2">
+                  <label className="flex-1 flex items-center justify-center gap-2 text-sm text-blue-400 hover:text-blue-300 bg-gray-900/50 rounded-lg p-3 border-2 border-dashed border-gray-700 hover:border-blue-400/50 transition-colors cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+
+                        try {
+                          const timestamp = Date.now();
+                          const filePath = `${organization?.id}/ingredients/${timestamp}_${file.name}`;
+
+                          const { error: uploadError } = await supabase.storage
+                            .from("ingredient-photos")
+                            .upload(filePath, file);
+
+                          if (uploadError) throw uploadError;
+
+                          const {
+                            data: { publicUrl },
+                          } = supabase.storage
+                            .from("ingredient-photos")
+                            .getPublicUrl(filePath);
+
+                          setFormData((prev) => ({
+                            ...prev,
+                            image_url: publicUrl,
+                          }));
+                          toast.success("Image uploaded successfully");
+                        } catch (error) {
+                          console.error("Error uploading image:", error);
+                          toast.error("Failed to upload image");
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    <Upload className="w-4 h-4" />
+                    Upload Image
+                  </label>
+
+                  <button
+                    onClick={async () => {
+                      try {
+                        const stream =
+                          await navigator.mediaDevices.getUserMedia({
+                            video: true,
+                          });
+                        const video = document.createElement("video");
+                        video.srcObject = stream;
+                        await video.play();
+
+                        const canvas = document.createElement("canvas");
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        canvas.getContext("2d")?.drawImage(video, 0, 0);
+
+                        const blob = await new Promise<Blob>((resolve) =>
+                          canvas.toBlob((blob) => resolve(blob!)),
+                        );
+                        stream.getTracks().forEach((track) => track.stop());
+
+                        const timestamp = Date.now();
+                        const filePath = `${organization?.id}/ingredients/${timestamp}_photo.jpg`;
+
+                        const { error: uploadError } = await supabase.storage
+                          .from("ingredient-photos")
+                          .upload(filePath, blob);
+
+                        if (uploadError) throw uploadError;
+
+                        const {
+                          data: { publicUrl },
+                        } = supabase.storage
+                          .from("ingredient-photos")
+                          .getPublicUrl(filePath);
+
+                        setFormData((prev) => ({
+                          ...prev,
+                          image_url: publicUrl,
+                        }));
+                        toast.success("Photo captured successfully");
+                      } catch (error) {
+                        console.error("Error capturing photo:", error);
+                        toast.error("Failed to capture photo");
+                      }
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 text-sm text-purple-400 hover:text-purple-300 bg-gray-900/50 rounded-lg p-3 border-2 border-dashed border-gray-700 hover:border-purple-400/50 transition-colors"
+                  >
+                    <Camera className="w-4 h-4" />
+                    Take Photo
+                  </button>
+                </div>
+
+                <p className="text-xs text-gray-500 text-center">
+                  Supported formats: JPG, PNG, WebP (max 5MB)
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="sticky bottom-0 z-10 bg-gray-900 p-4 border-t border-gray-800 flex justify-end gap-3">
