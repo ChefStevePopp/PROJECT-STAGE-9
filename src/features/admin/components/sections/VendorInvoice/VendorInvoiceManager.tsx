@@ -5,9 +5,14 @@ import {
   Camera,
   History,
   Settings,
+  LineChart,
+  Plus,
 } from "lucide-react";
 import { CSVUploader } from "./components/CSVUploader";
 import { QuickStatCard } from "./components/QuickStatCard";
+import { ImportSettings } from "./components/ImportSettings";
+import { PriceHistory } from "./components/PriceHistory";
+import { AddInvoiceModal } from "./components/AddInvoiceModal";
 import { ColumnMapper } from "./components/ColumnMapper";
 import { VendorSelector } from "./components/VendorSelector";
 import { PDFUploader } from "./components/PDFUploader";
@@ -16,16 +21,18 @@ import { useVendorTemplatesStore } from "@/stores/vendorTemplatesStore";
 import toast from "react-hot-toast";
 
 const TABS = [
+  { id: "dashboard", label: "Price History", icon: LineChart, color: "blue" },
   { id: "csv", label: "CSV Import", icon: FileSpreadsheet, color: "primary" },
   { id: "pdf", label: "PDF Import", icon: FileText, color: "rose" },
   { id: "photo", label: "Photo Import", icon: Camera, color: "emerald" },
   { id: "history", label: "Import History", icon: History, color: "amber" },
-  { id: "settings", label: "Import Settings", icon: Settings, color: "purple" },
+  { id: "settings", label: "CSV Settings", icon: Settings, color: "purple" },
 ] as const;
 
 export const VendorInvoiceManager = () => {
+  const [showAddInvoice, setShowAddInvoice] = React.useState(false);
   const [activeTab, setActiveTab] =
-    React.useState<(typeof TABS)[number]["id"]>("csv");
+    React.useState<(typeof TABS)[number]["id"]>("dashboard");
   const [isLoading, setIsLoading] = React.useState(false);
   const [csvData, setCSVData] = React.useState<any[] | null>(null);
   const [csvColumns, setCSVColumns] = React.useState<string[]>([]);
@@ -37,6 +44,28 @@ export const VendorInvoiceManager = () => {
     if (!selectedVendor) {
       toast.error("Please select a vendor first");
       return;
+    }
+
+    // For CSV uploads, check if vendor has a template
+    if (!(data instanceof File) && activeTab === "csv") {
+      const vendorTemplate = templates.find(
+        (t) => t.vendor_id === selectedVendor,
+      );
+      if (!vendorTemplate) {
+        toast.error(
+          <div className="flex flex-col gap-2">
+            <span>No CSV template found for this vendor</span>
+            <button
+              onClick={() => setActiveTab("settings")}
+              className="text-xs bg-gray-800 hover:bg-gray-700 px-3 py-1 rounded-lg transition-colors"
+            >
+              Set up template
+            </button>
+          </div>,
+          { duration: 5000 },
+        );
+        return;
+      }
     }
     if (data instanceof File) {
       setIsLoading(true);
@@ -61,17 +90,30 @@ export const VendorInvoiceManager = () => {
       }
       return;
     }
-    setIsLoading(true);
     try {
-      // Get column headers from first row
-      if (data.length > 0) {
-        setCSVColumns(Object.keys(data[0]));
-        setCSVData(data);
+      // Get the template for this vendor
+      const vendorTemplate = templates.find(
+        (t) => t.vendor_id === selectedVendor,
+      );
+      if (!vendorTemplate?.column_mapping) {
+        toast.error("Template mapping not found");
+        return;
       }
+
+      // Transform the data using the template mapping
+      const transformedData = data.map((row) => ({
+        item_code: row[vendorTemplate.column_mapping.item_code],
+        product_name: row[vendorTemplate.column_mapping.product_name],
+        unit_price:
+          parseFloat(row[vendorTemplate.column_mapping.unit_price]) || 0,
+        unit_of_measure: row[vendorTemplate.column_mapping.unit_of_measure],
+      }));
+
+      // Show preview of mapped data
+      setCSVData(transformedData);
     } catch (error) {
       console.error("Error processing CSV:", error);
-    } finally {
-      setIsLoading(false);
+      toast.error("Failed to process CSV data");
     }
   };
 
@@ -105,6 +147,25 @@ export const VendorInvoiceManager = () => {
               Process vendor invoices and update prices
             </p>
           </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowAddInvoice(true)}
+              className="btn-primary"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Invoice
+            </button>
+            {showAddInvoice && (
+              <AddInvoiceModal
+                isOpen={showAddInvoice}
+                onClose={() => setShowAddInvoice(false)}
+                onSave={(data) => {
+                  console.log("Save invoice:", data);
+                  setShowAddInvoice(false);
+                }}
+              />
+            )}
+          </div>
         </div>
 
         {/* Tab Navigation */}
@@ -113,6 +174,7 @@ export const VendorInvoiceManager = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
+              data-tab={tab.id}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors
                 ${
                   activeTab === tab.id
@@ -127,43 +189,19 @@ export const VendorInvoiceManager = () => {
         </div>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <QuickStatCard
-          title="Pending Updates"
-          value="0"
-          change="0"
-          trend="neutral"
-        />
-        <QuickStatCard
-          title="Price Changes"
-          value="0"
-          change="0"
-          trend="neutral"
-        />
-        <QuickStatCard
-          title="Cost Impact"
-          value="$0"
-          change="$0"
-          trend="neutral"
-        />
-        <QuickStatCard
-          title="Items Processed"
-          value="0"
-          change="0"
-          trend="neutral"
-        />
-      </div>
-
       {/* Main Content */}
       <div className="space-y-6">
-        {/* Vendor Selection - Always visible */}
-        <VendorSelector
-          selectedVendor={selectedVendor}
-          onVendorChange={setSelectedVendor}
-          fileType={activeTab as "csv" | "pdf" | "photo"}
-          onFileTypeChange={(type) => setActiveTab(type)}
-        />
+        {/* Vendor Selection - Only visible for import tabs */}
+        {(activeTab === "csv" ||
+          activeTab === "pdf" ||
+          activeTab === "photo") && (
+          <VendorSelector
+            selectedVendor={selectedVendor}
+            onVendorChange={setSelectedVendor}
+            fileType={activeTab as "csv" | "pdf" | "photo"}
+            onFileTypeChange={(type) => setActiveTab(type)}
+          />
+        )}
 
         {/* Tab Content */}
         <div className="card p-6">
@@ -179,18 +217,31 @@ export const VendorInvoiceManager = () => {
               <p className="text-gray-400 mt-4">Processing your file...</p>
             </div>
           ) : csvData && activeTab === "csv" ? (
-            <ColumnMapper
-              csvColumns={csvColumns}
-              onSave={handleMapping}
+            <DataPreview
+              data={csvData}
+              onConfirm={() => {
+                // TODO: Process the mapped data
+                console.log("Processing data:", csvData);
+                toast.success("Data imported successfully");
+                setCSVData(null);
+                setSelectedVendor("");
+              }}
               onCancel={() => {
                 setCSVData(null);
                 setSelectedVendor("");
               }}
-              selectedVendor={selectedVendor}
             />
           ) : (
             <>
-              {activeTab === "csv" && <CSVUploader onUpload={handleUpload} />}
+              {activeTab === "dashboard" && <PriceHistory />}
+              {activeTab === "csv" && (
+                <CSVUploader
+                  onUpload={handleUpload}
+                  hasTemplate={templates.some(
+                    (t) => t.vendor_id === selectedVendor,
+                  )}
+                />
+              )}
               {activeTab === "pdf" && <PDFUploader onUpload={handleUpload} />}
               {activeTab === "photo" && (
                 <PhotoUploader onUpload={handleUpload} />
@@ -200,11 +251,7 @@ export const VendorInvoiceManager = () => {
                   Import history coming soon...
                 </div>
               )}
-              {activeTab === "settings" && (
-                <div className="text-center py-8 text-gray-400">
-                  Import settings coming soon...
-                </div>
-              )}
+              {activeTab === "settings" && <ImportSettings />}
             </>
           )}
         </div>

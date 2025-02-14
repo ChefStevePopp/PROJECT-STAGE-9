@@ -72,7 +72,7 @@ export const menuItems = (isDev: boolean) => {
         {
           icon: CircleDollarSign,
           label: "Vendor Invoices",
-          path: "/admin/vendor-invoices",
+          path: "/admin/excel-imports#prepared",
         },
         {
           icon: Package,

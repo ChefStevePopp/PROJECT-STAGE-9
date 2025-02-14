@@ -1,13 +1,17 @@
 import React, { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
-import { FileSpreadsheet, AlertTriangle, Info } from "lucide-react";
+import { FileSpreadsheet, AlertTriangle, Info, Settings } from "lucide-react";
 import Papa from "papaparse";
 
 interface Props {
   onUpload: (data: any[]) => void;
+  hasTemplate?: boolean;
 }
 
-export const CSVUploader: React.FC<Props> = ({ onUpload }) => {
+export const CSVUploader: React.FC<Props> = ({
+  onUpload,
+  hasTemplate = true,
+}) => {
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -101,7 +105,39 @@ export const CSVUploader: React.FC<Props> = ({ onUpload }) => {
       ],
     },
     multiple: false,
+    disabled: !hasTemplate,
   });
+
+  if (!hasTemplate) {
+    return (
+      <div className="border-2 border-dashed border-blue-500 rounded-lg p-8 bg-blue-500/10">
+        <div className="text-center">
+          <Settings className="w-12 h-12 text-blue-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-white mb-2">
+            CSV Template Required
+          </h3>
+          <p className="text-gray-400 mb-4">
+            A CSV template must be set up for this vendor before uploading
+            invoices.
+          </p>
+          <button
+            onClick={() => {
+              const tabElement = document.querySelector(
+                '[data-tab="settings"]',
+              );
+              if (tabElement) {
+                tabElement.click();
+              }
+            }}
+            className="btn-primary"
+          >
+            <Settings className="w-4 h-4 mr-2" />
+            Set Up Template
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
