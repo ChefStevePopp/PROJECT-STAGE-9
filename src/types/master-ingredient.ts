@@ -47,9 +47,9 @@ export interface MasterIngredient {
   allergen_custom3_name: string | null;
   allergen_custom3_active: boolean;
   allergen_notes: string | null;
-  major_group_name: string;
-  category_name: string;
-  sub_category_name: string;
+  major_group_name?: string;
+  category_name?: string;
+  sub_category_name?: string;
 }
 
 export interface MasterIngredientFormData

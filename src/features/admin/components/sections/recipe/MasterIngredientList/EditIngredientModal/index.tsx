@@ -1,50 +1,20 @@
 import React from "react";
-import { X, Image, Upload, Camera, Trash2 } from "lucide-react";
-import { MasterIngredientFormData } from "@/types/master-ingredient";
+import { Image, Upload, Camera, Trash2 } from "lucide-react";
+import { ModalHeader } from "./ModalHeader";
+import { MasterIngredient } from "@/types/master-ingredient";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
-import toast from "react-hot-toast";
 import { BasicInformation } from "./BasicInformation";
 import { AllergenSection } from "./AllergenSection";
 import { RecipeUnits } from "./RecipeUnits";
 import { PurchaseUnits } from "./PurchaseUnits";
 
 interface EditIngredientModalProps {
-  ingredient: MasterIngredientFormData;
+  ingredient: MasterIngredient;
   onClose: () => void;
-  onSave: (ingredient: MasterIngredientFormData) => Promise<void>;
+  onSave: (ingredient: MasterIngredient) => Promise<void>;
   isNew?: boolean;
 }
-
-// Function to calculate completion status
-const getCompletionStatus = (data: MasterIngredientFormData) => {
-  // Required fields for a complete ingredient
-  const requiredFields = [
-    "product",
-    "major_group",
-    "category",
-    "recipe_unit_type",
-    "recipe_unit_per_purchase_unit",
-    "current_price",
-    "unit_of_measure",
-  ];
-
-  // Count how many required fields are filled
-  const filledFields = requiredFields.filter((field) => {
-    const value = data[field];
-    return value !== null && value !== undefined && value !== "" && value !== 0;
-  }).length;
-
-  const completionPercentage = (filledFields / requiredFields.length) * 100;
-
-  if (completionPercentage === 100) {
-    return { label: "Complete", color: "bg-emerald-500/20 text-emerald-400" };
-  } else if (completionPercentage >= 50) {
-    return { label: "In Progress", color: "bg-amber-500/20 text-amber-400" };
-  } else {
-    return { label: "Draft", color: "bg-gray-500/20 text-gray-400" };
-  }
-};
 
 export const EditIngredientModal: React.FC<EditIngredientModalProps> = ({
   ingredient: initialIngredient,
@@ -54,100 +24,131 @@ export const EditIngredientModal: React.FC<EditIngredientModalProps> = ({
 }) => {
   const { organization } = useAuth();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [formData, setFormData] = React.useState<MasterIngredientFormData>({
-    ...initialIngredient,
-  });
+  const [formData, setFormData] = React.useState<MasterIngredient>(() => ({
+    // Default values for all fields
+    id: initialIngredient.id || "",
+    organization_id: initialIngredient.organization_id || "",
+    product: initialIngredient.product || "",
+    major_group: initialIngredient.major_group || null,
+    category: initialIngredient.category || null,
+    sub_category: initialIngredient.sub_category || null,
+    vendor: initialIngredient.vendor || "",
+    item_code: initialIngredient.item_code || "",
+    case_size: initialIngredient.case_size || "",
+    units_per_case: initialIngredient.units_per_case || 0,
+    recipe_unit_type: initialIngredient.recipe_unit_type || "",
+    yield_percent: initialIngredient.yield_percent || 100,
+    cost_per_recipe_unit: initialIngredient.cost_per_recipe_unit || 0,
+    current_price: initialIngredient.current_price || 0,
+    recipe_unit_per_purchase_unit:
+      initialIngredient.recipe_unit_per_purchase_unit || 0,
+    unit_of_measure: initialIngredient.unit_of_measure || "",
+    storage_area: initialIngredient.storage_area || "",
+    image_url: initialIngredient.image_url || null,
+    created_at: initialIngredient.created_at || new Date().toISOString(),
+    updated_at: initialIngredient.updated_at || new Date().toISOString(),
+    // Allergen fields with default false
+    allergen_peanut: initialIngredient.allergen_peanut || false,
+    allergen_crustacean: initialIngredient.allergen_crustacean || false,
+    allergen_treenut: initialIngredient.allergen_treenut || false,
+    allergen_shellfish: initialIngredient.allergen_shellfish || false,
+    allergen_sesame: initialIngredient.allergen_sesame || false,
+    allergen_soy: initialIngredient.allergen_soy || false,
+    allergen_fish: initialIngredient.allergen_fish || false,
+    allergen_wheat: initialIngredient.allergen_wheat || false,
+    allergen_milk: initialIngredient.allergen_milk || false,
+    allergen_sulphite: initialIngredient.allergen_sulphite || false,
+    allergen_egg: initialIngredient.allergen_egg || false,
+    allergen_gluten: initialIngredient.allergen_gluten || false,
+    allergen_mustard: initialIngredient.allergen_mustard || false,
+    allergen_celery: initialIngredient.allergen_celery || false,
+    allergen_garlic: initialIngredient.allergen_garlic || false,
+    allergen_onion: initialIngredient.allergen_onion || false,
+    allergen_nitrite: initialIngredient.allergen_nitrite || false,
+    allergen_mushroom: initialIngredient.allergen_mushroom || false,
+    allergen_hot_pepper: initialIngredient.allergen_hot_pepper || false,
+    allergen_citrus: initialIngredient.allergen_citrus || false,
+    allergen_pork: initialIngredient.allergen_pork || false,
+    allergen_custom1_name: initialIngredient.allergen_custom1_name || null,
+    allergen_custom1_active: initialIngredient.allergen_custom1_active || false,
+    allergen_custom2_name: initialIngredient.allergen_custom2_name || null,
+    allergen_custom2_active: initialIngredient.allergen_custom2_active || false,
+    allergen_custom3_name: initialIngredient.allergen_custom3_name || null,
+    allergen_custom3_active: initialIngredient.allergen_custom3_active || false,
+    allergen_notes: initialIngredient.allergen_notes || null,
+  }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!organization?.id) return;
-
     setIsSubmitting(true);
     try {
       await onSave(formData);
-      toast.success("Ingredient saved successfully");
-      setIsSubmitting(false);
       onClose();
     } catch (error) {
       console.error("Error saving ingredient:", error);
-      toast.error("Failed to save ingredient");
+    } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-gray-900 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 z-10 bg-gray-900">
-          <div className="p-4 border-b border-gray-800">
-            <div className="flex justify-between items-start">
-              <div>
-                <h2 className="text-2xl font-bold text-white mb-2">
-                  {isNew ? "Create New Ingredient" : formData.product}
-                </h2>
-                <div className="flex items-center gap-2">
-                  {!isNew && (
-                    <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-800 text-gray-300">
-                      ID: {formData.id}
-                    </span>
-                  )}
-                  {!isNew && (
-                    <span className="text-xs text-gray-400">
-                      Last edited:{" "}
-                      {new Date(formData.updated_at).toLocaleDateString()}{" "}
-                      {new Date(formData.updated_at).toLocaleTimeString()}
-                    </span>
-                  )}
-                  <span
-                    className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                      getCompletionStatus(formData).color
-                    }`}
-                  >
-                    {getCompletionStatus(formData).label}
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={onClose}
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
+        <form onSubmit={handleSubmit}>
+          <ModalHeader ingredient={formData} onClose={onClose} />
+
+          <div className="p-6 space-y-6">
+            {/* Basic Information */}
+            <div className="card p-6">
+              <h3 className="text-lg font-medium text-white mb-4">
+                Basic Information
+              </h3>
+              <BasicInformation
+                formData={formData}
+                onChange={(updates) =>
+                  setFormData((prev) => ({ ...prev, ...updates }))
+                }
+              />
             </div>
-          </div>
-        </div>
 
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          <div className="space-y-6">
-            <BasicInformation
-              formData={formData}
-              onChange={(updates) =>
-                setFormData((prev) => ({ ...prev, ...updates }))
-              }
-            />
+            {/* Purchase Units */}
+            <div className="card p-6">
+              <h3 className="text-lg font-medium text-white mb-4">
+                Purchase Units
+              </h3>
+              <PurchaseUnits
+                formData={formData}
+                onChange={(updates) =>
+                  setFormData((prev) => ({ ...prev, ...updates }))
+                }
+              />
+            </div>
 
-            <PurchaseUnits
-              formData={formData}
-              onChange={(updates) =>
-                setFormData((prev) => ({ ...prev, ...updates }))
-              }
-            />
+            {/* Recipe Units */}
+            <div className="card p-6">
+              <h3 className="text-lg font-medium text-white mb-4">
+                Recipe Units
+              </h3>
+              <RecipeUnits
+                formData={formData}
+                onChange={(updates) =>
+                  setFormData((prev) => ({ ...prev, ...updates }))
+                }
+              />
+            </div>
 
-            <RecipeUnits
-              formData={formData}
-              onChange={(updates) =>
-                setFormData((prev) => ({ ...prev, ...updates }))
-              }
-            />
-
-            <AllergenSection
-              formData={formData}
-              onChange={(updates) =>
-                setFormData((prev) => ({ ...prev, ...updates }))
-              }
-            />
+            {/* Allergen Information */}
+            <div className="card p-6">
+              <h3 className="text-lg font-medium text-white mb-4">
+                Allergen Information
+              </h3>
+              <AllergenSection
+                formData={formData}
+                onChange={(updates) =>
+                  setFormData((prev) => ({ ...prev, ...updates }))
+                }
+              />
+            </div>
 
             {/* Image Management Section */}
             <div className="bg-gray-800/50 rounded-lg p-6">
@@ -176,6 +177,7 @@ export const EditIngredientModal: React.FC<EditIngredientModalProps> = ({
                         className="w-full h-full object-contain"
                       />
                       <button
+                        type="button"
                         onClick={() =>
                           setFormData((prev) => ({ ...prev, image_url: null }))
                         }
@@ -203,11 +205,11 @@ export const EditIngredientModal: React.FC<EditIngredientModalProps> = ({
                       accept="image/*"
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
-                        if (!file) return;
+                        if (!file || !organization?.id) return;
 
                         try {
                           const timestamp = Date.now();
-                          const filePath = `${organization?.id}/ingredients/${timestamp}_${file.name}`;
+                          const filePath = `${organization.id}/ingredients/${timestamp}_${file.name}`;
 
                           const { error: uploadError } = await supabase.storage
                             .from("ingredient-photos")
@@ -225,10 +227,8 @@ export const EditIngredientModal: React.FC<EditIngredientModalProps> = ({
                             ...prev,
                             image_url: publicUrl,
                           }));
-                          toast.success("Image uploaded successfully");
                         } catch (error) {
                           console.error("Error uploading image:", error);
-                          toast.error("Failed to upload image");
                         }
                       }}
                       className="hidden"
@@ -238,7 +238,10 @@ export const EditIngredientModal: React.FC<EditIngredientModalProps> = ({
                   </label>
 
                   <button
+                    type="button"
                     onClick={async () => {
+                      if (!organization?.id) return;
+
                       try {
                         const stream =
                           await navigator.mediaDevices.getUserMedia({
@@ -259,7 +262,7 @@ export const EditIngredientModal: React.FC<EditIngredientModalProps> = ({
                         stream.getTracks().forEach((track) => track.stop());
 
                         const timestamp = Date.now();
-                        const filePath = `${organization?.id}/ingredients/${timestamp}_photo.jpg`;
+                        const filePath = `${organization.id}/ingredients/${timestamp}_photo.jpg`;
 
                         const { error: uploadError } = await supabase.storage
                           .from("ingredient-photos")
@@ -277,10 +280,8 @@ export const EditIngredientModal: React.FC<EditIngredientModalProps> = ({
                           ...prev,
                           image_url: publicUrl,
                         }));
-                        toast.success("Photo captured successfully");
                       } catch (error) {
                         console.error("Error capturing photo:", error);
-                        toast.error("Failed to capture photo");
                       }
                     }}
                     className="flex-1 flex items-center justify-center gap-2 text-sm text-purple-400 hover:text-purple-300 bg-gray-900/50 rounded-lg p-3 border-2 border-dashed border-gray-700 hover:border-purple-400/50 transition-colors"
@@ -319,7 +320,7 @@ export const EditIngredientModal: React.FC<EditIngredientModalProps> = ({
             </div>
           </div>
 
-          <div className="sticky bottom-0 z-10 bg-gray-900 p-4 border-t border-gray-800 flex justify-end gap-3">
+          <div className="sticky bottom-0 bg-gray-900 p-6 border-t border-gray-800 flex justify-end gap-4">
             <button type="button" onClick={onClose} className="btn-ghost">
               Cancel
             </button>
@@ -328,7 +329,11 @@ export const EditIngredientModal: React.FC<EditIngredientModalProps> = ({
               disabled={isSubmitting}
               className="btn-primary"
             >
-              {isSubmitting ? "Saving..." : "Save Changes"}
+              {isSubmitting
+                ? "Saving..."
+                : isNew
+                  ? "Create Ingredient"
+                  : "Save Changes"}
             </button>
           </div>
         </form>

@@ -1,450 +1,232 @@
-import { create } from 'zustand';
-import { supabase } from '@/lib/supabase';
-import type { 
-  FoodCategoryGroup, 
-  FoodCategory, 
-  FoodSubCategory,
-  FoodRelationshipsStore 
-} from '@/types/food-relationships';
-import toast from 'react-hot-toast';
+import { create } from "zustand";
+import { supabase } from "@/lib/supabase";
 
-export const useFoodRelationshipsStore = create<FoodRelationshipsStore>((set, get) => ({
-  groups: [],
-  categories: [],
-  subCategories: [],
-  isLoading: false,
-  error: null,
+interface FoodCategoryGroup {
+  id: string;
+  name: string;
+  description: string;
+  sort_order: number;
+}
 
-  fetchGroups: async () => {
-    set({ isLoading: true, error: null });
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.user_metadata?.organizationId) {
-        throw new Error('No organization ID found');
+interface FoodCategory {
+  id: string;
+  group_id: string;
+  name: string;
+  description: string;
+  sort_order: number;
+}
+
+interface FoodSubCategory {
+  id: string;
+  category_id: string;
+  name: string;
+  description: string;
+  sort_order: number;
+}
+
+interface FoodRelationshipsStore {
+  majorGroups: string[];
+  categories: Array<{
+    id: string;
+    name: string;
+    category: string;
+  }>;
+  subCategories: Array<{
+    id: string;
+    name: string;
+    category_id: string;
+  }>;
+  isLoading: boolean;
+  error: string | null;
+  fetchFoodRelationships: () => Promise<void>;
+  updateSortOrder: (
+    type: "group" | "category" | "sub",
+    id: string,
+    newOrder: number,
+  ) => Promise<void>;
+  updateItem: (
+    type: "group" | "category" | "sub",
+    id: string,
+    updates: { description: string },
+  ) => Promise<void>;
+  addItem: (
+    type: "group" | "category" | "sub",
+    data: Partial<FoodCategoryGroup | FoodCategory | FoodSubCategory>,
+  ) => Promise<void>;
+  deleteItem: (type: "group" | "category" | "sub", id: string) => Promise<void>;
+}
+
+export const useFoodRelationshipsStore = create<FoodRelationshipsStore>(
+  (set, get) => ({
+    majorGroups: [],
+    categories: [],
+    subCategories: [],
+    isLoading: true,
+    error: null,
+
+    fetchFoodRelationships: async () => {
+      try {
+        set({ isLoading: true, error: null });
+
+        // Fetch all data in parallel
+        const [groupsResponse, categoriesResponse, subCategoriesResponse] =
+          await Promise.all([
+            supabase
+              .from("food_category_groups")
+              .select("*")
+              .order("sort_order"),
+            supabase.from("food_categories").select("*").order("sort_order"),
+            supabase
+              .from("food_sub_categories")
+              .select("*")
+              .order("sort_order"),
+          ]);
+
+        // Check for errors
+        if (groupsResponse.error) throw groupsResponse.error;
+        if (categoriesResponse.error) throw categoriesResponse.error;
+        if (subCategoriesResponse.error) throw subCategoriesResponse.error;
+
+        // Transform data for dropdowns
+        const majorGroups = [
+          ...new Set(groupsResponse.data?.map((g) => g.name) || []),
+        ];
+
+        const categories =
+          categoriesResponse.data?.map((c) => ({
+            id: c.id,
+            name: c.name,
+            category:
+              groupsResponse.data?.find((g) => g.id === c.group_id)?.name || "",
+          })) || [];
+
+        const subCategories =
+          subCategoriesResponse.data?.map((s) => ({
+            id: s.id,
+            name: s.name,
+            category_id: s.category_id,
+          })) || [];
+
+        set({
+          majorGroups,
+          categories,
+          subCategories,
+          isLoading: false,
+        });
+      } catch (error) {
+        console.error("Error fetching food relationships:", error);
+        set({
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to load food relationships",
+          isLoading: false,
+          majorGroups: [],
+          categories: [],
+          subCategories: [],
+        });
       }
+    },
 
-      const { data, error } = await supabase
-        .from('food_category_groups')
-        .select('*')
-        .eq('organization_id', user.user_metadata.organizationId)
-        .order('sort_order');
+    updateSortOrder: async (type, id, newOrder) => {
+      try {
+        const table =
+          type === "group"
+            ? "food_category_groups"
+            : type === "category"
+              ? "food_categories"
+              : "food_sub_categories";
 
-      if (error) throw error;
-      set({ groups: data || [], error: null });
-    } catch (error) {
-      console.error('Error fetching food category groups:', error);
-      set({ error: 'Failed to load category groups', groups: [] });
-    } finally {
-      set({ isLoading: false });
-    }
-  },
+        const { error } = await supabase
+          .from(table)
+          .update({ sort_order: newOrder })
+          .eq("id", id);
 
-  fetchCategories: async (groupId: string) => {
-    set({ isLoading: true });
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.user_metadata?.organizationId) {
-        throw new Error('No organization ID found');
+        if (error) throw error;
+
+        // Refresh data
+        get().fetchFoodRelationships();
+      } catch (error) {
+        console.error("Error updating sort order:", error);
+        throw error;
       }
+    },
 
-      const { data, error } = await supabase
-        .from('food_categories')
-        .select('*')
-        .eq('organization_id', user.user_metadata.organizationId)
-        .eq('group_id', groupId)
-        .order('sort_order');
+    updateItem: async (type, id, updates) => {
+      try {
+        const table =
+          type === "group"
+            ? "food_category_groups"
+            : type === "category"
+              ? "food_categories"
+              : "food_sub_categories";
 
-      if (error) throw error;
+        const { error } = await supabase
+          .from(table)
+          .update({
+            description: updates.description,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", id);
 
-      const mappedCategories = (data || []).map(item => ({
-        id: item.id,
-        groupId: item.group_id,
-        name: item.name,
-        description: item.description,
-        sortOrder: item.sort_order,
-        createdAt: item.created_at,
-        updatedAt: item.updated_at
-      }));
+        if (error) throw error;
 
-      set({ categories: mappedCategories, error: null });
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-      set({ error: 'Failed to load categories', categories: [] });
-    } finally {
-      set({ isLoading: false });
-    }
-  },
-  fetchSubCategories: async (categoryId: string) => {
-    set({ isLoading: true, error: null });
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.user_metadata?.organizationId) {
-        throw new Error('No organization ID found');
+        // Refresh data
+        await get().fetchFoodRelationships();
+      } catch (error) {
+        console.error("Error updating item:", error);
+        throw error;
       }
+    },
 
-      const { data, error } = await supabase
-        .from('food_sub_categories')
-        .select('*')
-        .eq('organization_id', user.user_metadata.organizationId)
-        .eq('category_id', categoryId)
-        .order('sort_order');
+    addItem: async (type, data) => {
+      try {
+        const table =
+          type === "group"
+            ? "food_category_groups"
+            : type === "category"
+              ? "food_categories"
+              : "food_sub_categories";
 
-      if (error) throw error;
+        // Clean data before insert
+        const cleanData = Object.fromEntries(
+          Object.entries(data).map(([key, value]) => [
+            key,
+            value === "" ? null : value,
+          ]),
+        );
 
-      const mappedSubCategories = (data || []).map(item => ({
-        id: item.id,
-        categoryId: item.category_id,
-        name: item.name,
-        description: item.description,
-        sortOrder: item.sort_order,
-        createdAt: item.created_at,
-        updatedAt: item.updated_at
-      }));
+        const { error } = await supabase.from(table).insert([cleanData]);
 
-      set({ subCategories: mappedSubCategories, error: null });
-    } catch (error) {
-      console.error('Error fetching food sub-categories:', error);
-      set({ error: 'Failed to load sub-categories', subCategories: [] });
-    } finally {
-      set({ isLoading: false });
-    }
-  },
+        if (error) throw error;
 
-  addGroup: async (group) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.user_metadata?.organizationId) {
-        throw new Error('No organization ID found');
+        // Refresh data
+        get().fetchFoodRelationships();
+      } catch (error) {
+        console.error("Error adding item:", error);
+        throw error;
       }
+    },
 
-      const { data, error } = await supabase
-        .from('food_category_groups')
-        .insert({
-          organization_id: user.user_metadata.organizationId,
-          name: group.name,
-          description: group.description,
-          icon: group.icon,
-          color: group.color,
-          sort_order: group.sortOrder
-        })
-        .select()
-        .single();
+    deleteItem: async (type, id) => {
+      try {
+        const table =
+          type === "group"
+            ? "food_category_groups"
+            : type === "category"
+              ? "food_categories"
+              : "food_sub_categories";
 
-      if (error) throw error;
-      set(state => ({
-        groups: [...state.groups, data]
-      }));
+        const { error } = await supabase.from(table).delete().eq("id", id);
 
-      toast.success('Category group added successfully');
-      return data;
-    } catch (error) {
-      console.error('Error adding category group:', error);
-      toast.error('Failed to add category group');
-      throw error;
-    }
-  },
-  updateGroup: async (id, updates) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.user_metadata?.organizationId) {
-        throw new Error('No organization ID found');
+        if (error) throw error;
+
+        // Refresh data
+        get().fetchFoodRelationships();
+      } catch (error) {
+        console.error("Error deleting item:", error);
+        throw error;
       }
-
-      const { data, error } = await supabase
-        .from('food_category_groups')
-        .update({
-          name: updates.name,
-          description: updates.description,
-          icon: updates.icon,
-          color: updates.color,
-          sort_order: updates.sortOrder,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', id)
-        .eq('organization_id', user.user_metadata.organizationId)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      set(state => ({
-        groups: state.groups.map(group =>
-          group.id === id ? { ...group, ...data } : group
-        )
-      }));
-
-      toast.success('Category group updated successfully');
-      return data;
-    } catch (error) {
-      console.error('Error updating category group:', error);
-      toast.error('Failed to update category group');
-      throw error;
-    }
-  },
-
-  deleteGroup: async (id) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.user_metadata?.organizationId) {
-        throw new Error('No organization ID found');
-      }
-
-      const { error } = await supabase
-        .from('food_category_groups')
-        .delete()
-        .eq('id', id)
-        .eq('organization_id', user.user_metadata.organizationId);
-
-      if (error) throw error;
-
-      set(state => ({
-        groups: state.groups.filter(group => group.id !== id),
-        categories: state.categories.filter(cat => cat.groupId !== id),
-        subCategories: state.subCategories.filter(sub => 
-          !state.categories.find(cat => cat.id === sub.categoryId && cat.groupId === id)
-        )
-      }));
-
-      toast.success('Category group deleted successfully');
-    } catch (error) {
-      console.error('Error deleting category group:', error);
-      toast.error('Failed to delete category group');
-      throw error;
-    }
-  },
-  addCategory: async (category) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.user_metadata?.organizationId) {
-        throw new Error('No organization ID found');
-      }
-
-      const { data, error } = await supabase
-        .from('food_categories')
-        .insert({
-          organization_id: user.user_metadata.organizationId,
-          group_id: category.groupId,
-          name: category.name,
-          description: category.description,
-          sort_order: category.sortOrder
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      const mappedData = {
-        id: data.id,
-        groupId: data.group_id,
-        name: data.name,
-        description: data.description,
-        sortOrder: data.sort_order,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at
-      };
-
-      set(state => ({
-        categories: [...state.categories, mappedData]
-      }));
-
-      toast.success('Category added successfully');
-      return mappedData;
-    } catch (error) {
-      console.error('Error adding category:', error);
-      toast.error('Failed to add category');
-      throw error;
-    }
-  },
-
-  updateCategory: async (id, updates) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.user_metadata?.organizationId) {
-        throw new Error('No organization ID found');
-      }
-
-      const { data, error } = await supabase
-        .from('food_categories')
-        .update({
-          name: updates.name,
-          description: updates.description,
-          sort_order: updates.sortOrder,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', id)
-        .eq('organization_id', user.user_metadata.organizationId)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      const mappedData = {
-        id: data.id,
-        groupId: data.group_id,
-        name: data.name,
-        description: data.description,
-        sortOrder: data.sort_order,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at
-      };
-
-      set(state => ({
-        categories: state.categories.map(category =>
-          category.id === id ? { ...category, ...mappedData } : category
-        )
-      }));
-
-      toast.success('Category updated successfully');
-      return mappedData;
-    } catch (error) {
-      console.error('Error updating category:', error);
-      toast.error('Failed to update category');
-      throw error;
-    }
-  },
-  deleteCategory: async (id) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.user_metadata?.organizationId) {
-        throw new Error('No organization ID found');
-      }
-
-      const { error } = await supabase
-        .from('food_categories')
-        .delete()
-        .eq('id', id)
-        .eq('organization_id', user.user_metadata.organizationId);
-
-      if (error) throw error;
-
-      set(state => ({
-        categories: state.categories.filter(category => category.id !== id),
-        subCategories: state.subCategories.filter(sub => sub.categoryId !== id)
-      }));
-
-      toast.success('Category deleted successfully');
-    } catch (error) {
-      console.error('Error deleting category:', error);
-      toast.error('Failed to delete category');
-      throw error;
-    }
-  },
-
-  addSubCategory: async (subCategory) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.user_metadata?.organizationId) {
-        throw new Error('No organization ID found');
-      }
-
-      const { data, error } = await supabase
-        .from('food_sub_categories')
-        .insert({
-          organization_id: user.user_metadata.organizationId,
-          category_id: subCategory.categoryId,
-          name: subCategory.name,
-          description: subCategory.description,
-          sort_order: subCategory.sortOrder
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      const mappedData = {
-        id: data.id,
-        categoryId: data.category_id,
-        name: data.name,
-        description: data.description,
-        sortOrder: data.sort_order,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at
-      };
-
-      set(state => ({
-        subCategories: [...state.subCategories, mappedData]
-      }));
-
-      toast.success('Sub-category added successfully');
-      return mappedData;
-    } catch (error) {
-      console.error('Error adding sub-category:', error);
-      toast.error('Failed to add sub-category');
-      throw error;
-    }
-  },
-
-  updateSubCategory: async (id, updates) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.user_metadata?.organizationId) {
-        throw new Error('No organization ID found');
-      }
-
-      const { data, error } = await supabase
-        .from('food_sub_categories')
-        .update({
-          name: updates.name,
-          description: updates.description,
-          sort_order: updates.sortOrder,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', id)
-        .eq('organization_id', user.user_metadata.organizationId)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      const mappedData = {
-        id: data.id,
-        categoryId: data.category_id,
-        name: data.name,
-        description: data.description,
-        sortOrder: data.sort_order,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at
-      };
-
-      set(state => ({
-        subCategories: state.subCategories.map(subCategory =>
-          subCategory.id === id ? { ...subCategory, ...mappedData } : subCategory
-        )
-      }));
-
-      toast.success('Sub-category updated successfully');
-      return mappedData;
-    } catch (error) {
-      console.error('Error updating sub-category:', error);
-      toast.error('Failed to update sub-category');
-      throw error;
-    }
-  },
-
-  deleteSubCategory: async (id) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.user_metadata?.organizationId) {
-        throw new Error('No organization ID found');
-      }
-
-      const { error } = await supabase
-        .from('food_sub_categories')
-        .delete()
-        .eq('id', id)
-        .eq('organization_id', user.user_metadata.organizationId);
-
-      if (error) throw error;
-
-      set(state => ({
-        subCategories: state.subCategories.filter(sub => sub.id !== id)
-      }));
-
-      toast.success('Sub-category deleted successfully');
-    } catch (error) {
-      console.error('Error deleting sub-category:', error);
-      toast.error('Failed to delete sub-category');
-      throw error;
-    }
-  }
-}));
+    },
+  }),
+);

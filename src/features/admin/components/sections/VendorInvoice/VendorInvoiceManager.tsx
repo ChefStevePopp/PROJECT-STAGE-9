@@ -17,16 +17,22 @@ import { ColumnMapper } from "./components/ColumnMapper";
 import { VendorSelector } from "./components/VendorSelector";
 import { PDFUploader } from "./components/PDFUploader";
 import { PhotoUploader } from "./components/PhotoUploader";
+import { DataPreview } from "./components/DataPreview";
 import { useVendorTemplatesStore } from "@/stores/vendorTemplatesStore";
 import toast from "react-hot-toast";
 
 const TABS = [
-  { id: "dashboard", label: "Price History", icon: LineChart, color: "blue" },
-  { id: "csv", label: "CSV Import", icon: FileSpreadsheet, color: "primary" },
-  { id: "pdf", label: "PDF Import", icon: FileText, color: "rose" },
-  { id: "photo", label: "Photo Import", icon: Camera, color: "emerald" },
-  { id: "history", label: "Import History", icon: History, color: "amber" },
-  { id: "settings", label: "CSV Settings", icon: Settings, color: "purple" },
+  {
+    id: "dashboard",
+    label: "Price History",
+    icon: LineChart,
+    color: "primary",
+  },
+  { id: "csv", label: "CSV Import", icon: FileSpreadsheet, color: "green" },
+  { id: "pdf", label: "PDF Import", icon: FileText, color: "amber" },
+  { id: "photo", label: "Photo Import", icon: Camera, color: "rose" },
+  { id: "history", label: "Import History", icon: History, color: "emerald" },
+  { id: "settings", label: "CSV Settings", icon: Settings, color: "slate" },
 ] as const;
 
 export const VendorInvoiceManager = () => {
@@ -37,8 +43,14 @@ export const VendorInvoiceManager = () => {
   const [csvData, setCSVData] = React.useState<any[] | null>(null);
   const [csvColumns, setCSVColumns] = React.useState<string[]>([]);
   const [selectedVendor, setSelectedVendor] = React.useState("");
+  const { templates, fetchTemplates } = useVendorTemplatesStore();
 
-  const { templates } = useVendorTemplatesStore();
+  // Fetch templates whenever vendor changes
+  React.useEffect(() => {
+    if (selectedVendor) {
+      fetchTemplates(selectedVendor);
+    }
+  }, [selectedVendor, fetchTemplates]);
 
   const handleUpload = async (data: any[] | File) => {
     if (!selectedVendor) {
@@ -169,20 +181,17 @@ export const VendorInvoiceManager = () => {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex gap-2 border-b border-gray-800">
+        <div className="flex gap-2">
           {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               data-tab={tab.id}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors
-                ${
-                  activeTab === tab.id
-                    ? `text-${tab.color}-400 border-${tab.color}-400`
-                    : "text-gray-400 border-transparent hover:text-gray-300 hover:border-gray-700"
-                }`}
+              className={`tab ${tab.color} ${activeTab === tab.id ? "active" : ""}`}
             >
-              <tab.icon className="w-4 h-4" />
+              <tab.icon
+                className={`w-5 h-5 mr-2 ${activeTab === tab.id ? `text-${tab.color}-400` : ""}`}
+              />
               {tab.label}
             </button>
           ))}
@@ -219,6 +228,7 @@ export const VendorInvoiceManager = () => {
           ) : csvData && activeTab === "csv" ? (
             <DataPreview
               data={csvData}
+              vendorId={selectedVendor}
               onConfirm={() => {
                 // TODO: Process the mapped data
                 console.log("Processing data:", csvData);

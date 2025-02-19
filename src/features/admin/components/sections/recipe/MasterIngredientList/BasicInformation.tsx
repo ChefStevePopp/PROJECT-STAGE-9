@@ -14,12 +14,19 @@ export const BasicInformation: React.FC<BasicInformationProps> = ({
 }) => {
   const { settings, fetchSettings } = useOperationsStore();
   const {
-    majorGroups,
-    categories,
-    subCategories,
+    majorGroups = [],
+    categories = [],
+    subCategories = [],
     fetchFoodRelationships,
     isLoading,
   } = useFoodRelationshipsStore();
+
+  const [filteredCategories, setFilteredCategories] = React.useState<string[]>(
+    [],
+  );
+  const [filteredSubCategories, setFilteredSubCategories] = React.useState<
+    string[]
+  >([]);
 
   // Fetch settings and food relationships on mount
   React.useEffect(() => {
@@ -33,17 +40,29 @@ export const BasicInformation: React.FC<BasicInformationProps> = ({
     loadData();
   }, [fetchSettings, fetchFoodRelationships]);
 
-  // Get filtered categories based on major group
-  const filteredCategories = React.useMemo(() => {
-    if (!formData.major_group) return [];
-    return categories.filter((c) => c.category === formData.major_group);
-  }, [categories, formData.major_group]);
+  // Update filtered categories when major group changes
+  React.useEffect(() => {
+    if (formData.major_group && categories?.length > 0) {
+      const matching = categories
+        .filter((cat) => cat.category === formData.major_group)
+        .map((cat) => cat.name);
+      setFilteredCategories(matching);
+    } else {
+      setFilteredCategories([]);
+    }
+  }, [formData.major_group, categories]);
 
-  // Get filtered subcategories based on category
-  const filteredSubCategories = React.useMemo(() => {
-    if (!formData.category) return [];
-    return subCategories.filter((s) => s.category_id === formData.category);
-  }, [subCategories, formData.category]);
+  // Update filtered sub-categories when category changes
+  React.useEffect(() => {
+    if (formData.category && subCategories?.length > 0) {
+      const matching = subCategories
+        .filter((sub) => sub.category === formData.category)
+        .map((sub) => sub.name);
+      setFilteredSubCategories(matching);
+    } else {
+      setFilteredSubCategories([]);
+    }
+  }, [formData.category, subCategories]);
 
   if (isLoading) {
     return (
@@ -108,14 +127,14 @@ export const BasicInformation: React.FC<BasicInformationProps> = ({
             Major Group*
           </label>
           <select
-            value={formData.major_group || ""}
-            onChange={(e) => {
+            value={formData.major_group}
+            onChange={(e) =>
               onChange({
                 major_group: e.target.value,
                 category: "",
                 sub_category: "",
-              });
-            }}
+              })
+            }
             className="input w-full"
             required
           >
@@ -133,7 +152,7 @@ export const BasicInformation: React.FC<BasicInformationProps> = ({
             Category*
           </label>
           <select
-            value={formData.category || ""}
+            value={formData.category}
             onChange={(e) =>
               onChange({ category: e.target.value, sub_category: "" })
             }
@@ -143,8 +162,8 @@ export const BasicInformation: React.FC<BasicInformationProps> = ({
           >
             <option value="">Select category...</option>
             {filteredCategories.map((category) => (
-              <option key={category.id} value={category.name}>
-                {category.name}
+              <option key={category} value={category}>
+                {category}
               </option>
             ))}
           </select>
@@ -162,8 +181,8 @@ export const BasicInformation: React.FC<BasicInformationProps> = ({
           >
             <option value="">Select sub-category...</option>
             {filteredSubCategories.map((subCategory) => (
-              <option key={subCategory.id} value={subCategory.name}>
-                {subCategory.name}
+              <option key={subCategory} value={subCategory}>
+                {subCategory}
               </option>
             ))}
           </select>
@@ -176,7 +195,7 @@ export const BasicInformation: React.FC<BasicInformationProps> = ({
           Storage Area
         </label>
         <select
-          value={formData.storage_area || ""}
+          value={formData.storage_area}
           onChange={(e) => onChange({ storage_area: e.target.value })}
           className="input w-full"
         >
