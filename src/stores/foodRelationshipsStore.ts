@@ -25,11 +25,14 @@ interface FoodSubCategory {
 }
 
 interface FoodRelationshipsStore {
-  majorGroups: string[];
+  majorGroups: Array<{
+    id: string;
+    name: string;
+  }>;
   categories: Array<{
     id: string;
     name: string;
-    category: string;
+    group_id: string;
   }>;
   subCategories: Array<{
     id: string;
@@ -88,16 +91,17 @@ export const useFoodRelationshipsStore = create<FoodRelationshipsStore>(
         if (subCategoriesResponse.error) throw subCategoriesResponse.error;
 
         // Transform data for dropdowns
-        const majorGroups = [
-          ...new Set(groupsResponse.data?.map((g) => g.name) || []),
-        ];
+        const majorGroups =
+          groupsResponse.data?.map((g) => ({
+            id: g.id,
+            name: g.name,
+          })) || [];
 
         const categories =
           categoriesResponse.data?.map((c) => ({
             id: c.id,
             name: c.name,
-            category:
-              groupsResponse.data?.find((g) => g.id === c.group_id)?.name || "",
+            group_id: c.group_id,
           })) || [];
 
         const subCategories =

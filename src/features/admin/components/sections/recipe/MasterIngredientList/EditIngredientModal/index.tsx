@@ -8,6 +8,7 @@ import { BasicInformation } from "./BasicInformation";
 import { AllergenSection } from "./AllergenSection";
 import { RecipeUnits } from "./RecipeUnits";
 import { PurchaseUnits } from "./PurchaseUnits";
+import toast from "react-hot-toast";
 
 interface EditIngredientModalProps {
   ingredient: MasterIngredient;
@@ -22,70 +23,148 @@ export const EditIngredientModal: React.FC<EditIngredientModalProps> = ({
   onSave,
   isNew = false,
 }) => {
-  const { organization } = useAuth();
+  const { organization, user, isDev } = useAuth();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [formData, setFormData] = React.useState<MasterIngredient>(() => ({
-    // Default values for all fields
-    id: initialIngredient.id || "",
-    organization_id: initialIngredient.organization_id || "",
-    product: initialIngredient.product || "",
-    major_group: initialIngredient.major_group || null,
-    category: initialIngredient.category || null,
-    sub_category: initialIngredient.sub_category || null,
-    vendor: initialIngredient.vendor || "",
-    item_code: initialIngredient.item_code || "",
-    case_size: initialIngredient.case_size || "",
-    units_per_case: initialIngredient.units_per_case || 0,
-    recipe_unit_type: initialIngredient.recipe_unit_type || "",
-    yield_percent: initialIngredient.yield_percent || 100,
-    cost_per_recipe_unit: initialIngredient.cost_per_recipe_unit || 0,
-    current_price: initialIngredient.current_price || 0,
-    recipe_unit_per_purchase_unit:
-      initialIngredient.recipe_unit_per_purchase_unit || 0,
-    unit_of_measure: initialIngredient.unit_of_measure || "",
-    storage_area: initialIngredient.storage_area || "",
-    image_url: initialIngredient.image_url || null,
-    created_at: initialIngredient.created_at || new Date().toISOString(),
-    updated_at: initialIngredient.updated_at || new Date().toISOString(),
-    // Allergen fields with default false
-    allergen_peanut: initialIngredient.allergen_peanut || false,
-    allergen_crustacean: initialIngredient.allergen_crustacean || false,
-    allergen_treenut: initialIngredient.allergen_treenut || false,
-    allergen_shellfish: initialIngredient.allergen_shellfish || false,
-    allergen_sesame: initialIngredient.allergen_sesame || false,
-    allergen_soy: initialIngredient.allergen_soy || false,
-    allergen_fish: initialIngredient.allergen_fish || false,
-    allergen_wheat: initialIngredient.allergen_wheat || false,
-    allergen_milk: initialIngredient.allergen_milk || false,
-    allergen_sulphite: initialIngredient.allergen_sulphite || false,
-    allergen_egg: initialIngredient.allergen_egg || false,
-    allergen_gluten: initialIngredient.allergen_gluten || false,
-    allergen_mustard: initialIngredient.allergen_mustard || false,
-    allergen_celery: initialIngredient.allergen_celery || false,
-    allergen_garlic: initialIngredient.allergen_garlic || false,
-    allergen_onion: initialIngredient.allergen_onion || false,
-    allergen_nitrite: initialIngredient.allergen_nitrite || false,
-    allergen_mushroom: initialIngredient.allergen_mushroom || false,
-    allergen_hot_pepper: initialIngredient.allergen_hot_pepper || false,
-    allergen_citrus: initialIngredient.allergen_citrus || false,
-    allergen_pork: initialIngredient.allergen_pork || false,
-    allergen_custom1_name: initialIngredient.allergen_custom1_name || null,
-    allergen_custom1_active: initialIngredient.allergen_custom1_active || false,
-    allergen_custom2_name: initialIngredient.allergen_custom2_name || null,
-    allergen_custom2_active: initialIngredient.allergen_custom2_active || false,
-    allergen_custom3_name: initialIngredient.allergen_custom3_name || null,
-    allergen_custom3_active: initialIngredient.allergen_custom3_active || false,
-    allergen_notes: initialIngredient.allergen_notes || null,
-  }));
+
+  // Debug session info
+  React.useEffect(() => {
+    console.log("Auth debug:", {
+      organization,
+      orgId: organization?.id,
+      user,
+      metadata: user?.user_metadata,
+      isDev,
+    });
+  }, [organization, user, isDev]);
+
+  // Check user permissions
+  React.useEffect(() => {
+    const checkPermissions = async () => {
+      // Skip permission check for dev users
+      if (isDev) return;
+
+      if (!organization?.id || !user?.id) {
+        toast.error("Missing organization or user information");
+        onClose();
+        return;
+      }
+
+      const { data: roles } = await supabase
+        .from("organization_roles")
+        .select("role")
+        .eq("organization_id", organization.id)
+        .eq("user_id", user.id)
+        .single();
+
+      if (!roles || !["owner", "admin"].includes(roles.role)) {
+        toast.error("You do not have permission to manage ingredients");
+        onClose();
+      }
+    };
+
+    checkPermissions();
+  }, [organization?.id, user?.id, onClose, isDev]);
+
+  // Get the organization ID upfront
+  const orgId = React.useMemo(() => {
+    const id = organization?.id;
+    if (!id) {
+      console.warn("Organization ID not available");
+    }
+    return id;
+  }, [organization]);
+
+  const [formData, setFormData] = React.useState<MasterIngredient>(() => {
+    if (!orgId) {
+      console.error("No organization ID available for form initialization");
+    }
+
+    return {
+      id: initialIngredient.id || crypto.randomUUID(),
+      // Explicitly set organization_id from auth context
+      organization_id: orgId || "",
+      product: initialIngredient.product || "",
+      major_group: initialIngredient.major_group || null,
+      category: initialIngredient.category || null,
+      sub_category: initialIngredient.sub_category || null,
+      vendor: initialIngredient.vendor || "",
+      item_code: initialIngredient.item_code || null,
+      case_size: initialIngredient.case_size || "",
+      units_per_case: initialIngredient.units_per_case || 0,
+      recipe_unit_type: initialIngredient.recipe_unit_type || "",
+      yield_percent: initialIngredient.yield_percent || 100,
+      cost_per_recipe_unit: initialIngredient.cost_per_recipe_unit || 0,
+      current_price: initialIngredient.current_price || 0,
+      recipe_unit_per_purchase_unit:
+        initialIngredient.recipe_unit_per_purchase_unit || 0,
+      unit_of_measure: initialIngredient.unit_of_measure || "",
+      storage_area: initialIngredient.storage_area || "",
+      image_url: initialIngredient.image_url || null,
+      created_at: initialIngredient.created_at || new Date().toISOString(),
+      updated_at: initialIngredient.updated_at || new Date().toISOString(),
+      // Allergen fields with default false
+      allergen_peanut: initialIngredient.allergen_peanut || false,
+      allergen_crustacean: initialIngredient.allergen_crustacean || false,
+      allergen_treenut: initialIngredient.allergen_treenut || false,
+      allergen_shellfish: initialIngredient.allergen_shellfish || false,
+      allergen_sesame: initialIngredient.allergen_sesame || false,
+      allergen_soy: initialIngredient.allergen_soy || false,
+      allergen_fish: initialIngredient.allergen_fish || false,
+      allergen_wheat: initialIngredient.allergen_wheat || false,
+      allergen_milk: initialIngredient.allergen_milk || false,
+      allergen_sulphite: initialIngredient.allergen_sulphite || false,
+      allergen_egg: initialIngredient.allergen_egg || false,
+      allergen_gluten: initialIngredient.allergen_gluten || false,
+      allergen_mustard: initialIngredient.allergen_mustard || false,
+      allergen_celery: initialIngredient.allergen_celery || false,
+      allergen_garlic: initialIngredient.allergen_garlic || false,
+      allergen_onion: initialIngredient.allergen_onion || false,
+      allergen_nitrite: initialIngredient.allergen_nitrite || false,
+      allergen_mushroom: initialIngredient.allergen_mushroom || false,
+      allergen_hot_pepper: initialIngredient.allergen_hot_pepper || false,
+      allergen_citrus: initialIngredient.allergen_citrus || false,
+      allergen_pork: initialIngredient.allergen_pork || false,
+      allergen_custom1_name: initialIngredient.allergen_custom1_name || null,
+      allergen_custom1_active:
+        initialIngredient.allergen_custom1_active || false,
+      allergen_custom2_name: initialIngredient.allergen_custom2_name || null,
+      allergen_custom2_active:
+        initialIngredient.allergen_custom2_active || false,
+      allergen_custom3_name: initialIngredient.allergen_custom3_name || null,
+      allergen_custom3_active:
+        initialIngredient.allergen_custom3_active || false,
+      allergen_notes: initialIngredient.allergen_notes || null,
+    };
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+
     try {
-      await onSave(formData);
+      if (!orgId) {
+        throw new Error("Organization ID is not available");
+      }
+
+      // Create a new object with guaranteed organization_id
+      const dataToSave: MasterIngredient = {
+        ...formData,
+        organization_id: orgId,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Log the data being saved
+      console.log("Saving ingredient:", {
+        organizationId: dataToSave.organization_id,
+        isNew,
+        data: dataToSave,
+      });
+
+      await onSave(dataToSave);
       onClose();
     } catch (error) {
       console.error("Error saving ingredient:", error);
+      toast.error("Failed to save ingredient");
     } finally {
       setIsSubmitting(false);
     }

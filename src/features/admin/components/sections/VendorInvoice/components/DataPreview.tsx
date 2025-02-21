@@ -7,6 +7,7 @@ import {
   ArrowDownRight,
   Check,
   Ban,
+  RotateCw,
 } from "lucide-react";
 import { EditIngredientModal } from "@/features/admin/components/sections/recipe/MasterIngredientList/EditIngredientModal";
 import type { MasterIngredient } from "@/types/master-ingredient";
@@ -165,6 +166,52 @@ export const DataPreview: React.FC<Props> = ({
           </p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={async () => {
+              try {
+                // Fetch all master ingredients from the view
+                const { data: ingredients, error } = await supabase
+                  .from("master_ingredients_with_categories")
+                  .select("*");
+
+                if (error) throw error;
+                setMasterIngredients(ingredients || []);
+
+                // Recalculate price changes
+                const changes = data
+                  .map((item) => {
+                    const current = ingredients?.find(
+                      (p) => p.item_code === item.item_code.toString(),
+                    );
+
+                    if (!current) return null;
+
+                    const oldPrice = current.current_price;
+                    const newPrice = parseFloat(item.unit_price);
+                    const changePercent =
+                      ((newPrice - oldPrice) / oldPrice) * 100;
+
+                    return {
+                      itemCode: item.item_code,
+                      oldPrice,
+                      newPrice,
+                      changePercent,
+                    };
+                  })
+                  .filter(Boolean);
+
+                setPriceChanges(changes);
+                toast.success("Data refreshed");
+              } catch (error) {
+                console.error("Error refreshing data:", error);
+                toast.error("Failed to refresh data");
+              }
+            }}
+            className="btn-ghost"
+          >
+            <RotateCw className="w-4 h-4 mr-2" />
+            Refresh
+          </button>
           <button onClick={onCancel} className="btn-ghost">
             <X className="w-4 h-4 mr-2" />
             Cancel
@@ -327,6 +374,7 @@ export const DataPreview: React.FC<Props> = ({
                                 item_code: row.item_code,
                                 current_price: parseFloat(row.unit_price),
                                 unit_of_measure: row.unit_of_measure,
+                                organization_id: user?.organization_id, // Add organization_id
                               });
                             }}
                             className="px-2 py-0.5 text-xs font-medium rounded-full bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
@@ -499,21 +547,44 @@ export const DataPreview: React.FC<Props> = ({
       {/* New Ingredient Modal */}
       {newIngredient && (
         <EditIngredientModal
-          ingredient={newIngredient as MasterIngredient}
+          ingredient={
+            {
+              ...newIngredient,
+              organization_id: user?.user_metadata?.organizationId, // Get from user_metadata
+            } as MasterIngredient
+          }
           onClose={() => setNewIngredient(null)}
           onSave={async (ingredient) => {
             try {
+              // Log the current auth state
+              console.log("Auth state during save:", {
+                user,
+                organizationId: user?.user_metadata?.organizationId,
+              });
+
+              if (!user?.user_metadata?.organizationId) {
+                throw new Error("Organization ID is required");
+              }
+
+              const dataToSave = {
+                ...ingredient,
+                organization_id: user.user_metadata.organizationId, // Use correct path
+              };
+
+              console.log("Saving with data:", dataToSave);
+
               const { error } = await supabase
                 .from("master_ingredients")
-                .insert([
-                  {
-                    ...ingredient,
-                    organization_id: user?.organization_id,
-                  },
-                ]);
-              if (error) throw error;
+                .insert([dataToSave]);
+
+              if (error) {
+                console.error("Supabase insert error:", error);
+                throw error;
+              }
+
               toast.success("Ingredient added successfully");
               setNewIngredient(null);
+
               // Refresh price changes to update the list
               const { data: currentPrices } = await supabase
                 .from("master_ingredients_with_categories")
@@ -522,6 +593,7 @@ export const DataPreview: React.FC<Props> = ({
                   "item_code",
                   data.map((item) => item.item_code),
                 );
+
               if (currentPrices) {
                 const changes = data
                   .map((item) => {

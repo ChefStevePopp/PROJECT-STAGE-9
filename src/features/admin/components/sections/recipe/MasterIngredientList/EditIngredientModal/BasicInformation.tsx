@@ -36,7 +36,7 @@ export const BasicInformation: React.FC<BasicInformationProps> = ({
   // Get filtered categories based on major group
   const filteredCategories = React.useMemo(() => {
     if (!formData.major_group) return [];
-    return categories.filter((c) => c.category === formData.major_group);
+    return categories.filter((c) => c.group_id === formData.major_group);
   }, [categories, formData.major_group]);
 
   // Get filtered subcategories based on category
@@ -76,7 +76,7 @@ export const BasicInformation: React.FC<BasicInformationProps> = ({
           </label>
           <input
             type="text"
-            value={formData.item_code}
+            value={formData.item_code || ""}
             onChange={(e) => onChange({ item_code: e.target.value })}
             className="input w-full"
           />
@@ -84,12 +84,13 @@ export const BasicInformation: React.FC<BasicInformationProps> = ({
 
         <div>
           <label className="block text-sm font-medium text-gray-400 mb-1">
-            Vendor
+            Vendor*
           </label>
           <select
-            value={formData.vendor}
+            value={formData.vendor || ""}
             onChange={(e) => onChange({ vendor: e.target.value })}
             className="input w-full"
+            required
           >
             <option value="">Select vendor...</option>
             {settings?.vendors?.map((vendor) => (
@@ -111,9 +112,9 @@ export const BasicInformation: React.FC<BasicInformationProps> = ({
             value={formData.major_group || ""}
             onChange={(e) => {
               onChange({
-                major_group: e.target.value,
-                category: "",
-                sub_category: "",
+                major_group: e.target.value || null,
+                category: null,
+                sub_category: null,
               });
             }}
             className="input w-full"
@@ -121,8 +122,8 @@ export const BasicInformation: React.FC<BasicInformationProps> = ({
           >
             <option value="">Select major group...</option>
             {majorGroups?.map((group) => (
-              <option key={group} value={group}>
-                {group}
+              <option key={group.id} value={group.id}>
+                {group.name}
               </option>
             ))}
           </select>
@@ -134,16 +135,19 @@ export const BasicInformation: React.FC<BasicInformationProps> = ({
           </label>
           <select
             value={formData.category || ""}
-            onChange={(e) =>
-              onChange({ category: e.target.value, sub_category: "" })
-            }
+            onChange={(e) => {
+              onChange({
+                category: e.target.value || null,
+                sub_category: null,
+              });
+            }}
             className="input w-full"
             required
             disabled={!formData.major_group}
           >
             <option value="">Select category...</option>
             {filteredCategories.map((category) => (
-              <option key={category.id} value={category.name}>
+              <option key={category.id} value={category.id}>
                 {category.name}
               </option>
             ))}
@@ -156,13 +160,17 @@ export const BasicInformation: React.FC<BasicInformationProps> = ({
           </label>
           <select
             value={formData.sub_category || ""}
-            onChange={(e) => onChange({ sub_category: e.target.value })}
+            onChange={(e) => {
+              onChange({
+                sub_category: e.target.value || null,
+              });
+            }}
             className="input w-full"
             disabled={!formData.category}
           >
             <option value="">Select sub-category...</option>
             {filteredSubCategories.map((subCategory) => (
-              <option key={subCategory.id} value={subCategory.name}>
+              <option key={subCategory.id} value={subCategory.id}>
                 {subCategory.name}
               </option>
             ))}
