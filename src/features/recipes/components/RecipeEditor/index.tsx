@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { Save, X, AlertTriangle } from "lucide-react";
+import {
+  Save,
+  X,
+  AlertTriangle,
+  FileEdit,
+  CheckCircle,
+  Archive,
+  Info,
+} from "lucide-react";
 import { useRecipeStore } from "../../stores/recipeStore";
 import BasicInformation from "./BasicInformation";
 import { ProductionSpecs } from "./ProductionSpecs";
@@ -59,6 +67,38 @@ interface RecipeEditorModalProps {
   organizationId: string;
   mode: "create" | "edit";
 }
+
+// Helper function to get status styles
+const getStatusStyle = (status: string) => {
+  switch (status) {
+    case "draft":
+      return "bg-amber-500/20 text-amber-400 border-amber-500/50";
+    case "review":
+      return "bg-blue-500/20 text-blue-400 border-blue-500/50";
+    case "approved":
+      return "bg-emerald-500/20 text-emerald-400 border-emerald-500/50";
+    case "archived":
+      return "bg-gray-500/20 text-gray-400 border-gray-500/50";
+    default:
+      return "bg-gray-800/50 text-gray-400 border-gray-700";
+  }
+};
+
+// Helper function to get status icon
+const getStatusIcon = (status: string) => {
+  switch (status) {
+    case "draft":
+      return <FileEdit className="w-4 h-4" />;
+    case "review":
+      return <Info className="w-4 h-4" />;
+    case "approved":
+      return <CheckCircle className="w-4 h-4" />;
+    case "archived":
+      return <Archive className="w-4 h-4" />;
+    default:
+      return <Info className="w-4 h-4" />;
+  }
+};
 
 const RecipeEditorModal: React.FC<RecipeEditorModalProps> = ({
   isOpen,
@@ -148,14 +188,29 @@ const RecipeEditorModal: React.FC<RecipeEditorModalProps> = ({
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-gray-900 rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
         <header className="sticky top-0 bg-gray-900 p-6 border-b border-gray-800 flex justify-between items-center z-40">
-          <h2 className="text-2xl font-bold text-white">
-            {mode === "create" ? "Create Recipe" : "Edit Recipe"}
-          </h2>
+          <div className="flex items-center gap-4">
+            <h2 className="text-2xl font-bold text-white">
+              {mode === "create" ? "Create Recipe" : "Edit Recipe"}
+            </h2>
+            {recipe.status && (
+              <div
+                className={`px-3 py-1 rounded-full flex items-center gap-2 text-sm font-medium ${getStatusStyle(recipe.status)}`}
+              >
+                {getStatusIcon(recipe.status)}
+                {recipe.status.charAt(0).toUpperCase() + recipe.status.slice(1)}
+              </div>
+            )}
+            {recipe.version && (
+              <div className="px-3 py-1 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/50 flex items-center gap-2 text-sm font-medium">
+                v{recipe.version}
+              </div>
+            )}
+          </div>
           <div className="flex items-center gap-4">
             {hasUnsavedChanges && (
-              <div className="flex items-center gap-2 text-yellow-400">
+              <div className="flex items-center gap-2 text-orange-400">
                 <AlertTriangle className="w-5 h-5" />
-                <span className="text-sm">Unsaved changes</span>
+                <span className="text-sm text-gray-400">Unsaved Changes</span>
               </div>
             )}
             <button
@@ -175,7 +230,7 @@ const RecipeEditorModal: React.FC<RecipeEditorModalProps> = ({
           </div>
         </header>
 
-        <div className="flex gap-2 overflow-x-auto pb-2 px-6 mt-6">
+        <div className="flex gap-1 overflow-x-auto pb-2 px-6 mt-6">
           {tabs.map((tab) => (
             <button
               key={tab.id}

@@ -34,12 +34,27 @@ export interface Recipe {
   primary_station?: string;
   secondary_station?: string;
   version?: string;
-  versions?: RecipeVersion[];
+  versions?: any[];
   label_requirements?: LabelRequirements;
   use_label_printer?: boolean;
   created_at?: string;
   updated_at?: string;
-  modifiedBy?: string;
+  created_by?: string;
+  modified_by?: string;
+  approved_by?: string;
+  approved_at?: string;
+  last_reviewed_at?: string;
+  last_reviewed_by?: string;
+  // View-only fields
+  station_name?: string;
+  major_group_name?: string;
+  category_name?: string;
+  sub_category_name?: string;
+  // Image URL (legacy field)
+  image_url?: string;
+  major_group?: string | null;
+  category?: string | null;
+  sub_category?: string | null;
 }
 
 export interface RecipeIngredient {
@@ -153,4 +168,9 @@ export interface LabelRequirements {
   example_photo_url?: string | null;
   example_photo_description?: string | null;
   use_label_printer?: boolean;
+}
+
+export interface RecipeEquipment {
+  id: string;
+  name: string;
 }

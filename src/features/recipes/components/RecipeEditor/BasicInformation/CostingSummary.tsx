@@ -1,7 +1,7 @@
-import React from 'react';
-import { CircleDollarSign, Calculator } from 'lucide-react';
-import type { Recipe } from '../../../types/recipe';
-import type { OperationsSettings } from '@/types/operations';
+import React, { useEffect } from "react";
+import { CircleDollarSign, Calculator } from "lucide-react";
+import type { Recipe } from "../../../types/recipe";
+import type { OperationsSettings } from "@/types/operations";
 
 interface CostingSummaryProps {
   recipe: Recipe;
@@ -12,17 +12,25 @@ interface CostingSummaryProps {
 export const CostingSummary: React.FC<CostingSummaryProps> = ({
   recipe,
   onChange,
-  settings
+  settings,
 }) => {
   // Calculate total ingredient cost
   const recipeTotal = recipe.ingredients.reduce((sum, ingredient) => {
     const quantity = parseFloat(ingredient.quantity) || 0;
-    return sum + (quantity * ingredient.cost);
+    return sum + quantity * ingredient.cost;
   }, 0);
 
   // Calculate cost per recipe unit
-  const recipeUnits = parseFloat(recipe.recipeUnitRatio) || 1;
+  const recipeUnits = parseFloat(recipe.recipe_unit_ratio) || 1;
   const costPerRecipeUnit = recipeTotal / recipeUnits;
+
+  // Update the cost_per_unit whenever the calculation changes
+  useEffect(() => {
+    // Only update if the calculated value is different from stored value
+    if (costPerRecipeUnit !== recipe.cost_per_unit) {
+      onChange({ cost_per_unit: costPerRecipeUnit });
+    }
+  }, [costPerRecipeUnit, recipe.cost_per_unit, onChange]);
 
   return (
     <div className="grid grid-cols-2 gap-6">
@@ -32,25 +40,33 @@ export const CostingSummary: React.FC<CostingSummaryProps> = ({
           <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
             <Calculator className="w-4 h-4 text-blue-400" />
           </div>
-          <h3 className="text-lg font-medium text-white">Recipe Cost Calculation</h3>
+          <h3 className="text-lg font-medium text-white">
+            Recipe Cost Calculation
+          </h3>
         </div>
 
         <div className="space-y-4 text-sm text-gray-300">
           <p>
-            <span className="font-medium text-white">Recipe Total:</span> Sum of all ingredient costs
-            (quantity × recipe unit cost for each ingredient)
+            <span className="font-medium text-white">Recipe Total:</span> Sum of
+            all ingredient costs (quantity × recipe unit cost for each
+            ingredient)
           </p>
           <p>
-            <span className="font-medium text-white">Number of Recipe Units:</span> Total quantity of
-            recipe units this recipe produces
+            <span className="font-medium text-white">
+              Number of Recipe Units:
+            </span>{" "}
+            Total quantity of recipe units this recipe produces
           </p>
           <p>
-            <span className="font-medium text-white">Recipe Unit Cost:</span> Recipe Total ÷ Number
-            of Recipe Units
+            <span className="font-medium text-white">
+              Cost Per Recipe Unit:
+            </span>{" "}
+            Recipe Total ÷ Number of Recipe Units
           </p>
           <p>
-            <span className="font-medium text-white">Recipe Unit Type:</span> How this item will be
-            measured when used as an ingredient in other recipes
+            <span className="font-medium text-white">Recipe Unit Type:</span>{" "}
+            How this item will be measured when used as an ingredient in other
+            recipes
           </p>
         </div>
       </div>
@@ -85,8 +101,10 @@ export const CostingSummary: React.FC<CostingSummaryProps> = ({
             <div className="w-40">
               <input
                 type="text"
-                value={recipe.recipeUnitRatio}
-                onChange={(e) => onChange({ recipeUnitRatio: e.target.value })}
+                value={recipe.recipe_unit_ratio}
+                onChange={(e) =>
+                  onChange({ recipe_unit_ratio: e.target.value })
+                }
                 className="input w-full text-right font-mono text-lg"
                 placeholder="0"
                 required
@@ -94,10 +112,10 @@ export const CostingSummary: React.FC<CostingSummaryProps> = ({
             </div>
           </div>
 
-          {/* Recipe Unit Cost */}
+          {/* Cost Per Recipe Unit */}
           <div className="flex items-center py-2 border-b border-gray-700">
             <span className="flex-1 font-status text-sm font-medium text-gray-400">
-              RECIPE UNIT
+              COST PER RECIPE UNIT
             </span>
             <div className="w-40 text-right">
               <span className="font-mono text-lg text-white">
@@ -113,14 +131,16 @@ export const CostingSummary: React.FC<CostingSummaryProps> = ({
             </span>
             <div className="w-40">
               <select
-                value={recipe.unitType}
-                onChange={(e) => onChange({ unitType: e.target.value })}
+                value={recipe.unit_type}
+                onChange={(e) => onChange({ unit_type: e.target.value })}
                 className="input w-full text-right font-mono text-lg"
                 required
               >
                 <option value="">Select unit...</option>
-                {settings.recipe_unit_measures?.map(measure => (
-                  <option key={measure} value={measure}>{measure}</option>
+                {settings.recipe_unit_measures?.map((measure) => (
+                  <option key={measure} value={measure}>
+                    {measure}
+                  </option>
                 ))}
               </select>
             </div>

@@ -35,6 +35,29 @@ export const RecipeUnits: React.FC<RecipeUnitsProps> = ({
     ? baseUnitCost / (formData.yield_percent / 100)
     : baseUnitCost;
 
+  // Update the parent component with the calculated cost per recipe unit
+  React.useEffect(() => {
+    // Calculate the cost per recipe unit
+    const baseUnitCost =
+      formData.current_price && formData.recipe_unit_per_purchase_unit
+        ? formData.current_price / formData.recipe_unit_per_purchase_unit
+        : 0;
+    const adjustedUnitCost = formData.yield_percent
+      ? baseUnitCost / (formData.yield_percent / 100)
+      : baseUnitCost;
+
+    // Only update if the value has actually changed
+    if (adjustedUnitCost !== formData.cost_per_recipe_unit) {
+      onChange({ cost_per_recipe_unit: adjustedUnitCost });
+    }
+  }, [
+    formData.current_price,
+    formData.recipe_unit_per_purchase_unit,
+    formData.yield_percent,
+    formData.cost_per_recipe_unit,
+    onChange,
+  ]);
+
   return (
     <div className="bg-emerald-500/10 rounded-lg p-6">
       <div className="flex items-center gap-2 mb-4">

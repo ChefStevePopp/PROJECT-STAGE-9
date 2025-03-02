@@ -11,13 +11,14 @@ import toast from "react-hot-toast";
 
 export const FoodRelationshipsManager = () => {
   const {
-    categoryGroups,
-    categories,
-    subCategories,
+    categoryGroups = [],
+    categories = [],
+    subCategories = [],
     fetchFoodRelationships,
     isLoading,
     addItem,
   } = useFoodRelationshipsStore();
+
   const [selectedGroup, setSelectedGroup] = React.useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = React.useState<string | null>(
     null,
@@ -27,15 +28,14 @@ export const FoodRelationshipsManager = () => {
     type: "group" | "category" | "sub";
     description: string;
   } | null>(null);
-  const [showAddModal, setShowAddModal] = React.useState<
-    "group" | "category" | "sub" | null
-  >(null);
+  const [showAddModal, setShowAddModal] = React.useState;
+  "group" | "category" | "sub" | (null > null);
   const [newItemName, setNewItemName] = React.useState("");
   const [newItemDescription, setNewItemDescription] = React.useState("");
 
   React.useEffect(() => {
     fetchFoodRelationships();
-  }, [fetchFoodRelationships]);
+  }, []); // Empty dependency array
 
   // Reset selections when changing levels
   React.useEffect(() => {
@@ -92,8 +92,7 @@ export const FoodRelationshipsManager = () => {
     );
   }
 
-  const showEmptyState =
-    !categoryGroups.length && !categories.length && !subCategories.length;
+  const showEmptyState = !categoryGroups?.length || categoryGroups.length === 0;
 
   // Filter categories based on selected group
   const filteredCategories = selectedGroup
@@ -181,7 +180,11 @@ export const FoodRelationshipsManager = () => {
                         selectedGroup === group.id ? null : group.id,
                       )
                     }
-                    className={`w-full flex items-center justify-between p-3 rounded-lg transition-colors ${selectedGroup === group.id ? "bg-primary-500/20 text-primary-400" : "bg-gray-800/50 hover:bg-gray-800 text-gray-300"}`}
+                    className={`w-full flex items-center justify-between p-3 rounded-lg transition-colors ${
+                      selectedGroup === group.id
+                        ? "bg-primary-500/20 text-primary-400"
+                        : "bg-gray-800/50 hover:bg-gray-800 text-gray-300"
+                    }`}
                   >
                     <div className="flex items-center gap-2">
                       <GripVertical className="w-4 h-4 text-gray-600 cursor-grab" />
@@ -197,7 +200,9 @@ export const FoodRelationshipsManager = () => {
                         categories
                       </span>
                       <ChevronRight
-                        className={`w-4 h-4 transition-transform ${selectedGroup === group.id ? "rotate-90" : ""}`}
+                        className={`w-4 h-4 transition-transform ${
+                          selectedGroup === group.id ? "rotate-90" : ""
+                        }`}
                       />
                     </div>
                   </button>
@@ -241,7 +246,11 @@ export const FoodRelationshipsManager = () => {
                           selectedCategory === category.id ? null : category.id,
                         )
                       }
-                      className={`w-full flex items-center justify-between p-3 rounded-lg transition-colors ${selectedCategory === category.id ? "bg-emerald-500/20 text-emerald-400" : "bg-gray-800/50 hover:bg-gray-800 text-gray-300"}`}
+                      className={`w-full flex items-center justify-between p-3 rounded-lg transition-colors ${
+                        selectedCategory === category.id
+                          ? "bg-emerald-500/20 text-emerald-400"
+                          : "bg-gray-800/50 hover:bg-gray-800 text-gray-300"
+                      }`}
                     >
                       <div className="flex items-center gap-2">
                         <GripVertical className="w-4 h-4 text-gray-600 cursor-grab" />
@@ -258,7 +267,9 @@ export const FoodRelationshipsManager = () => {
                           sub-categories
                         </span>
                         <ChevronRight
-                          className={`w-4 h-4 transition-transform ${selectedCategory === category.id ? "rotate-90" : ""}`}
+                          className={`w-4 h-4 transition-transform ${
+                            selectedCategory === category.id ? "rotate-90" : ""
+                          }`}
                         />
                       </div>
                     </button>
@@ -353,6 +364,7 @@ export const FoodRelationshipsManager = () => {
                   onChange={(e) => setNewItemName(e.target.value)}
                   className="input w-full"
                   placeholder="Enter name..."
+                  autoFocus
                 />
               </div>
               <div>

@@ -42,7 +42,7 @@ export const BasicInformation: React.FC<BasicInformationProps> = ({
       </div>
 
       {/* Recipe Ingredients */}
-      <div className="card p-6 relative z-40">
+      <div className="card p-6 relative z-30">
         <IngredientsInput recipe={recipe} onChange={onChange} />
       </div>
 
