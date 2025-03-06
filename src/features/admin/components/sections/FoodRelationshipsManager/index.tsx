@@ -10,14 +10,11 @@ import { useFoodRelationshipsStore } from "@/stores/foodRelationshipsStore";
 import toast from "react-hot-toast";
 
 export const FoodRelationshipsManager = () => {
-  const {
-    categoryGroups = [],
-    categories = [],
-    subCategories = [],
-    fetchFoodRelationships,
-    isLoading,
-    addItem,
-  } = useFoodRelationshipsStore();
+  const store = useFoodRelationshipsStore();
+  const { fetchFoodRelationships, isLoading, addItem } = store;
+  const majorGroups = store.majorGroups || [];
+  const categories = store.categories || [];
+  const subCategories = store.subCategories || [];
 
   const [selectedGroup, setSelectedGroup] = React.useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = React.useState<string | null>(
@@ -28,8 +25,9 @@ export const FoodRelationshipsManager = () => {
     type: "group" | "category" | "sub";
     description: string;
   } | null>(null);
-  const [showAddModal, setShowAddModal] = React.useState;
-  "group" | "category" | "sub" | (null > null);
+  const [showAddModal, setShowAddModal] = React.useState<
+    "group" | "category" | "sub" | null
+  >(null);
   const [newItemName, setNewItemName] = React.useState("");
   const [newItemDescription, setNewItemDescription] = React.useState("");
 
@@ -53,7 +51,7 @@ export const FoodRelationshipsManager = () => {
         await addItem("group", {
           name: newItemName,
           description: newItemDescription,
-          sort_order: categoryGroups.length,
+          sort_order: majorGroups.length,
         });
       } else if (showAddModal === "category" && selectedGroup) {
         await addItem("category", {
@@ -92,7 +90,7 @@ export const FoodRelationshipsManager = () => {
     );
   }
 
-  const showEmptyState = !categoryGroups?.length || categoryGroups.length === 0;
+  const showEmptyState = !majorGroups?.length || majorGroups.length === 0;
 
   // Filter categories based on selected group
   const filteredCategories = selectedGroup
@@ -172,7 +170,7 @@ export const FoodRelationshipsManager = () => {
               </button>
             </div>
             <div className="space-y-2">
-              {categoryGroups.map((group) => (
+              {majorGroups.map((group) => (
                 <div key={group.id} className="space-y-2">
                   <button
                     onClick={() =>
@@ -215,7 +213,7 @@ export const FoodRelationshipsManager = () => {
                   )}
                 </div>
               ))}
-              {categoryGroups.length === 0 && (
+              {majorGroups.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
                   No major groups added
                 </div>
@@ -284,7 +282,7 @@ export const FoodRelationshipsManager = () => {
                 ))
               ) : (
                 <div className="text-center py-8 text-gray-500">
-                  {categoryGroups.length === 0
+                  {majorGroups.length === 0
                     ? "Add a major group first"
                     : "Select a major group"}
                 </div>

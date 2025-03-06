@@ -1,58 +1,79 @@
 import { MasterIngredient } from "@/types/master-ingredient";
-import type { ReactNode } from "react";
+import type { ExcelColumn } from "@/types/excel";
+import { AllergenCell } from "./components/AllergenCell";
 
-interface Column<T> {
-  key: keyof T;
-  header: string;
-  enableSorting?: boolean;
-  cell?: (value: any, row: T) => ReactNode;
-}
-
-export const masterIngredientColumns: Column<MasterIngredient>[] = [
+export const masterIngredientColumns: ExcelColumn[] = [
+  {
+    key: "item_code",
+    name: "Vendor ID",
+    type: "text",
+    width: 120,
+    sortable: true,
+    filterable: true,
+  },
   {
     key: "product",
-    header: "Product Name",
-    enableSorting: true,
+    name: "Product Name",
+    type: "text",
+    width: 200,
+    sortable: true,
+    filterable: true,
   },
   {
     key: "major_group_name",
-    header: "Major Group",
-    enableSorting: true,
+    name: "Major Group",
+    type: "text",
+    width: 150,
+    sortable: true,
+    filterable: true,
   },
   {
     key: "category_name",
-    header: "Category",
-    enableSorting: true,
+    name: "Category",
+    type: "text",
+    width: 150,
+    sortable: true,
+    filterable: true,
   },
   {
     key: "sub_category_name",
-    header: "Sub Category",
-    enableSorting: true,
+    name: "Sub Category",
+    type: "text",
+    width: 150,
+    sortable: true,
+    filterable: true,
   },
   {
     key: "recipe_unit_type",
-    header: "Recipe Unit",
-    enableSorting: true,
+    name: "Recipe Unit",
+    type: "text",
+    width: 120,
+    sortable: true,
+    filterable: true,
   },
   {
     key: "cost_per_recipe_unit",
-    header: "Cost per Unit",
-    enableSorting: true,
-    cell: (value, row) => {
-      const cost = row.cost_per_recipe_unit;
-      return typeof cost === "number" ? `${cost.toFixed(2)}` : "-";
-    },
+    name: "Cost per Unit",
+    type: "currency",
+    width: 120,
+    sortable: true,
+    filterable: true,
   },
   {
     key: "storage_area",
-    header: "Storage Area",
-    enableSorting: true,
+    name: "Storage Area",
+    type: "text",
+    width: 150,
+    sortable: true,
+    filterable: true,
   },
   {
     key: "id",
-    header: "Allergens",
-    enableSorting: false,
-    cell: (_value, row) => ({ type: "allergen-cell", ingredient: row }),
+    name: "Allergens",
+    type: "allergen",
+    width: 150,
+    sortable: false,
+    filterable: false,
   },
 ];
 

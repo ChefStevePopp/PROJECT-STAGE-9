@@ -1,35 +1,36 @@
 export interface InventoryCount {
   id: string;
   masterIngredientId: string;
-  countDate: string;
   quantity: number; // In inventory units (e.g. cases, bags, etc)
   unitCost: number; // Cost per inventory unit
   totalValue: number;
   location?: string;
   countedBy?: string;
   notes?: string;
-  status: 'pending' | 'completed' | 'verified';
+  status: "pending" | "completed" | "verified";
   lastUpdated: string;
   ingredient?: {
-    uniqueId: string;
+    itemCode: string;
     product: string;
     category: string;
-    caseSize: string;
-    unitsPerCase: string;
+    subCategory: string;
     unitOfMeasure: string;
-    recipeUnitPerPurchaseUnit: number;
     imageUrl?: string;
   };
 }
 
-export interface InventoryStore {
-  counts: InventoryCount[];
-  isLoading: boolean;
-  error: string | null;
-  fetchCounts: () => Promise<void>;
-  addCount: (count: Omit<InventoryCount, 'id' | 'lastUpdated'>) => Promise<void>;
-  updateCount: (id: string, updates: Partial<InventoryCount>) => Promise<void>;
-  deleteCount: (id: string) => Promise<void>;
-  importCounts: (data: any[]) => Promise<void>;
-  clearCounts: () => Promise<void>;
+export interface InventoryCountDB {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  organization_id: string;
+  master_ingredient_id: string;
+  count_date: string;
+  quantity: number;
+  unit_cost: number;
+  total_value: number;
+  location: string;
+  counted_by: string;
+  notes: string;
+  status: "pending" | "completed" | "verified";
 }

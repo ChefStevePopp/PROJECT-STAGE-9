@@ -1,120 +1,548 @@
-import React from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import {
+  Search,
+  Filter,
+  X,
+  Download,
+  Settings,
+  Eye,
+  ArrowsMaximize,
+  RefreshCw,
+} from "lucide-react";
+import type { ExcelColumn } from "@/types/excel";
+import { PaginationControls } from "./PaginationControls";
+import { ColumnFilter } from "./ColumnFilter";
+import { ResizableHeader } from "./ResizableHeader";
 import { AllergenCell } from "@/features/admin/components/sections/recipe/MasterIngredientList/components/AllergenCell";
 
-interface Column<T> {
-  key: keyof T;
-  header: string;
-  enableSorting?: boolean;
-  cell?: (
-    value: any,
-    row: T,
-  ) => React.ReactNode | { type: string; ingredient: T };
-}
-
 interface ExcelDataGridProps<T> {
+  columns: ExcelColumn[];
   data: T[];
-  columns: Column<T>[];
+  categoryFilter?: string;
+  onCategoryChange?: (category: string) => void;
+  type?: string;
   onRowClick?: (row: T) => void;
 }
 
 export function ExcelDataGrid<T>({
-  data,
   columns,
+  data,
+  categoryFilter = "all",
+  onCategoryChange,
+  type = "default",
   onRowClick,
 }: ExcelDataGridProps<T>) {
-  const [sortConfig, setSortConfig] = React.useState<{
-    key: keyof T | null;
-    direction: "asc" | "desc" | null;
-  }>({ key: null, direction: null });
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
-  const sortedData = React.useMemo(() => {
-    if (!sortConfig.key) return data;
+  // Sorting state
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc" | null>(
+    null,
+  );
 
-    return [...data].sort((a, b) => {
-      if (a[sortConfig.key] < b[sortConfig.key]) {
-        return sortConfig.direction === "asc" ? -1 : 1;
-      }
-      if (a[sortConfig.key] > b[sortConfig.key]) {
-        return sortConfig.direction === "asc" ? 1 : -1;
-      }
-      return 0;
-    });
-  }, [data, sortConfig]);
+  // Filtering state
+  const [filters, setFilters] = useState<Record<string, any>>({});
+  const [activeFilters, setActiveFilters] = useState<string[]>([]);
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [globalFilter, setGlobalFilter] = useState("");
 
-  const requestSort = (key: keyof T) => {
-    setSortConfig((current) => {
-      if (current.key === key) {
-        if (current.direction === "asc") {
-          return { key, direction: "desc" };
+  // Column customization
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(
+    columns.map((col) => col.key),
+  );
+  const [showColumnSettings, setShowColumnSettings] = useState(false);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters, globalFilter, categoryFilter]);
+
+  // Initialize visible columns when columns change
+  useEffect(() => {
+    setVisibleColumns(columns.map((col) => col.key));
+  }, [columns]);
+
+  // Apply all filters and sorting to data
+  const filteredData = useMemo(() => {
+    let result = [...data];
+
+    // Apply category filter if provided
+    if (categoryFilter && categoryFilter !== "all") {
+      result = result.filter((item) => {
+        const category = (item as any).ingredient?.category || "";
+        return category === categoryFilter;
+      });
+    }
+
+    // Apply global filter
+    if (globalFilter) {
+      const lowercasedFilter = globalFilter.toLowerCase();
+      result = result.filter((item) => {
+        return columns.some((column) => {
+          const value = getNestedValue(item, column.key);
+          if (value == null) return false;
+          return String(value).toLowerCase().includes(lowercasedFilter);
+        });
+      });
+    }
+
+    // Apply column filters
+    Object.entries(filters).forEach(([key, filterValue]) => {
+      if (!filterValue) return;
+
+      const column = columns.find((col) => col.key === key);
+      if (!column) return;
+
+      result = result.filter((item) => {
+        const value = getNestedValue(item, key);
+        if (value == null) return false;
+
+        switch (column.type) {
+          case "text":
+            return String(value)
+              .toLowerCase()
+              .includes(String(filterValue).toLowerCase());
+
+          case "number":
+          case "currency":
+            const [min, max] = filterValue as [number | null, number | null];
+            if (min !== null && value < min) return false;
+            if (max !== null && value > max) return false;
+            return true;
+
+          case "date":
+            const [startDate, endDate] = filterValue as [string, string];
+            const dateValue = new Date(value);
+            if (startDate && new Date(startDate) > dateValue) return false;
+            if (endDate && new Date(endDate) < dateValue) return false;
+            return true;
+
+          default:
+            return true;
         }
-        return { key: null, direction: null };
+      });
+    });
+
+    // Apply sorting
+    if (sortColumn) {
+      result.sort((a, b) => {
+        const aValue = getNestedValue(a, sortColumn);
+        const bValue = getNestedValue(b, sortColumn);
+
+        if (aValue == null) return sortDirection === "asc" ? -1 : 1;
+        if (bValue == null) return sortDirection === "asc" ? 1 : -1;
+
+        if (typeof aValue === "string" && typeof bValue === "string") {
+          return sortDirection === "asc"
+            ? aValue.localeCompare(bValue)
+            : bValue.localeCompare(aValue);
+        }
+
+        return sortDirection === "asc"
+          ? aValue > bValue
+            ? 1
+            : -1
+          : aValue > bValue
+            ? -1
+            : 1;
+      });
+    }
+
+    return result;
+  }, [
+    data,
+    columns,
+    categoryFilter,
+    globalFilter,
+    filters,
+    sortColumn,
+    sortDirection,
+  ]);
+
+  // Get paginated data
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredData.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredData, currentPage, itemsPerPage]);
+
+  // Calculate total pages
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / itemsPerPage));
+
+  // Handle sorting
+  const handleSort = (columnKey: string) => {
+    if (sortColumn === columnKey) {
+      if (sortDirection === "asc") {
+        setSortDirection("desc");
+      } else if (sortDirection === "desc") {
+        setSortColumn(null);
+        setSortDirection(null);
       }
-      return { key, direction: "asc" };
+    } else {
+      setSortColumn(columnKey);
+      setSortDirection("asc");
+    }
+  };
+
+  // Handle column resize
+  const handleColumnResize = (columnKey: string, width: number) => {
+    setColumnWidths((prev) => ({
+      ...prev,
+      [columnKey]: width,
+    }));
+  };
+
+  // Toggle column visibility
+  const toggleColumnVisibility = (columnKey: string) => {
+    setVisibleColumns((prev) => {
+      if (prev.includes(columnKey)) {
+        return prev.filter((key) => key !== columnKey);
+      } else {
+        return [...prev, columnKey];
+      }
     });
   };
 
-  const renderCell = (column: Column<T>, row: T) => {
-    if (column.cell) {
-      const cellContent = column.cell(row[column.key], row);
-      if (
-        typeof cellContent === "object" &&
-        cellContent !== null &&
-        "type" in cellContent
-      ) {
-        if (cellContent.type === "allergen-cell") {
-          return <AllergenCell ingredient={cellContent.ingredient} />;
-        }
-      }
-      return cellContent;
+  // Handle filter change
+  const handleFilterChange = (columnKey: string, value: any) => {
+    setFilters((prev) => ({
+      ...prev,
+      [columnKey]: value,
+    }));
+
+    if (value && !activeFilters.includes(columnKey)) {
+      setActiveFilters((prev) => [...prev, columnKey]);
+    } else if (!value && activeFilters.includes(columnKey)) {
+      setActiveFilters((prev) => prev.filter((key) => key !== columnKey));
     }
-    return row[column.key];
+  };
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setFilters({});
+    setActiveFilters([]);
+    setGlobalFilter("");
+  };
+
+  // Helper to get nested value from object
+  const getNestedValue = (obj: any, path: string) => {
+    return path.split(".").reduce((prev, curr) => {
+      return prev ? prev[curr] : null;
+    }, obj);
+  };
+
+  // Render cell content based on column type
+  const renderCellContent = (item: any, column: ExcelColumn) => {
+    const value = getNestedValue(item, column.key);
+    if (value == null) return "-";
+
+    switch (column.type) {
+      case "currency":
+        return `$${Number(value).toFixed(2)}`;
+
+      case "date":
+        return new Date(value).toLocaleDateString();
+
+      case "imageUrl":
+        return value ? (
+          <div className="w-10 h-10 rounded-md overflow-hidden bg-gray-800">
+            <img
+              src={value}
+              alt="Thumbnail"
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src =
+                  "https://via.placeholder.com/40?text=N/A";
+              }}
+            />
+          </div>
+        ) : (
+          "-"
+        );
+
+      case "boolean":
+        return value ? "Yes" : "No";
+
+      default:
+        return String(value);
+    }
+  };
+
+  const renderCell = (column: ExcelColumn, row: T) => {
+    // Check if there's a custom cell renderer for this column
+    if (column.type === "allergen") {
+      return <AllergenCell ingredient={row} />;
+    }
+
+    return renderCellContent(row, column);
   };
 
   return (
-    <div className="rounded-lg border border-gray-700 overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-gray-800/50">
-            <tr>
-              {columns.map((column) => (
-                <th
-                  key={String(column.key)}
-                  onClick={() =>
-                    column.enableSorting && requestSort(column.key)
-                  }
-                  className={`px-4 py-3 text-left text-sm font-medium text-gray-400 ${column.enableSorting ? "cursor-pointer select-none" : ""}`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span>{column.header}</span>
-                    {column.enableSorting && sortConfig.key === column.key && (
-                      <span className="text-gray-500">
-                        {sortConfig.direction === "asc" ? "↑" : "↓"}
-                      </span>
-                    )}
-                  </div>
-                </th>
+    <div className="overflow-hidden">
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center justify-between mb-4 gap-4">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" />
+          <input
+            type="text"
+            value={globalFilter}
+            onChange={(e) => setGlobalFilter(e.target.value)}
+            placeholder="Search all columns..."
+            className="input pl-10 w-full"
+          />
+          {globalFilter && (
+            <button
+              onClick={() => setGlobalFilter("")}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-300"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowFilterPanel(!showFilterPanel)}
+            className={`btn-ghost ${activeFilters.length > 0 ? "text-primary-400" : ""}`}
+          >
+            <Filter className="w-4 h-4 mr-2" />
+            Filters {activeFilters.length > 0 && `(${activeFilters.length})`}
+          </button>
+
+          <button
+            onClick={() => setShowColumnSettings(!showColumnSettings)}
+            className="btn-ghost"
+          >
+            <Settings className="w-4 h-4 mr-2" />
+            Columns
+          </button>
+
+          <button className="btn-ghost">
+            <Download className="w-4 h-4 mr-2" />
+            Export
+          </button>
+        </div>
+      </div>
+
+      {/* Filter Panel */}
+      {showFilterPanel && (
+        <div className="card p-4 bg-gray-800 rounded-lg p-4 mb-4">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-white font-medium">Filters</h3>
+            <div className="flex gap-2">
+              <button
+                onClick={clearAllFilters}
+                className="text-sm text-gray-400 hover:text-white flex items-center gap-1"
+              >
+                <RefreshCw className="w-4 h-4 text-amber-500" />
+                Clear all filters
+              </button>
+              <button
+                onClick={() => setShowFilterPanel(false)}
+                className="text-sm text-gray-400 hover:text-white flex items-center gap-1"
+              >
+                <X className="w-4 h-4 text-amber-500" />
+                Close
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {columns
+              .filter(
+                (col) => col.type !== "imageUrl" && col.type !== "allergen",
+              )
+              .map((column) => (
+                <div key={column.key} className="space-y-1">
+                  <label className="text-sm text-gray-400">{column.name}</label>
+                  <ColumnFilter
+                    column={column}
+                    value={filters[column.key] || null}
+                    onChange={(value) => handleFilterChange(column.key, value)}
+                    onClear={() => handleFilterChange(column.key, null)}
+                  />
+                </div>
               ))}
+          </div>
+        </div>
+      )}
+
+      {/* Column Settings Panel */}
+      {showColumnSettings && (
+        <div className="card p-4 bg-gray-800 rounded-lg p-4 mb-4">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-white font-medium">Column Settings</h3>
+            <div className="flex gap-4">
+              <button
+                onClick={() => setColumnWidths({})}
+                className="text-sm text-gray-400 hover:text-white flex items-center gap-1"
+              >
+                <RefreshCw className="w-4 h-4 text-amber-500" />
+                Reset widths
+              </button>
+              <button
+                onClick={() => setVisibleColumns(columns.map((col) => col.key))}
+                className="text-sm text-gray-400 hover:text-white flex items-center gap-1"
+              >
+                <Eye className="w-4 h-4 text-amber-500" />
+                Show all
+              </button>
+              <button
+                onClick={() => setShowColumnSettings(false)}
+                className="text-sm text-gray-400 hover:text-white flex items-center gap-1"
+              >
+                <X className="w-4 h-4 text-amber-500" />
+                Close
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {columns.map((column) => (
+              <div key={column.key} className="flex flex-col space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id={`col-visible-${column.key}`}
+                      checked={visibleColumns.includes(column.key)}
+                      onChange={() => toggleColumnVisibility(column.key)}
+                      className="mr-2"
+                    />
+                    <label
+                      htmlFor={`col-visible-${column.key}`}
+                      className="text-sm text-gray-300"
+                    >
+                      {column.name}
+                    </label>
+                  </div>
+                </div>
+
+                {visibleColumns.includes(column.key) && (
+                  <div className="flex items-center ml-6">
+                    <span className="text-xs text-gray-500 mr-2">Width:</span>
+                    <input
+                      type="number"
+                      min="50"
+                      max="500"
+                      value={columnWidths[column.key] || column.width}
+                      onChange={(e) =>
+                        handleColumnResize(column.key, Number(e.target.value))
+                      }
+                      className="input w-20 py-1 text-sm"
+                    />
+                    <span className="ml-1 text-gray-500">px</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Data Table */}
+      <div className="overflow-x-auto rounded-lg border border-gray-700">
+        <table className="w-full">
+          <thead className="bg-slate-900 text-gray-500">
+            <tr>
+              {columns
+                .filter((column) => visibleColumns.includes(column.key))
+                .map((column) => (
+                  <th
+                    key={column.key}
+                    className="p-0 text-sm text-center text-bold"
+                  >
+                    <ResizableHeader
+                      column={{
+                        ...column,
+                        width: columnWidths[column.key] || column.width,
+                      }}
+                      onResize={(width) =>
+                        handleColumnResize(column.key, width)
+                      }
+                      onSort={() => handleSort(column.key)}
+                      sortDirection={
+                        sortColumn === column.key ? sortDirection : null
+                      }
+                      isFiltered={activeFilters.includes(column.key)}
+                      onToggleFilter={() => {
+                        if (activeFilters.includes(column.key)) {
+                          handleFilterChange(column.key, null);
+                        } else {
+                          setShowFilterPanel(true);
+                          // Focus the filter input for this column
+                          setTimeout(() => {
+                            const input = document.querySelector(
+                              `[data-filter-key="${column.key}"]`,
+                            );
+                            if (input) (input as HTMLInputElement).focus();
+                          }, 100);
+                        }
+                      }}
+                    />
+                  </th>
+                ))}
             </tr>
           </thead>
-          <tbody>
-            {sortedData.map((row, rowIndex) => (
-              <tr
-                key={rowIndex}
-                onClick={() => onRowClick?.(row)}
-                className={`border-t border-gray-700 hover:bg-gray-800/50 ${onRowClick ? "cursor-pointer" : ""}`}
-              >
-                {columns.map((column) => (
-                  <td
-                    key={String(column.key)}
-                    className="px-4 py-3 text-sm text-gray-300"
-                  >
-                    {renderCell(column, row)}
-                  </td>
-                ))}
+          <tbody className="divide-y divide-gray-700">
+            {paginatedData.length > 0 ? (
+              paginatedData.map((row, rowIndex) => (
+                <tr
+                  key={rowIndex}
+                  className={`hover:bg-gray-700/50 transition-colors ${onRowClick ? "cursor-pointer" : ""}`}
+                  onClick={() => onRowClick && onRowClick(row)}
+                >
+                  {columns
+                    .filter((column) => visibleColumns.includes(column.key))
+                    .map((column) => (
+                      <td
+                        key={`${rowIndex}-${column.key}`}
+                        className="px-4 py-2 text-sm text-gray-300"
+                        style={{
+                          width: `${columnWidths[column.key] || column.width}px`,
+                        }}
+                      >
+                        {renderCell(column, row)}
+                      </td>
+                    ))}
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td
+                  colSpan={
+                    columns.filter((column) =>
+                      visibleColumns.includes(column.key),
+                    ).length
+                  }
+                  className="px-4 py-8 text-center text-gray-500"
+                >
+                  No data available
+                </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
+      </div>
+
+      {/* Pagination */}
+      <PaginationControls
+        currentPage={currentPage}
+        totalPages={totalPages}
+        itemsPerPage={itemsPerPage}
+        totalItems={filteredData.length}
+        onPageChange={setCurrentPage}
+        onItemsPerPageChange={setItemsPerPage}
+        itemsPerPageOptions={[10, 25, 50, 100]}
+      />
+
+      {/* Data Summary */}
+      <div className="mt-4 text-sm text-gray-500">
+        Showing {paginatedData.length} of {filteredData.length} items
+        {activeFilters.length > 0 &&
+          ` (filtered from ${data.length} total items)`}
       </div>
     </div>
   );
