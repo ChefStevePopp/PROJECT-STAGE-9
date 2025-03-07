@@ -8,5 +8,11 @@ if (!supabaseUrl || !supabaseKey) {
   throw new Error("Missing Supabase environment variables");
 }
 
-// Simple Supabase client with minimal config
-export const supabase = createClient<Database>(supabaseUrl, supabaseKey);
+// Create Supabase client with extended session duration
+export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+  },
+});

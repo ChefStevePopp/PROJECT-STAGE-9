@@ -1,13 +1,14 @@
 import React from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
 interface Props {
   children: React.ReactNode;
 }
 
-const PrivateRoute: React.FC<Props> = ({ children }) => {
+export const PrivateRoute: React.FC<Props> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return (
@@ -18,7 +19,7 @@ const PrivateRoute: React.FC<Props> = ({ children }) => {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/auth/signin" />;
+    return <Navigate to="/auth/signin" state={{ from: location }} replace />;
   }
 
   return <>{children}</>;

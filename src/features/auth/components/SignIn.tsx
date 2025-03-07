@@ -1,23 +1,26 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { ROUTES } from "@/config/routes";
 
 export const SignIn: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn, isLoading } = useAuth();
+  const { signIn } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
 
     try {
-      await signIn(email, password);
+      await signIn(email, password, rememberMe);
 
       // Get return URL from location state or default to dashboard
       const returnPath =
@@ -25,6 +28,8 @@ export const SignIn: React.FC = () => {
       navigate(returnPath, { replace: true });
     } catch (error) {
       setError("Invalid email or password");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -71,6 +76,23 @@ export const SignIn: React.FC = () => {
                 className="appearance-none rounded-lg relative block w-full px-3 py-2 border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="Password"
               />
+            </div>
+
+            <div className="flex items-center">
+              <input
+                id="rememberMe"
+                name="rememberMe"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-700 rounded"
+              />
+              <label
+                htmlFor="rememberMe"
+                className="ml-2 block text-sm text-gray-300"
+              >
+                Remember me for 14 days
+              </label>
             </div>
           </div>
 

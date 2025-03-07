@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { MainLayout, AuthLayout } from "@/shared/layouts";
 import { SignIn } from "@/features/auth/components/SignIn";
@@ -8,73 +8,14 @@ import { ROUTES } from "@/config/routes";
 import { AdminRoutes } from "@/features/admin/routes";
 import { KitchenRoutes } from "@/features/kitchen/routes";
 import { LoadingLogo } from "@/features/shared/components";
-import { useAuthStore } from "@/stores/authStore";
-import { useNextAuthStore } from "@/lib/auth/next/auth-store";
-import { authService } from "@/lib/auth/services/auth-service";
-import {
-  verifyAuthStores,
-  syncAuthStores,
-} from "@/lib/auth/bridge/auth-bridge";
 import { Toaster } from "react-hot-toast";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { AuthProvider } from "@/context/AuthContext";
+import { SimplifiedAuthProvider } from "@/context/SimplifiedAuthProvider";
+import { useAuthStore } from "@/lib/auth/simplified-auth";
 
 function App() {
-  const { isLoading: legacyLoading } = useAuthStore();
-  const { isLoading: nextLoading } = useNextAuthStore();
-  const isLoading = legacyLoading || nextLoading;
-
-  // Initialize auth system
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        await authService.initialize();
-
-        // Verify store consistency after initialization
-        if (!verifyAuthStores()) {
-          console.warn("Auth stores inconsistent after initialization");
-          await syncAuthStores();
-        }
-
-        // Set up health check interval
-        const healthCheckInterval = setInterval(
-          async () => {
-            const health = await authService.checkAuthHealth();
-            if (health.status === "error") {
-              console.error("Auth health check failed:", health.error);
-              clearInterval(healthCheckInterval);
-              await authService.signOut();
-              window.location.href = ROUTES.AUTH.SIGN_IN;
-            }
-          },
-          5 * 60 * 1000,
-        ); // Check every 5 minutes
-
-        return () => clearInterval(healthCheckInterval);
-      } catch (error) {
-        console.error("Auth initialization failed:", error);
-        // Reset to a safe state
-        await authService.signOut();
-        window.location.href = ROUTES.AUTH.SIGN_IN;
-      }
-    };
-
-    initAuth();
-  }, []);
-
-  // Handle auth errors
-  const handleError = async (error) => {
-    console.error("Application error:", error);
-    if (error.message.includes("auth") || error.message.includes("fetch")) {
-      try {
-        await authService.signOut();
-        window.location.href = ROUTES.AUTH.SIGN_IN;
-      } catch (e) {
-        console.error("Error handler failed:", e);
-        window.location.reload();
-      }
-    }
-  };
+  // Initialize auth store directly instead of using the hook
+  const isLoading = useAuthStore((state) => state.isLoading);
 
   if (isLoading) {
     return (
@@ -85,8 +26,8 @@ function App() {
   }
 
   return (
-    <ErrorBoundary onError={handleError}>
-      <AuthProvider>
+    <ErrorBoundary>
+      <SimplifiedAuthProvider>
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
           <Routes>
             {/* Auth Routes */}
@@ -147,7 +88,7 @@ function App() {
             }}
           />
         </div>
-      </AuthProvider>
+      </SimplifiedAuthProvider>
     </ErrorBoundary>
   );
 }
