@@ -2,6 +2,7 @@ import React from "react";
 import { CSVUploader } from "./CSVUploader";
 import { PDFUploader } from "./PDFUploader";
 import { PhotoUploader } from "./PhotoUploader";
+import { RefreshCw } from "lucide-react";
 
 interface Props {
   fileType: "csv" | "pdf" | "photo";

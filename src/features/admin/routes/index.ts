@@ -1,2 +1,3 @@
-import { AdminRoutes } from './AdminRoutes';
-export { AdminRoutes };
+import { AdminRoutes } from "./AdminRoutes";
+import { ScheduleRoutes } from "./ScheduleRoutes";
+export { AdminRoutes, ScheduleRoutes };

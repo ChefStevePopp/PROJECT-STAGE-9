@@ -16,6 +16,7 @@ import {
   CircleDollarSign,
   History,
   Bell,
+  Calendar,
 } from "lucide-react";
 
 export const menuItems = (isDev: boolean) => {
@@ -36,6 +37,11 @@ export const menuItems = (isDev: boolean) => {
       label: "TEAM",
       items: [
         { icon: Users, label: "Team Management", path: "/admin/team" },
+        {
+          icon: Calendar,
+          label: "Schedule Manager",
+          path: "/admin/schedule",
+        },
         {
           icon: Bell,
           label: "Notification Settings",

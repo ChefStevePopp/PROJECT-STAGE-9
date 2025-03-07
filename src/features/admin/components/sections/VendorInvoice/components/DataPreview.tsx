@@ -7,6 +7,7 @@ import {
   ArrowDownRight,
   Check,
   Ban,
+  RefreshCw,
 } from "lucide-react";
 import { EditIngredientModal } from "@/features/admin/components/sections/recipe/MasterIngredientList/EditIngredientModal";
 import type { MasterIngredient } from "@/types/master-ingredient";
@@ -208,7 +209,7 @@ export const DataPreview: React.FC<Props> = ({
             }}
             className="btn-ghost"
           >
-            <ArrowPathIcon className="w-4 h-4 mr-2" />
+            <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </button>
           <button onClick={onCancel} className="btn-ghost">

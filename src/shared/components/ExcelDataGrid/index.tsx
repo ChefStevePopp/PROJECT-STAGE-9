@@ -336,14 +336,14 @@ export function ExcelDataGrid<T>({
                 onClick={clearAllFilters}
                 className="text-sm text-gray-400 hover:text-white flex items-center gap-1"
               >
-                <RefreshCw className="w-4 h-4 text-amber-500" />
+                <RefreshCw className="w-4 h-4" />
                 Clear all filters
               </button>
               <button
                 onClick={() => setShowFilterPanel(false)}
                 className="text-sm text-gray-400 hover:text-white flex items-center gap-1"
               >
-                <X className="w-4 h-4 text-amber-500" />
+                <X className="w-4 h-4" />
                 Close
               </button>
             </div>
@@ -379,21 +379,21 @@ export function ExcelDataGrid<T>({
                 onClick={() => setColumnWidths({})}
                 className="text-sm text-gray-400 hover:text-white flex items-center gap-1"
               >
-                <RefreshCw className="w-4 h-4 text-amber-500" />
+                <RefreshCw className="w-4 h-4" />
                 Reset widths
               </button>
               <button
                 onClick={() => setVisibleColumns(columns.map((col) => col.key))}
                 className="text-sm text-gray-400 hover:text-white flex items-center gap-1"
               >
-                <Eye className="w-4 h-4 text-amber-500" />
+                <Eye className="w-4 h-4" />
                 Show all
               </button>
               <button
                 onClick={() => setShowColumnSettings(false)}
                 className="text-sm text-gray-400 hover:text-white flex items-center gap-1"
               >
-                <X className="w-4 h-4 text-amber-500" />
+                <X className="w-4 h-4" />
                 Close
               </button>
             </div>

@@ -13,6 +13,7 @@ import { DevManagement } from "../components/sections/DevManagement";
 import { MyAccount } from "@/features/account/components/MyAccount";
 import { OrganizationSettings } from "../components/settings/OrganizationSettings";
 import { ActivityLogList } from "../components/ActivityLogList";
+import { ScheduleManager } from "../components/sections/ScheduleManager";
 
 export const AdminRoutes: React.FC = () => {
   return (
@@ -21,6 +22,7 @@ export const AdminRoutes: React.FC = () => {
         <Route index element={<AdminDashboard />} />
         <Route path="recipes" element={<RecipeManager />} />
         <Route path="team" element={<TeamManagement />} />
+        <Route path="schedule/*" element={<ScheduleManager />} />
         <Route path="permissions" element={<PermissionsManager />} />
         <Route path="notifications" element={<NotificationCenter />} />
         <Route path="help" element={<HelpSupport />} />
