@@ -108,16 +108,39 @@ export const OperationsManager: React.FC = () => {
   const handleAddItem = async (name: string) => {
     if (!activeCategory || !settings) return;
 
-    // Handle regular categories
-    const currentItems =
-      settings[activeCategory as keyof typeof settings] || [];
-    const updatedSettings = {
-      ...settings,
-      [activeCategory]: [...currentItems, name],
-    };
+    try {
+      // Get a direct reference to the current items array
+      const currentItems = [
+        ...(settings[activeCategory as keyof typeof settings] || []),
+      ];
 
-    await updateSettings(updatedSettings);
-    toast.success("Item added successfully");
+      // Add the new item to the array
+      currentItems.push(name);
+
+      // Create a new settings object with the updated array
+      const updatedSettings = {
+        ...settings,
+        [activeCategory]: currentItems,
+      };
+
+      console.log("Updating settings with:", JSON.stringify(updatedSettings));
+
+      // Update the database and wait for it to complete
+      const result = await updateSettings(updatedSettings);
+      console.log("Update completed, result:", result);
+
+      // Wait a bit before refreshing to ensure DB transaction is complete
+      setTimeout(() => {
+        fetchSettings().then(() => {
+          console.log("Settings refreshed after update");
+        });
+      }, 1000);
+
+      toast.success("Item added successfully");
+    } catch (error) {
+      console.error("Error in handleAddItem:", error);
+      toast.error("Failed to add item");
+    }
   };
 
   const currentGroup = CATEGORY_GROUPS.find((g) => g.id === activeGroup);

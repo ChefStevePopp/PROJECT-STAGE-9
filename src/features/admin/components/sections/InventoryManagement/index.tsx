@@ -207,28 +207,36 @@ export const InventoryManagement: React.FC = () => {
           onClick={() => setActiveTab("settings")}
           className={`tab primary ${activeTab === "settings" ? "active" : ""}`}
         >
-          <Package className="w-5 h-5 mr-2" />
+          <Package
+            className={`w-5 h-5 mr-2 ${activeTab === "settings" ? "text-primary-400" : "text-gray-400"}`}
+          />
           Inventory
         </button>
         <button
           onClick={() => setActiveTab("review")}
           className={`tab green ${activeTab === "review" ? "active" : ""}`}
         >
-          <FileSpreadsheet className="w-5 h-5 mr-2" />
+          <FileSpreadsheet
+            className={`w-5 h-5 mr-2 ${activeTab === "review" ? "text-green-400" : ""}`}
+          />
           Review Counts
         </button>
         <button
           onClick={() => setActiveTab("history")}
           className={`tab amber ${activeTab === "history" ? "active" : ""}`}
         >
-          <Calendar className="w-5 h-5 mr-2" />
+          <Calendar
+            className={`w-5 h-5 mr-2 ${activeTab === "history" ? "text-amber-400" : ""}`}
+          />
           Inventory History
         </button>
         <button
           onClick={() => setActiveTab("config")}
           className={`tab rose ${activeTab === "config" ? "active" : ""}`}
         >
-          <Settings className="w-5 h-5 mr-2" />
+          <Settings
+            className={`w-5 h-5 mr-2 ${activeTab === "config" ? "text-rose-400" : ""}`}
+          />
           Settings
         </button>
       </div>

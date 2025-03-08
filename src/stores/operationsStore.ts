@@ -7,12 +7,64 @@ interface OperationsStore {
   isLoading: boolean;
   error: string | null;
   fetchSettings: () => Promise<void>;
+  updateSettings: (updatedSettings: OperationsSettings) => Promise<void>;
 }
 
 export const useOperationsStore = create<OperationsStore>((set) => ({
   settings: null,
   isLoading: false,
   error: null,
+
+  updateSettings: async (updatedSettings: OperationsSettings) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user?.user_metadata?.organizationId) {
+        throw new Error("No organization ID found");
+      }
+
+      // Make a clean copy of the settings object without any potential circular references
+      const cleanSettings = JSON.parse(JSON.stringify(updatedSettings));
+
+      console.log("Sending to database:", JSON.stringify(cleanSettings));
+
+      // Perform the update with a direct RPC call to ensure it completes
+      const { data, error } = await supabase
+        .from("operations_settings")
+        .update(cleanSettings)
+        .eq("organization_id", user.user_metadata.organizationId)
+        .select();
+
+      if (error) {
+        console.error("Supabase update error:", error);
+        throw error;
+      }
+
+      console.log(
+        "Database update successful, returned data:",
+        JSON.stringify(data),
+      );
+
+      // Update the local state with the clean settings
+      set({
+        settings: cleanSettings,
+        isLoading: false,
+      });
+
+      return data;
+    } catch (error) {
+      console.error("Error updating operations settings:", error);
+      set({
+        error:
+          error instanceof Error ? error.message : "Failed to update settings",
+        isLoading: false,
+      });
+      throw error; // Re-throw to allow handling in components
+    }
+  },
 
   fetchSettings: async () => {
     try {

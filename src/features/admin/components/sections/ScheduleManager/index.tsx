@@ -766,8 +766,8 @@ export const ScheduleManager: React.FC = () => {
       {activeTab === "upcoming" && (
         <div className="card p-6">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
-              <Clock className="w-5 h-5 text-blue-400" />
+            <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+              <Clock className="w-5 h-5 text-green-400" />
             </div>
             <div>
               <h2 className="text-lg font-medium text-white">
@@ -953,8 +953,8 @@ export const ScheduleManager: React.FC = () => {
       {activeTab === "integration" && (
         <div className="card p-6">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
-              <Link className="w-5 h-5 text-green-400" />
+            <div className="w-10 h-10 rounded-lg bg-rose-500/20 flex items-center justify-center">
+              <Link className="w-5 h-5 text-rose-400" />
             </div>
             <div>
               <h2 className="text-lg font-medium text-white">
