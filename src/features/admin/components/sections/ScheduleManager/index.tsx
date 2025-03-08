@@ -12,6 +12,8 @@ import {
   X,
   Settings,
   Eye,
+  Trash,
+  AlertTriangle,
 } from "lucide-react";
 import Papa from "papaparse";
 import toast from "react-hot-toast";
@@ -21,6 +23,7 @@ import {
   CSVConfiguration,
   ColumnMapping,
   TimeFormatToggle,
+  EmployeeMatchingModal,
 } from "./components";
 import { parseScheduleCsvWithMapping } from "@/lib/schedule-parser-enhanced";
 
@@ -81,6 +84,12 @@ export const ScheduleManager: React.FC = () => {
     "current" | "upcoming" | "previous" | "integration" | "config"
   >("current");
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isEmployeeMatchingModalOpen, setIsEmployeeMatchingModalOpen] =
+    useState(false);
+  const [parsedShifts, setParsedShifts] = useState<any[]>([]);
+  const [employeeMatches, setEmployeeMatches] = useState<{
+    [key: string]: any;
+  }>({});
   const [isUploading, setIsUploading] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [previewData, setPreviewData] = useState<any[] | null>(null);
@@ -100,6 +109,25 @@ export const ScheduleManager: React.FC = () => {
     date.setDate(date.getDate() + 6); // 7 days total (today + 6)
     return date.toISOString().split("T")[0];
   });
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(
+    null,
+  );
+  const [sevenShiftsApiKey, setSevenShiftsApiKey] = useState("");
+  const [sevenShiftsLocationId, setSevenShiftsLocationId] = useState("");
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [autoSync, setAutoSync] = useState(false);
+  const [notifyChanges, setNotifyChanges] = useState(false);
+  const [syncStartDate, setSyncStartDate] = useState<string>(
+    new Date().toISOString().split("T")[0],
+  );
+  const [syncEndDate, setSyncEndDate] = useState<string>(() => {
+    const date = new Date();
+    date.setDate(date.getDate() + 13); // 14 days total (today + 13)
+    return date.toISOString().split("T")[0];
+  });
 
   // Get the schedule functions and state from the store
   const {
@@ -111,6 +139,8 @@ export const ScheduleManager: React.FC = () => {
     scheduleShifts,
     isLoading,
     error: scheduleError,
+    testConnection,
+    sync7shiftsSchedule,
   } = useScheduleStore();
 
   // Load saved mappings from localStorage on component mount
@@ -217,30 +247,13 @@ export const ScheduleManager: React.FC = () => {
         return;
       }
 
-      console.log(`Uploading ${shifts.length} shifts to schedule store`);
+      console.log(`Found ${shifts.length} shifts in the uploaded file`);
 
-      // Call the actual upload function from the store
-      await uploadSchedule(csvFile, {
-        startDate: startDate,
-        endDate: endDate,
-        activateImmediately: activateImmediately,
-        source: "csv",
-        selectedMapping: selectedMapping,
-      });
-
-      // Refresh the schedule data
-      if (activateImmediately) {
-        await fetchCurrentSchedule();
-      } else {
-        await fetchUpcomingSchedule();
-      }
-
-      toast.success(
-        `Schedule uploaded successfully as ${activateImmediately ? "current" : "upcoming"} schedule`,
-      );
-      setCsvFile(null);
-      setPreviewData(null);
+      // Close the upload modal first, then show the employee matching modal
       setIsUploadModalOpen(false);
+      setParsedShifts(shifts);
+      setIsEmployeeMatchingModalOpen(true);
+      return; // Stop here and wait for employee matching
     } catch (error) {
       console.error("Error uploading schedule:", error);
       toast.error(scheduleError || "Failed to upload schedule");
@@ -248,6 +261,191 @@ export const ScheduleManager: React.FC = () => {
       setIsUploading(false);
     }
   };
+
+  // Export schedule to CSV
+  const exportScheduleToCSV = async (scheduleId: string) => {
+    try {
+      // Fetch the shifts for this schedule if not already loaded
+      if (selectedScheduleId !== scheduleId) {
+        await fetchShifts(scheduleId);
+        setSelectedScheduleId(scheduleId);
+      }
+
+      // Get the shifts from the store
+      const shifts = useScheduleStore.getState().scheduleShifts;
+
+      if (shifts.length === 0) {
+        toast.error("No shifts found to export");
+        return;
+      }
+
+      // Convert shifts to CSV format
+      const csvData = shifts.map((shift) => ({
+        "Employee Name":
+          `${shift.first_name || ""} ${shift.last_name || ""}`.trim() ||
+          shift.employee_name,
+        Role: shift.role || "",
+        Date: shift.shift_date,
+        "Start Time": shift.start_time,
+        "End Time": shift.end_time,
+        "Break Duration": shift.break_duration || 0,
+        Notes: shift.notes || "",
+      }));
+
+      // Use PapaParse to convert to CSV string
+      const csv = Papa.unparse(csvData);
+
+      // Create a blob and download link
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+
+      // Find the schedule to get date info for the filename
+      const schedule = useScheduleStore
+        .getState()
+        .previousSchedules.find((s) => s.id === scheduleId);
+      const filename = schedule
+        ? `schedule_${schedule.start_date}_to_${schedule.end_date}.csv`
+        : `schedule_export_${new Date().toISOString().split("T")[0]}.csv`;
+
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success("Schedule exported successfully");
+    } catch (error) {
+      console.error("Error exporting schedule:", error);
+      toast.error("Failed to export schedule");
+    }
+  };
+
+  // Handle 7shifts connection test
+  const handleTestConnection = async () => {
+    if (!sevenShiftsApiKey || !sevenShiftsLocationId) {
+      toast.error("Please enter both API key and location ID");
+      return;
+    }
+
+    setIsConnecting(true);
+    try {
+      // Set credentials in the store
+      useScheduleStore.getState().setCredentials({
+        accessToken: sevenShiftsApiKey,
+        companyId: "7140", // Default company ID
+        locationId: sevenShiftsLocationId,
+      });
+
+      // Test the connection
+      const success = await testConnection();
+
+      if (success) {
+        toast.success("Connection successful!");
+        setIsConnected(true);
+      } else {
+        toast.error("Connection failed. Please check your credentials.");
+        setIsConnected(false);
+      }
+    } catch (error) {
+      console.error("Connection test error:", error);
+      toast.error("Error testing connection");
+      setIsConnected(false);
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  // Handle 7shifts sync
+  const handleSync7shifts = async () => {
+    if (!sevenShiftsApiKey || !sevenShiftsLocationId) {
+      toast.error("Please enter both API key and location ID");
+      return;
+    }
+
+    if (!syncStartDate || !syncEndDate) {
+      toast.error("Please select a date range");
+      return;
+    }
+
+    setIsConnecting(true);
+    try {
+      // First set the credentials
+      useScheduleStore.getState().setCredentials({
+        accessToken: sevenShiftsApiKey,
+        companyId: "7140", // Default company ID
+        locationId: sevenShiftsLocationId,
+      });
+
+      // Try to sync directly first to test the API
+      const shifts = await useScheduleStore
+        .getState()
+        .syncSchedule(syncStartDate, syncEndDate);
+
+      if (shifts && shifts.length > 0) {
+        // If we got shifts, now use the sync7shiftsSchedule to save them to the database
+        await sync7shiftsSchedule(
+          sevenShiftsApiKey,
+          sevenShiftsLocationId,
+          syncStartDate,
+          syncEndDate,
+        );
+        toast.success(
+          `Schedule synced successfully with ${shifts.length} shifts!`,
+        );
+      } else {
+        toast.warning("No shifts found in the selected date range");
+      }
+    } catch (error) {
+      console.error("Sync error:", error);
+      toast.error(scheduleError || "Error syncing schedule");
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  // Handle saving 7shifts settings
+  const handleSaveSettings = () => {
+    // Save settings to localStorage or database
+    localStorage.setItem(
+      "7shifts-settings",
+      JSON.stringify({
+        apiKey: sevenShiftsApiKey,
+        locationId: sevenShiftsLocationId,
+        autoSync,
+        notifyChanges,
+      }),
+    );
+    toast.success("Settings saved successfully");
+  };
+
+  // Load 7shifts settings from localStorage
+  useEffect(() => {
+    const savedSettings = localStorage.getItem("7shifts-settings");
+    if (savedSettings) {
+      try {
+        const settings = JSON.parse(savedSettings);
+        setSevenShiftsApiKey(settings.apiKey || "");
+        setSevenShiftsLocationId(settings.locationId || "");
+        setAutoSync(settings.autoSync || false);
+        setNotifyChanges(settings.notifyChanges || false);
+
+        // If we have credentials, check connection status
+        if (settings.apiKey && settings.locationId) {
+          useScheduleStore.getState().setCredentials({
+            accessToken: settings.apiKey,
+            companyId: "7140",
+            locationId: settings.locationId,
+          });
+          testConnection().then((success) => {
+            setIsConnected(success);
+          });
+        }
+      } catch (error) {
+        console.error("Error loading 7shifts settings:", error);
+      }
+    }
+  }, []);
 
   // Handle activating the upcoming schedule
   const handleActivateUpcoming = async () => {
@@ -376,41 +574,51 @@ export const ScheduleManager: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-1 overflow-visible">
         <button
           onClick={() => setActiveTab("current")}
-          className={`tab primary ${activeTab === "current" ? "active" : ""}`}
+          className={`tab primary whitespace-nowrap ${activeTab === "current" ? "active" : ""}`}
         >
-          <Calendar className="w-5 h-5 mr-2" />
-          Current Schedule
+          <Calendar
+            className={`w-5 h-5 mr-2 flex-shrink-0 ${activeTab === "current" ? "text-primary-400" : ""}`}
+          />
+          <span>Current Schedule</span>
         </button>
         <button
           onClick={() => setActiveTab("upcoming")}
-          className={`tab blue ${activeTab === "upcoming" ? "active" : ""}`}
+          className={`tab green whitespace-nowrap ${activeTab === "upcoming" ? "active" : ""}`}
         >
-          <Clock className="w-5 h-5 mr-2" />
-          Upcoming Schedules
+          <Clock
+            className={`w-5 h-5 mr-2 flex-shrink-0 ${activeTab === "upcoming" ? "text-green-400" : ""}`}
+          />
+          <span>Upcoming Schedules</span>
         </button>
         <button
           onClick={() => setActiveTab("previous")}
-          className={`tab amber ${activeTab === "previous" ? "active" : ""}`}
+          className={`tab amber whitespace-nowrap ${activeTab === "previous" ? "active" : ""}`}
         >
-          <History className="w-5 h-5 mr-2" />
-          Previous Schedules
+          <History
+            className={`w-5 h-5 mr-2 flex-shrink-0 ${activeTab === "previous" ? "text-amber-400" : ""}`}
+          />
+          <span>Previous Schedules</span>
         </button>
         <button
           onClick={() => setActiveTab("integration")}
-          className={`tab green ${activeTab === "integration" ? "active" : ""}`}
+          className={`tab rose whitespace-nowrap ${activeTab === "integration" ? "active" : ""}`}
         >
-          <Link className="w-5 h-5 mr-2" />
-          7shifts Integration
+          <Link
+            className={`w-5 h-5 mr-2 flex-shrink-0 ${activeTab === "integration" ? "text-rose-400" : ""}`}
+          />
+          <span>7shifts Integration</span>
         </button>
         <button
           onClick={() => setActiveTab("config")}
-          className={`tab purple ${activeTab === "config" ? "active" : ""}`}
+          className={`tab purple whitespace-nowrap ${activeTab === "config" ? "active" : ""}`}
         >
-          <Settings className="w-5 h-5 mr-2" />
-          CSV Configuration
+          <Settings
+            className={`w-5 h-5 mr-2 flex-shrink-0 ${activeTab === "config" ? "text-purple-400" : ""}`}
+          />
+          <span>CSV Configuration</span>
         </button>
       </div>
 
@@ -442,6 +650,15 @@ export const ScheduleManager: React.FC = () => {
                   <Download className="w-4 h-4 mr-2" />
                   Export
                 </button>
+                {currentSchedule && (
+                  <button
+                    onClick={() => setIsDeleteModalOpen(true)}
+                    className="btn-ghost text-rose-400 hover:text-rose-300"
+                  >
+                    <Trash className="w-4 h-4 mr-2" />
+                    Delete Schedule
+                  </button>
+                )}
                 <button
                   onClick={() => setIsUploadModalOpen(true)}
                   className="btn-primary"
@@ -482,27 +699,53 @@ export const ScheduleManager: React.FC = () => {
                       <div className="bg-gray-700/50 rounded-lg p-3 min-h-[300px] overflow-y-auto">
                         {day.shifts.length > 0 ? (
                           <div className="space-y-2">
-                            {day.shifts.map((shift) => (
-                              <div
-                                key={shift.id}
-                                className="text-xs bg-gray-600/50 p-2 rounded text-left"
-                              >
-                                <div className="font-medium text-white">
-                                  {shift.first_name ||
-                                    shift.employee_name.split(" ")[0]}{" "}
-                                  {shift.last_name}
-                                </div>
-                                {shift.role && (
-                                  <div className="text-primary-400 text-[10px] uppercase font-medium">
-                                    {shift.role}
+                            {day.shifts.map((shift) => {
+                              // Generate a consistent color for each role
+                              const roleHash = shift.role
+                                ? shift.role
+                                    .split("")
+                                    .reduce(
+                                      (acc, char) => acc + char.charCodeAt(0),
+                                      0,
+                                    )
+                                : 0;
+
+                              // Use colors from our theme palette
+                              const roleColors = [
+                                "text-primary-400",
+                                "text-green-400",
+                                "text-amber-400",
+                                "text-rose-400",
+                                "text-purple-400",
+                                "text-blue-400",
+                              ];
+                              const roleColor =
+                                roleColors[roleHash % roleColors.length];
+
+                              return (
+                                <div
+                                  key={shift.id}
+                                  className="text-xs bg-gray-600/50 p-2 rounded text-left flex items-center gap-2"
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-medium text-white truncate">
+                                      {shift.employee_name}
+                                    </div>
+                                    {shift.role && (
+                                      <div
+                                        className={`${roleColor} text-[10px] uppercase font-medium`}
+                                      >
+                                        {shift.role}
+                                      </div>
+                                    )}
+                                    <div className="text-gray-300 mt-1">
+                                      {formatTime(shift.start_time, timeFormat)}{" "}
+                                      - {formatTime(shift.end_time, timeFormat)}
+                                    </div>
                                   </div>
-                                )}
-                                <div className="text-gray-300 mt-1">
-                                  {formatTime(shift.start_time, timeFormat)} -{" "}
-                                  {formatTime(shift.end_time, timeFormat)}
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         ) : (
                           <div className="text-xs text-gray-500">
@@ -669,11 +912,9 @@ export const ScheduleManager: React.FC = () => {
                       <button
                         onClick={async () => {
                           if (schedule.id) {
+                            setSelectedScheduleId(schedule.id);
                             await fetchShifts(schedule.id);
-                            // Open a modal or navigate to a view to show the shifts
-                            toast.success(
-                              "Loaded shifts for selected schedule",
-                            );
+                            setIsViewModalOpen(true);
                           }
                         }}
                         className="btn-ghost text-sm"
@@ -681,7 +922,10 @@ export const ScheduleManager: React.FC = () => {
                         <Eye className="w-4 h-4 mr-1" />
                         View
                       </button>
-                      <button className="btn-ghost text-sm">
+                      <button
+                        onClick={() => exportScheduleToCSV(schedule.id)}
+                        className="btn-ghost text-sm"
+                      >
                         <Download className="w-4 h-4 mr-1" />
                         Export
                       </button>
@@ -726,20 +970,36 @@ export const ScheduleManager: React.FC = () => {
           <div className="bg-gray-800/50 rounded-lg p-6 mb-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-gray-700 rounded-lg flex items-center justify-center">
+                <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center">
                   <img
                     src="https://framerusercontent.com/images/GTwNANjmDcbIsFhKyhhH32pNv4.png?scale-down-to=512"
                     alt="7shifts logo"
-                    className="w-8 h-8 object-contain rounded"
+                    className="w-8 h-8 object-contain"
                   />
                 </div>
                 <div>
                   <h3 className="text-white font-medium">7shifts</h3>
-                  <p className="text-sm text-gray-400">Not connected</p>
+                  <p className="text-sm text-gray-400">
+                    {isConnected ? (
+                      <span className="text-green-400">Connected</span>
+                    ) : (
+                      "Not connected"
+                    )}
+                  </p>
                 </div>
               </div>
-              <button className="btn-primary bg-green-500 hover:bg-green-600">
-                Connect Account
+              <button
+                onClick={handleTestConnection}
+                disabled={
+                  isConnecting || !sevenShiftsApiKey || !sevenShiftsLocationId
+                }
+                className="btn-primary bg-green-500 hover:bg-green-600 disabled:bg-gray-700 disabled:text-gray-500"
+              >
+                {isConnecting
+                  ? "Connecting..."
+                  : isConnected
+                    ? "Test Connection"
+                    : "Connect Account"}
               </button>
             </div>
           </div>
@@ -758,7 +1018,8 @@ export const ScheduleManager: React.FC = () => {
                   type="password"
                   className="input w-full"
                   placeholder="Enter your 7shifts API key"
-                  disabled
+                  value={sevenShiftsApiKey}
+                  onChange={(e) => setSevenShiftsApiKey(e.target.value)}
                 />
               </div>
               <div>
@@ -769,7 +1030,8 @@ export const ScheduleManager: React.FC = () => {
                   type="text"
                   className="input w-full"
                   placeholder="Enter your location ID"
-                  disabled
+                  value={sevenShiftsLocationId}
+                  onChange={(e) => setSevenShiftsLocationId(e.target.value)}
                 />
               </div>
             </div>
@@ -783,7 +1045,8 @@ export const ScheduleManager: React.FC = () => {
                   type="checkbox"
                   id="autoSync"
                   className="mr-2"
-                  disabled
+                  checked={autoSync}
+                  onChange={(e) => setAutoSync(e.target.checked)}
                 />
                 <label htmlFor="autoSync" className="text-gray-300">
                   Automatically sync schedules daily
@@ -794,7 +1057,8 @@ export const ScheduleManager: React.FC = () => {
                   type="checkbox"
                   id="notifyChanges"
                   className="mr-2"
-                  disabled
+                  checked={notifyChanges}
+                  onChange={(e) => setNotifyChanges(e.target.checked)}
                 />
                 <label htmlFor="notifyChanges" className="text-gray-300">
                   Notify me when schedule changes
@@ -802,14 +1066,65 @@ export const ScheduleManager: React.FC = () => {
               </div>
             </div>
 
+            {/* Manual Sync Section */}
+            <div className="bg-gray-700/50 rounded-lg p-4 mt-6">
+              <h4 className="text-white font-medium mb-3">Manual Sync</h4>
+              <p className="text-sm text-gray-400 mb-4">
+                Import schedule data from 7shifts for a specific date range
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    className="input w-full"
+                    value={syncStartDate}
+                    onChange={(e) => setSyncStartDate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    className="input w-full"
+                    value={syncEndDate}
+                    onChange={(e) => setSyncEndDate(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={handleSync7shifts}
+                disabled={isConnecting || !isConnected}
+                className="btn-primary w-full mt-2"
+              >
+                {isConnecting ? (
+                  <>
+                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Sync Now
+                  </>
+                )}
+              </button>
+            </div>
+
             <div className="pt-4 border-t border-gray-700">
               <p className="text-sm text-gray-400 mb-4">
-                Connect your 7shifts account to enable these settings. Once
-                connected, you can configure how schedules are synced between
-                platforms.
+                {isConnected
+                  ? "Your 7shifts account is connected. You can configure how schedules are synced between platforms."
+                  : "Connect your 7shifts account to enable these settings. Once connected, you can configure how schedules are synced between platforms."}
               </p>
               <div className="flex justify-end">
-                <button className="btn-primary" disabled>
+                <button onClick={handleSaveSettings} className="btn-primary">
                   Save Settings
                 </button>
               </div>
@@ -885,9 +1200,12 @@ export const ScheduleManager: React.FC = () => {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setCsvFile(null);
+                          // Set the mapping first
                           setSelectedMapping(mapping);
-                          setShowCSVConfig(true);
+                          // Then open the CSV config modal
+                          setIsUploadModalOpen(true);
+                          // Show the CSV config immediately
+                          setTimeout(() => setShowCSVConfig(true), 100);
                         }}
                         className="text-sm text-purple-400 hover:text-purple-300"
                       >
@@ -967,10 +1285,337 @@ export const ScheduleManager: React.FC = () => {
         </div>
       )}
 
+      {/* Employee Matching Modal */}
+      <EmployeeMatchingModal
+        isOpen={isEmployeeMatchingModalOpen}
+        onClose={() => setIsEmployeeMatchingModalOpen(false)}
+        scheduleEmployees={parsedShifts.map((shift) => ({
+          employee_name: shift.employee_name,
+          first_name: shift.first_name,
+          last_name: shift.last_name,
+          role: shift.role,
+        }))}
+        onConfirmMatches={async (matches) => {
+          setEmployeeMatches(matches);
+          setIsEmployeeMatchingModalOpen(false);
+
+          try {
+            setIsUploading(true);
+
+            // Apply the matches to the parsed shifts
+            const matchedShifts = parsedShifts.map((shift) => {
+              const match = matches[shift.employee_name];
+              if (match) {
+                return {
+                  ...shift,
+                  employee_id: match.punch_id || match.id,
+                  first_name: match.first_name,
+                  last_name: match.last_name,
+                  punch_id: match.punch_id,
+                };
+              }
+              return shift;
+            });
+
+            console.log(
+              `Uploading ${matchedShifts.length} shifts to schedule store`,
+            );
+
+            // Call the actual upload function from the store with the matched shifts
+            await uploadSchedule(csvFile, {
+              startDate: startDate,
+              endDate: endDate,
+              activateImmediately: activateImmediately,
+              source: "csv",
+              selectedMapping: selectedMapping,
+              matchedShifts: matchedShifts,
+            });
+
+            // Refresh the schedule data
+            if (activateImmediately) {
+              await fetchCurrentSchedule();
+            } else {
+              await fetchUpcomingSchedule();
+            }
+
+            toast.success(
+              `Schedule uploaded successfully as ${activateImmediately ? "current" : "upcoming"} schedule`,
+            );
+            setCsvFile(null);
+            setPreviewData(null);
+            setIsUploadModalOpen(false);
+          } catch (error) {
+            console.error("Error uploading schedule:", error);
+            toast.error(scheduleError || "Failed to upload schedule");
+          } finally {
+            setIsUploading(false);
+          }
+        }}
+      />
+
+      {/* Schedule View Modal */}
+      {isViewModalOpen && selectedScheduleId && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-gray-900 rounded-lg w-full max-w-5xl my-8 max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-gray-800 flex justify-between items-center">
+              <h3 className="text-lg font-medium text-white">
+                Schedule Details
+              </h3>
+              <div className="flex items-center gap-3">
+                <TimeFormatToggle
+                  timeFormat={timeFormat}
+                  onChange={setTimeFormat}
+                />
+                <button
+                  onClick={() => exportScheduleToCSV(selectedScheduleId)}
+                  className="btn-ghost text-sm"
+                >
+                  <Download className="w-4 h-4 mr-1" />
+                  Export
+                </button>
+                <button
+                  onClick={() => setIsViewModalOpen(false)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 overflow-y-auto">
+              {isLoading ? (
+                <div className="flex items-center justify-center h-[300px]">
+                  <div className="animate-spin h-8 w-8 border-4 border-amber-500 border-t-transparent rounded-full"></div>
+                </div>
+              ) : scheduleShifts.length > 0 ? (
+                <div className="space-y-6">
+                  {/* Schedule info */}
+                  <div className="bg-gray-800/50 rounded-lg p-4">
+                    <h4 className="text-white font-medium mb-2">
+                      Schedule Information
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-400">Total Shifts:</span>
+                        <span className="text-white ml-2">
+                          {scheduleShifts.length}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Unique Employees:</span>
+                        <span className="text-white ml-2">
+                          {
+                            new Set(scheduleShifts.map((s) => s.employee_name))
+                              .size
+                          }
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Date Range:</span>
+                        <span className="text-white ml-2">
+                          {scheduleShifts.length > 0
+                            ? `${new Date(Math.min(...scheduleShifts.map((s) => new Date(s.shift_date).getTime()))).toLocaleDateString()} - 
+                             ${new Date(Math.max(...scheduleShifts.map((s) => new Date(s.shift_date).getTime()))).toLocaleDateString()}`
+                            : "N/A"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Shifts table */}
+                  <div className="bg-gray-800/50 rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-gray-700/50">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-sm font-medium text-gray-400">
+                            Employee
+                          </th>
+                          <th className="px-4 py-2 text-left text-sm font-medium text-gray-400">
+                            Role
+                          </th>
+                          <th className="px-4 py-2 text-left text-sm font-medium text-gray-400">
+                            Date
+                          </th>
+                          <th className="px-4 py-2 text-left text-sm font-medium text-gray-400">
+                            Start Time
+                          </th>
+                          <th className="px-4 py-2 text-left text-sm font-medium text-gray-400">
+                            End Time
+                          </th>
+                          <th className="px-4 py-2 text-left text-sm font-medium text-gray-400">
+                            Duration
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-700">
+                        {scheduleShifts
+                          .sort(
+                            (a, b) =>
+                              a.shift_date.localeCompare(b.shift_date) ||
+                              a.start_time.localeCompare(b.start_time),
+                          )
+                          .map((shift) => {
+                            // Calculate shift duration
+                            const startParts = shift.start_time.split(":");
+                            const endParts = shift.end_time.split(":");
+                            const startHours = parseInt(startParts[0]);
+                            const startMinutes = parseInt(startParts[1]);
+                            const endHours = parseInt(endParts[0]);
+                            const endMinutes = parseInt(endParts[1]);
+
+                            let durationHours = endHours - startHours;
+                            let durationMinutes = endMinutes - startMinutes;
+
+                            if (durationMinutes < 0) {
+                              durationHours -= 1;
+                              durationMinutes += 60;
+                            }
+
+                            // Handle overnight shifts
+                            if (durationHours < 0) {
+                              durationHours += 24;
+                            }
+
+                            const durationStr = `${durationHours}h ${durationMinutes}m`;
+
+                            return (
+                              <tr
+                                key={shift.id}
+                                className="hover:bg-gray-700/30"
+                              >
+                                <td className="px-4 py-2 text-sm text-white">
+                                  {shift.employee_name}
+                                </td>
+                                <td className="px-4 py-2 text-sm">
+                                  {shift.role ? (
+                                    <span
+                                      className={`px-2 py-0.5 rounded-full text-xs font-medium ${(() => {
+                                        // Generate a consistent color for each role
+                                        const roleHash = shift.role
+                                          .split("")
+                                          .reduce(
+                                            (acc, char) =>
+                                              acc + char.charCodeAt(0),
+                                            0,
+                                          );
+                                        const bgColors = [
+                                          "bg-primary-500/20 text-primary-400",
+                                          "bg-green-500/20 text-green-400",
+                                          "bg-amber-500/20 text-amber-400",
+                                          "bg-rose-500/20 text-rose-400",
+                                          "bg-purple-500/20 text-purple-400",
+                                          "bg-blue-500/20 text-blue-400",
+                                        ];
+                                        return bgColors[
+                                          roleHash % bgColors.length
+                                        ];
+                                      })()}`}
+                                    >
+                                      {shift.role}
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-500">N/A</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-2 text-sm text-gray-300">
+                                  {new Date(
+                                    shift.shift_date,
+                                  ).toLocaleDateString()}
+                                </td>
+                                <td className="px-4 py-2 text-sm text-gray-300">
+                                  {formatTime(shift.start_time, timeFormat)}
+                                </td>
+                                <td className="px-4 py-2 text-sm text-gray-300">
+                                  {formatTime(shift.end_time, timeFormat)}
+                                </td>
+                                <td className="px-4 py-2 text-sm text-gray-300">
+                                  {durationStr}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12 bg-gray-800/50 rounded-lg">
+                  <Calendar className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-white mb-2">
+                    No Shifts Found
+                  </h3>
+                  <p className="text-gray-400 max-w-md mx-auto">
+                    This schedule doesn't have any shifts recorded.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-gray-800 flex justify-end">
+              <button
+                className="btn-primary"
+                onClick={() => setIsViewModalOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && currentSchedule && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-gray-900 rounded-lg w-full max-w-md p-6">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-rose-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle className="w-8 h-8 text-rose-400" />
+              </div>
+              <h3 className="text-xl font-medium text-white mb-2">
+                Delete Current Schedule?
+              </h3>
+              <p className="text-gray-400">
+                This action cannot be undone. All shifts in the current schedule
+                will be permanently deleted.
+              </p>
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="btn-ghost"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!currentSchedule?.id) return;
+
+                  const success = await useScheduleStore
+                    .getState()
+                    .deleteSchedule(currentSchedule.id);
+
+                  if (success) {
+                    toast.success("Schedule deleted successfully");
+                    setIsDeleteModalOpen(false);
+                  } else {
+                    toast.error(scheduleError || "Failed to delete schedule");
+                  }
+                }}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg flex items-center"
+              >
+                <Trash className="w-4 h-4 mr-2" />
+                Delete Schedule
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Upload Modal */}
       {isUploadModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-gray-900 rounded-lg w-full max-w-2xl my-8 max-h-[90vh] flex flex-col">
+          <div className="bg-gray-900 rounded-lg w-full max-w-4xl my-8 max-h-[90vh] flex flex-col">
             <div className="p-6 border-b border-gray-800 flex justify-between items-center">
               <h3 className="text-lg font-medium text-white">
                 Upload Schedule

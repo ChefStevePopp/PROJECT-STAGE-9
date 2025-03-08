@@ -28,7 +28,7 @@ interface ScheduleState {
   scheduleShifts: ScheduleShift[];
 
   // Actions
-  syncSchedule: () => Promise<void>;
+  syncSchedule: (startDate?: string, endDate?: string) => Promise<Shift[]>;
   testConnection: () => Promise<boolean>;
   setCredentials: (credentials: {
     accessToken: string;
@@ -47,6 +47,9 @@ interface ScheduleState {
       startDate: string;
       endDate: string;
       activateImmediately?: boolean;
+      source?: string;
+      selectedMapping?: any;
+      matchedShifts?: any[];
     },
   ) => Promise<void>;
   activateSchedule: (scheduleId: string) => Promise<void>;
@@ -81,26 +84,46 @@ export const useScheduleStore = create<ScheduleState>()(
         set(credentials);
       },
 
-      syncSchedule: async () => {
+      syncSchedule: async (startDate?: string, endDate?: string) => {
         const { accessToken, companyId, locationId } = get();
         set({ isLoading: true, error: null });
 
         try {
+          // If no dates provided, use current week
+          const today = new Date();
+          const defaultStartDate =
+            startDate || today.toISOString().split("T")[0];
+
+          // Default to 7 days if no end date
+          let defaultEndDate;
+          if (!endDate) {
+            const nextWeek = new Date(today);
+            nextWeek.setDate(today.getDate() + 6);
+            defaultEndDate = nextWeek.toISOString().split("T")[0];
+          } else {
+            defaultEndDate = endDate;
+          }
+
           const shifts = await getShifts({
             accessToken,
             companyId,
             locationId,
+            startDate: defaultStartDate,
+            endDate: defaultEndDate,
           });
           set({
             shifts,
             lastSync: new Date().toISOString(),
             error: null,
           });
+
+          return shifts;
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Failed to sync schedule";
           set({ error: errorMessage });
           console.error("Error syncing schedule:", error);
+          return [];
         } finally {
           set({ isLoading: false });
         }
@@ -315,12 +338,14 @@ export const useScheduleStore = create<ScheduleState>()(
             throw new Error("No organization ID found");
           }
 
-          // Parse the CSV file using the selected mapping
-          const shifts = await parseScheduleCsvWithMapping(
-            file,
-            selectedMapping,
-            options.startDate,
-          );
+          // Use pre-matched shifts if provided, otherwise parse the CSV
+          const shifts =
+            options.matchedShifts ||
+            (await parseScheduleCsvWithMapping(
+              file,
+              selectedMapping,
+              options.startDate,
+            ));
 
           if (shifts.length === 0) {
             throw new Error("No valid shifts found in the uploaded file");
@@ -398,17 +423,18 @@ export const useScheduleStore = create<ScheduleState>()(
           // Process shifts and try to match with team members
           const shiftsToInsert = await Promise.all(
             shifts.map(async (shift) => {
-              // Try to match with team members if no employee_id is provided
+              // Try to match with team members using punch_id first, then fall back to name matching
               let employeeData = {
                 employee_id: shift.employee_id || "",
                 first_name: shift.first_name || "",
                 last_name: shift.last_name || "",
               };
 
-              // If we don't have employee data yet, try to match by name
+              // If we don't have employee data yet, try to match by punch_id or name
               if (!employeeData.employee_id || !employeeData.first_name) {
                 employeeData = await matchEmployeeWithTeamMember(
                   shift.employee_name,
+                  shift.punch_id, // Pass the punch_id for direct matching
                 );
               }
 
@@ -528,6 +554,47 @@ export const useScheduleStore = create<ScheduleState>()(
         }
       },
 
+      deleteSchedule: async (scheduleId: string) => {
+        try {
+          set({ isLoading: true, error: null });
+
+          // Delete all shifts associated with this schedule first
+          const { error: shiftsError } = await supabase
+            .from("schedule_shifts")
+            .delete()
+            .eq("schedule_id", scheduleId);
+
+          if (shiftsError) throw shiftsError;
+
+          // Then delete the schedule itself
+          const { error } = await supabase
+            .from("schedules")
+            .delete()
+            .eq("id", scheduleId);
+
+          if (error) throw error;
+
+          // Update the store state
+          set({
+            currentSchedule: null,
+            scheduleShifts: [],
+          });
+
+          return true;
+        } catch (error) {
+          console.error("Error deleting schedule:", error);
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to delete schedule",
+          });
+          return false;
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
       archiveSchedule: async (scheduleId: string) => {
         try {
           set({ isLoading: true, error: null });
@@ -619,17 +686,49 @@ export const useScheduleStore = create<ScheduleState>()(
           }
 
           // Transform and insert shifts
-          const shiftsToInsert = scheduleData.shifts.map((shift) => ({
-            schedule_id: schedule.id,
-            employee_id: shift.user_id?.toString(),
-            employee_name: shift.user?.name || "Unknown Employee",
-            role: shift.role?.name || "",
-            shift_date: shift.date,
-            start_time: shift.start_time,
-            end_time: shift.end_time,
-            break_duration: shift.break_time || 0,
-            notes: shift.notes || "",
-          }));
+          const shiftsToInsert = scheduleData.shifts.map((shift) => {
+            // Extract first and last name from the user name if available
+            let firstName = "";
+            let lastName = "";
+            const fullName = shift.user?.name || "Unknown Employee";
+
+            if (fullName && fullName !== "Unknown Employee") {
+              const nameParts = fullName.split(" ");
+              if (nameParts.length > 1) {
+                lastName = nameParts.pop() || "";
+                firstName = nameParts.join(" ");
+              } else {
+                firstName = fullName;
+              }
+            }
+
+            // Format the date from ISO to YYYY-MM-DD
+            const shiftDate = shift.start
+              ? new Date(shift.start).toISOString().split("T")[0]
+              : "";
+
+            // Format times from ISO to HH:MM
+            const startTime = shift.start
+              ? new Date(shift.start).toTimeString().substring(0, 5)
+              : "";
+            const endTime = shift.end
+              ? new Date(shift.end).toTimeString().substring(0, 5)
+              : "";
+
+            return {
+              schedule_id: schedule.id,
+              employee_id: shift.user_id?.toString() || "",
+              employee_name: fullName,
+              first_name: firstName,
+              last_name: lastName,
+              role: shift.role?.name || "",
+              shift_date: shiftDate,
+              start_time: startTime,
+              end_time: endTime,
+              break_duration: shift.break_duration || 0,
+              notes: shift.notes || "",
+            };
+          });
 
           const { error: shiftsError } = await supabase
             .from("schedule_shifts")
@@ -641,6 +740,7 @@ export const useScheduleStore = create<ScheduleState>()(
 
           // Update the store state
           set({ upcomingSchedule: schedule });
+          return schedule;
         } catch (error) {
           console.error("Error syncing 7shifts schedule:", error);
           set({
@@ -649,6 +749,7 @@ export const useScheduleStore = create<ScheduleState>()(
                 ? error.message
                 : "Failed to sync 7shifts schedule",
           });
+          throw error;
         } finally {
           set({ isLoading: false });
         }

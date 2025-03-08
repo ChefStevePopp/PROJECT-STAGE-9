@@ -1,6 +1,7 @@
-import React from "react";
-import { Plus, Trash2, Shield } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Plus, Trash2, ChefHat, Briefcase } from "lucide-react";
 import type { TeamMember } from "../../../types";
+import { supabase } from "@/lib/supabase";
 
 interface RolesTabProps {
   formData: TeamMember;
@@ -11,6 +12,50 @@ export const RolesTab: React.FC<RolesTabProps> = ({
   formData,
   setFormData,
 }) => {
+  const [kitchenStations, setKitchenStations] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Fetch kitchen stations from operations_settings
+  useEffect(() => {
+    const fetchKitchenStations = async () => {
+      setIsLoading(true);
+      try {
+        // Get the organization ID from the current user
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        const organizationId = user?.user_metadata?.organizationId;
+
+        if (!organizationId) {
+          console.error("No organization ID found");
+          return;
+        }
+
+        // Fetch operations settings
+        const { data, error } = await supabase
+          .from("operations_settings")
+          .select("kitchen_stations")
+          .eq("organization_id", organizationId)
+          .single();
+
+        if (error) {
+          console.error("Error fetching operations settings:", error);
+          return;
+        }
+
+        // Extract kitchen stations
+        const stations = data?.kitchen_stations || [];
+        setKitchenStations(stations);
+      } catch (error) {
+        console.error("Error fetching kitchen stations:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchKitchenStations();
+  }, []);
+
   const addWorkstationRole = () => {
     setFormData({
       ...formData,
@@ -30,30 +75,40 @@ export const RolesTab: React.FC<RolesTabProps> = ({
     setFormData({ ...formData, roles: newRoles });
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Permission Level */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <Shield className="w-4 h-4 text-green-400" />
-          <h3 className="text-sm font-medium text-gray-300">
-            Permission Level
-          </h3>
-        </div>
-        <div className="text-gray-400 text-sm">
-          {formData.kitchen_role || "No permission level set"}
-        </div>
-        <div className="text-xs text-gray-500">
-          Permissions are managed in the Admin section
-        </div>
-      </div>
+  const handleStationToggle = (station: string) => {
+    const currentStations = [...(formData.kitchen_stations || [])];
+    const stationIndex = currentStations.indexOf(station);
 
-      {/* Workstation Roles */}
+    if (stationIndex >= 0) {
+      currentStations.splice(stationIndex, 1);
+    } else {
+      currentStations.push(station);
+    }
+
+    setFormData({ ...formData, kitchen_stations: currentStations });
+  };
+
+  return (
+    <div className="space-y-6 overflow-y-auto max-h-[70vh]">
+      {/* Scheduled Team Roles */}
       <div>
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex items-center gap-2 mb-4">
+          <Briefcase className="w-4 h-4 text-green-400" />
           <h3 className="text-sm font-medium text-gray-300">
-            Workstation Roles
+            Scheduled Team Role(s)
           </h3>
+        </div>
+
+        <div className="bg-green-500/10 rounded-lg p-4 mb-4">
+          <p className="text-sm text-gray-300">
+            These roles are used for scheduling purposes and represent the team
+            member's position in the kitchen schedule. A team member can have
+            multiple roles for different shifts.
+          </p>
+        </div>
+
+        <div className="flex justify-between items-center mb-4">
+          <h4 className="text-sm font-medium text-gray-400">Assigned Roles</h4>
           <button
             type="button"
             onClick={addWorkstationRole}
@@ -62,6 +117,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
             <Plus className="w-4 h-4" />
           </button>
         </div>
+
         <div className="space-y-2">
           {(formData.roles || []).map((role, index) => (
             <div key={index} className="flex gap-2">
@@ -70,7 +126,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
                 value={role}
                 onChange={(e) => updateWorkstationRole(index, e.target.value)}
                 className="input flex-1 text-sm"
-                placeholder="Enter workstation role"
+                placeholder="Enter role (e.g., Line Cook, Prep Cook, Dishwasher)"
               />
               <button
                 type="button"
@@ -83,10 +139,74 @@ export const RolesTab: React.FC<RolesTabProps> = ({
           ))}
           {(formData.roles || []).length === 0 && (
             <div className="text-sm text-gray-500 text-center py-2">
-              No workstation roles added
+              No scheduled roles added
             </div>
           )}
         </div>
+      </div>
+
+      {/* Kitchen Stations */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <ChefHat className="w-4 h-4 text-blue-400" />
+          <h3 className="text-sm font-medium text-gray-300">
+            Kitchen Stations
+          </h3>
+        </div>
+
+        <div className="bg-blue-500/10 rounded-lg p-4 mb-4">
+          <p className="text-sm text-gray-300">
+            Kitchen stations represent the physical areas in the kitchen where
+            this team member is trained to work. These stations are configured
+            in Organization Settings and are used for scheduling and task
+            assignments.
+          </p>
+        </div>
+
+        {isLoading ? (
+          <div className="p-4 bg-gray-800/50 rounded-lg text-center">
+            <div className="animate-spin h-5 w-5 border-2 border-primary-500 border-t-transparent rounded-full mx-auto"></div>
+            <p className="text-gray-400 text-sm mt-2">Loading stations...</p>
+          </div>
+        ) : kitchenStations.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+            {kitchenStations.map((station) => (
+              <div
+                key={station}
+                className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg hover:bg-gray-800 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                    <ChefHat className="w-4 h-4 text-blue-400" />
+                  </div>
+                  <div>
+                    <h5 className="font-medium text-white">{station}</h5>
+                  </div>
+                </div>
+                <div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={(formData.kitchen_stations || []).includes(
+                        station,
+                      )}
+                      onChange={() => handleStationToggle(station)}
+                    />
+                    <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                  </label>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-4 bg-gray-800/50 rounded-lg text-center">
+            <p className="text-gray-400 text-sm">
+              No kitchen stations configured. Add stations in Organization
+              Settings under Operations Variables.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

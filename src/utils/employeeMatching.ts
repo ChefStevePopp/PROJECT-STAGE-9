@@ -1,11 +1,37 @@
 import { supabase } from "@/lib/supabase";
 
 /**
- * Attempts to match an employee name with a team member in the database
+ * Attempts to match an employee with a team member in the database
  * @param employeeName The full name of the employee from the schedule
+ * @param punchId Optional punch ID to match directly with team members
  * @returns Object with employee_id, first_name, and last_name
  */
-export const matchEmployeeWithTeamMember = async (employeeName: string) => {
+export const matchEmployeeWithTeamMember = async (
+  employeeName: string,
+  punchId?: string,
+) => {
+  // If we have a punch ID, try to match by that first
+  if (punchId) {
+    try {
+      const { data: teamMember, error } = await supabase
+        .from("organization_team_members")
+        .select("id, first_name, last_name, punch_id")
+        .eq("punch_id", punchId)
+        .maybeSingle();
+
+      if (!error && teamMember) {
+        return {
+          employee_id: teamMember.punch_id || teamMember.id,
+          first_name: teamMember.first_name,
+          last_name: teamMember.last_name,
+        };
+      }
+    } catch (error) {
+      console.error("Error matching employee by punch ID:", error);
+    }
+  }
+
+  // If no punch ID or no match found, fall back to name matching
   if (!employeeName) {
     return {
       employee_id: "",

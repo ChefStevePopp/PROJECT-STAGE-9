@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/useSimplifiedAuth";
 import { Shield, AlertTriangle, Users, Info } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { RoleCard } from "./RoleCard";
@@ -19,7 +19,7 @@ interface TeamMember {
 }
 
 export const PermissionsManager: React.FC = () => {
-  const { user, organization } = useAuth();
+  const { user, organizationId } = useAuth();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
@@ -31,7 +31,7 @@ export const PermissionsManager: React.FC = () => {
   // Fetch team members
   useEffect(() => {
     const fetchTeamMembers = async () => {
-      if (!organization?.id) return;
+      if (!organizationId) return;
 
       setIsLoading(true);
       setError(null);
@@ -48,7 +48,7 @@ export const PermissionsManager: React.FC = () => {
             kitchen_role
           `,
           )
-          .eq("organization_id", organization.id);
+          .eq("organization_id", organizationId);
 
         if (teamError) throw teamError;
         setTeamMembers(teamData || []);
@@ -61,10 +61,10 @@ export const PermissionsManager: React.FC = () => {
     };
 
     fetchTeamMembers();
-  }, [organization?.id]);
+  }, [organizationId]);
 
   const handleRoleAssignment = async (memberId: string, role: string) => {
-    if (!organization?.id) return;
+    if (!organizationId) return;
 
     setIsUpdating(true);
     try {
@@ -73,7 +73,7 @@ export const PermissionsManager: React.FC = () => {
         .from("organization_team_members")
         .update({ kitchen_role: role })
         .eq("id", memberId)
-        .eq("organization_id", organization.id);
+        .eq("organization_id", organizationId);
 
       if (updateError) throw updateError;
 
@@ -94,9 +94,15 @@ export const PermissionsManager: React.FC = () => {
   if (isLoading) return <LoadingState />;
   if (error) return <ErrorState message={error} />;
 
+  // Count unassigned team members
+  const unassignedMembers = teamMembers.filter(
+    (m) => !m.kitchen_role || m.kitchen_role === "",
+  );
+  const hasUnassigned = unassignedMembers.length > 0;
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-6 overflow-y-auto max-h-[calc(100vh-120px)] pb-8">
+      {/* Header with Unassigned Warning */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-white mb-2">
@@ -106,6 +112,20 @@ export const PermissionsManager: React.FC = () => {
             Manage team member roles and access levels
           </p>
         </div>
+        {hasUnassigned && (
+          <button
+            onClick={() => {
+              setAssignModalRole("team_member");
+              setIsAssignModalOpen(true);
+            }}
+            className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-lg hover:bg-amber-500/20 transition-colors"
+          >
+            <AlertTriangle className="w-4 h-4 text-amber-400" />
+            <span className="text-amber-400 text-sm font-medium">
+              {unassignedMembers.length} Unassigned
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Info Card */}
@@ -125,8 +145,8 @@ export const PermissionsManager: React.FC = () => {
         </div>
       </div>
 
-      {/* Role Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* All Role Cards in a 2x2 Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {Object.entries(ROLE_DEFINITIONS)
           .filter(([id]) => id !== "dev")
           .map(([id, role]) => (

@@ -734,8 +734,10 @@ export type Database = {
           first_name: string
           id: string
           kitchen_role: string | null
+          kitchen_stations: string[] | null
           last_name: string
           locations: string[] | null
+          metadata: Json | null
           notification_preferences: Json | null
           organization_id: string
           phone: string | null
@@ -753,8 +755,10 @@ export type Database = {
           first_name: string
           id?: string
           kitchen_role?: string | null
+          kitchen_stations?: string[] | null
           last_name: string
           locations?: string[] | null
+          metadata?: Json | null
           notification_preferences?: Json | null
           organization_id: string
           phone?: string | null
@@ -772,8 +776,10 @@ export type Database = {
           first_name?: string
           id?: string
           kitchen_role?: string | null
+          kitchen_stations?: string[] | null
           last_name?: string
           locations?: string[] | null
+          metadata?: Json | null
           notification_preferences?: Json | null
           organization_id?: string
           phone?: string | null
@@ -1291,7 +1297,9 @@ export type Database = {
           employee_id: string | null
           employee_name: string
           end_time: string
+          first_name: string | null
           id: string
+          last_name: string | null
           notes: string | null
           role: string | null
           schedule_id: string
@@ -1304,7 +1312,9 @@ export type Database = {
           employee_id?: string | null
           employee_name: string
           end_time: string
+          first_name?: string | null
           id?: string
+          last_name?: string | null
           notes?: string | null
           role?: string | null
           schedule_id: string
@@ -1317,7 +1327,9 @@ export type Database = {
           employee_id?: string | null
           employee_name?: string
           end_time?: string
+          first_name?: string | null
           id?: string
+          last_name?: string | null
           notes?: string | null
           role?: string | null
           schedule_id?: string

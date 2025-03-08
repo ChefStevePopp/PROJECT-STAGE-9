@@ -15,6 +15,7 @@ export interface TeamMember {
   locations?: string[];
   notification_preferences?: Record<string, any>;
   kitchen_role?: string;
+  kitchen_stations?: string[];
 }
 
 export interface TeamStore {

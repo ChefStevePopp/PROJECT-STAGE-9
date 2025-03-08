@@ -12,6 +12,7 @@ interface RoleCardProps {
   onSelect: () => void;
   memberCount: number;
   onAssignMembers: () => void;
+  isFullWidth?: boolean;
 }
 
 export const RoleCard: React.FC<RoleCardProps> = ({
@@ -20,6 +21,7 @@ export const RoleCard: React.FC<RoleCardProps> = ({
   onSelect,
   memberCount,
   onAssignMembers,
+  isFullWidth = false,
 }) => {
   const { user, organization } = useAuth();
 
@@ -103,84 +105,78 @@ export const RoleCard: React.FC<RoleCardProps> = ({
       className={`card p-6 cursor-pointer transition-all border-2 ${isSelected ? info.border : "border-transparent hover:border-gray-700"}`}
       onClick={onSelect}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          {/* Role Header */}
-          <div className="flex items-center gap-3 mb-4">
-            <div className={`p-2 rounded-lg ${info.icon}`}>
-              <Shield className="w-5 h-5" />
-            </div>
-            <h3 className="font-medium text-white text-lg">{role.label}</h3>
-          </div>
-
-          {/* Can Do Section */}
-          <div className="mb-4">
-            <h4 className="text-sm font-medium text-gray-300 mb-2">Can:</h4>
-            <ul className="space-y-1">
-              {info.canDo.map((item, index) => (
-                <li
-                  key={index}
-                  className="text-sm text-gray-400 flex items-start gap-2"
-                >
-                  <span className="text-green-400 mt-1">•</span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Cannot Do Section */}
-          <div className="mb-4">
-            <h4 className="text-sm font-medium text-gray-300 mb-2">Cannot:</h4>
-            <ul className="space-y-1">
-              {info.cantDo.map((item, index) => (
-                <li
-                  key={index}
-                  className="text-sm text-gray-400 flex items-start gap-2"
-                >
-                  <span className="text-rose-400 mt-1">•</span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Member Count and Actions */}
-          <div className="flex items-center justify-between pt-4 border-t border-gray-700">
-            <div className="flex items-center gap-2 text-sm text-gray-400">
-              <Users className="w-4 h-4" />
-              {memberCount} team members
-            </div>
-            {role.id !== "owner" && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onAssignMembers();
-                }}
-                className="flex items-center gap-1 text-sm text-primary-400 hover:text-primary-300 transition-colors"
-              >
-                Assign Members
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-
-          {/* Owner Info - Only show for owner role */}
-          {role.id === "owner" && organization?.owner_id && (
-            <div className="mt-4 pt-4 border-t border-gray-700">
-              <div className="text-sm text-gray-400">
-                Organization Owner:{" "}
-                <span className="text-rose-400">
-                  {user?.id === organization.owner_id ? "You" : "Another user"}
-                </span>
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                The owner role is automatically assigned to the organization
-                creator
-              </div>
-            </div>
-          )}
+      {/* Role Header */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className={`p-2 rounded-lg ${info.icon}`}>
+          <Shield className="w-5 h-5" />
         </div>
+        <h3 className="font-medium text-white text-lg">{role.label}</h3>
+      </div>
+
+      {/* Can Do Section */}
+      <div className="mb-4">
+        <h4 className="text-sm font-medium text-gray-300 mb-2">Can:</h4>
+        <ul className="space-y-1">
+          {info.canDo.map((item, index) => (
+            <li
+              key={index}
+              className="text-sm text-gray-400 flex items-start gap-2"
+            >
+              <span className="text-green-400 mt-1">•</span>
+              {item}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Cannot Do Section */}
+      <div className="mb-4">
+        <h4 className="text-sm font-medium text-gray-300 mb-2">Cannot:</h4>
+        <ul className="space-y-1">
+          {info.cantDo.map((item, index) => (
+            <li
+              key={index}
+              className="text-sm text-gray-400 flex items-start gap-2"
+            >
+              <span className="text-rose-400 mt-1">•</span>
+              {item}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Member Count and Assign Button */}
+      <div className="mt-auto pt-4 border-t border-gray-700">
+        <div className="flex items-center gap-2 text-sm text-gray-400 mb-3">
+          <Users className="w-4 h-4" />
+          {memberCount} team members
+        </div>
+
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onAssignMembers();
+          }}
+          className="w-full py-2 rounded-lg bg-primary-500/20 text-primary-400 hover:bg-primary-500/30 transition-colors text-sm font-medium"
+        >
+          Assign Team Members
+        </button>
+
+        {/* Owner Info - Only show for owner role */}
+        {role.id === "owner" && organization?.owner_id && (
+          <div className="mt-4 pt-4 border-t border-gray-700">
+            <div className="text-sm text-gray-400">
+              Organization Owner:{" "}
+              <span className="text-rose-400">
+                {user?.id === organization.owner_id ? "You" : "Another user"}
+              </span>
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              The owner role is automatically assigned to the organization
+              creator
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

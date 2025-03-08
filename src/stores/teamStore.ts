@@ -55,7 +55,7 @@ export const useTeamStore = create<TeamStore>((set, get) => ({
       if (!currentMember) throw new Error("Team member not found");
 
       // Prepare update data - only include fields that exist in the database
-      const updateData = {
+      const updateData: any = {
         organization_id: user.user_metadata.organizationId,
         first_name: updates.first_name || currentMember.first_name,
         last_name: updates.last_name || currentMember.last_name,
@@ -71,9 +71,17 @@ export const useTeamStore = create<TeamStore>((set, get) => ({
           updates.notification_preferences ||
           currentMember.notification_preferences ||
           null,
-        kitchen_role: currentMember.kitchen_role, // Keep existing kitchen_role as it's managed elsewhere
         updated_at: new Date().toISOString(),
       };
+
+      // Handle kitchen_role and kitchen_stations directly
+      if (updates.kitchen_role) {
+        updateData.kitchen_role = updates.kitchen_role;
+      }
+
+      if (updates.kitchen_stations) {
+        updateData.kitchen_stations = updates.kitchen_stations;
+      }
 
       // Perform update
       const { error: updateError } = await supabase
@@ -112,6 +120,8 @@ export const useTeamStore = create<TeamStore>((set, get) => ({
         throw new Error("No organization ID found");
       }
 
+      // No need to prepare metadata, we'll use the columns directly
+
       const { data, error } = await supabase
         .from("organization_team_members")
         .insert([
@@ -127,7 +137,8 @@ export const useTeamStore = create<TeamStore>((set, get) => ({
             departments: member.departments || [],
             locations: member.locations || [],
             notification_preferences: member.notification_preferences || null,
-            kitchen_role: null, // This will be set through permissions
+            kitchen_role: member.kitchen_role || "team_member",
+            kitchen_stations: member.kitchen_stations || [],
             organization_id: user.user_metadata.organizationId,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),

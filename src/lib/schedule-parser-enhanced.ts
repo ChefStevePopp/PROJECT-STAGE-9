@@ -23,6 +23,7 @@ export interface ScheduleShift {
   end_time: string;
   break_duration: number;
   notes?: string;
+  punch_id?: string; // Added field for punch_id from CSV
 }
 
 /**
@@ -132,8 +133,12 @@ const parseStandardFormat = (
       const lastName =
         nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
 
+      // Get employee ID from standard fields if available
+      const employeeId = row["employee_id"] || row["Employee ID"] || "";
+
       return {
-        employee_id: row["employee_id"] || row["Employee ID"] || "",
+        employee_id: employeeId,
+        punch_id: employeeId, // Store as punch_id as well for matching
         employee_name: fullName,
         first_name: firstName,
         last_name: lastName,
@@ -233,10 +238,15 @@ const parseWeeklyFormat = (
         const lastName =
           nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
 
+        // Get employee ID from standard fields if available
+        const employeeId = row["employee_id"] || row["Employee ID"] || "";
+
         shifts.push({
           employee_name: employeeName,
           first_name: firstName,
           last_name: lastName,
+          employee_id: employeeId,
+          punch_id: employeeId, // Store as punch_id as well for matching
           role: role || "",
           date: dateStr,
           start_time: startTime,

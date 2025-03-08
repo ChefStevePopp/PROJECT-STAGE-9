@@ -1,11 +1,20 @@
 import React, { useState } from "react";
-import { X, User, Shield, Building2, Bell, UserCircle } from "lucide-react";
+import {
+  X,
+  User,
+  Shield,
+  Building2,
+  Bell,
+  UserCircle,
+  Briefcase,
+} from "lucide-react";
 import { useTeamStore } from "@/stores/teamStore";
 import { BasicInfoTab } from "./tabs/BasicInfoTab";
 import { RolesTab } from "./tabs/RolesTab";
 import { DepartmentsTab } from "./tabs/DepartmentsTab";
 import { NotificationsTab } from "./tabs/NotificationsTab";
 import { AvatarTab } from "./tabs/AvatarTab";
+import { PermissionsTab } from "./tabs/PermissionsTab";
 import type { TeamMember } from "../../types";
 
 interface EditTeamMemberModalProps {
@@ -14,14 +23,21 @@ interface EditTeamMemberModalProps {
   onClose?: () => void;
 }
 
-type TabId = "basic" | "roles" | "departments" | "notifications" | "avatar";
+type TabId =
+  | "basic"
+  | "roles"
+  | "permissions"
+  | "departments"
+  | "notifications"
+  | "avatar";
 
 const TABS = [
   { id: "basic", label: "Basic Info", icon: User, color: "primary" },
-  { id: "roles", label: "Roles", icon: Shield, color: "green" },
+  { id: "roles", label: "Roles", icon: Briefcase, color: "green" },
+  { id: "permissions", label: "Permissions", icon: Shield, color: "purple" },
   { id: "departments", label: "Departments", icon: Building2, color: "amber" },
   { id: "notifications", label: "Notifications", icon: Bell, color: "rose" },
-  { id: "avatar", label: "Avatar", icon: UserCircle, color: "purple" },
+  { id: "avatar", label: "Avatar", icon: UserCircle, color: "blue" },
 ] as const;
 
 export const EditTeamMemberModal: React.FC<EditTeamMemberModalProps> = ({
@@ -52,6 +68,8 @@ export const EditTeamMemberModal: React.FC<EditTeamMemberModalProps> = ({
         departments: formData.departments || [],
         locations: formData.locations || [],
         notification_preferences: formData.notification_preferences,
+        kitchen_role: formData.kitchen_role,
+        kitchen_stations: formData.kitchen_stations || [],
       };
 
       await updateTeamMember(member.id, updates);
@@ -120,6 +138,9 @@ export const EditTeamMemberModal: React.FC<EditTeamMemberModalProps> = ({
               )}
               {activeTab === "roles" && (
                 <RolesTab formData={formData} setFormData={setFormData} />
+              )}
+              {activeTab === "permissions" && (
+                <PermissionsTab formData={formData} setFormData={setFormData} />
               )}
               {activeTab === "departments" && (
                 <DepartmentsTab formData={formData} setFormData={setFormData} />

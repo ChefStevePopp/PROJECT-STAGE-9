@@ -275,6 +275,42 @@ export const CSVConfiguration: React.FC<CSVConfigurationProps> = ({
     toast.success("Mapping saved successfully");
   };
 
+  // Helper to determine if a field should be shown based on format
+  const shouldShowField = (field: keyof ColumnMapping): boolean => {
+    if (field === "employeeNameField") return true; // Always show employee name field
+    if (field === "roleField") return formatType !== "weekly";
+
+    // Standard format fields
+    if (
+      [
+        "dateField",
+        "startTimeField",
+        "endTimeField",
+        "breakDurationField",
+        "notesField",
+      ].includes(field)
+    ) {
+      return formatType === "standard" || formatType === "custom";
+    }
+
+    // Weekly format fields
+    if (
+      [
+        "mondayField",
+        "tuesdayField",
+        "wednesdayField",
+        "thursdayField",
+        "fridayField",
+        "saturdayField",
+        "sundayField",
+      ].includes(field)
+    ) {
+      return formatType === "weekly" || formatType === "custom";
+    }
+
+    return false;
+  };
+
   const renderFieldSelector = (
     label: string,
     field: keyof ColumnMapping,
