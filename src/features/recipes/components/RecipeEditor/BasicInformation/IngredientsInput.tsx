@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   Search,
   GripVertical,
+  ChefHat,
 } from "lucide-react";
 import {
   DndContext,
@@ -24,25 +25,38 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useMasterIngredientsStore } from "@/stores/masterIngredientsStore";
+import { useRecipeStore } from "@/features/recipes/stores/recipeStore";
 import type { Recipe, RecipeIngredient } from "../../../types/recipe";
 import toast from "react-hot-toast";
+import { supabase } from "@/lib/supabase";
 
-// Ingredient Select Dropdown Component
+// Combined Ingredient Select Dropdown Component
 const IngredientSelect: React.FC<{
   value: string;
-  onChange: (value: string) => void;
-  ingredients: any[];
-}> = ({ value, onChange, ingredients }) => {
+  onChange: (value: string, type: "raw" | "prepared") => void;
+  rawIngredients: any[];
+  preparedItems: any[];
+}> = ({ value, onChange, rawIngredients, preparedItems }) => {
   const [open, setOpen] = useState(false);
-  const selectedIngredient = ingredients.find((i) => i.id === value);
-  const [search, setSearch] = useState(() => selectedIngredient?.product || "");
+
+  // Find the selected ingredient from either raw ingredients or prepared items
+  const selectedRawIngredient = rawIngredients.find((i) => i.id === value);
+  const selectedPreparedItem = preparedItems.find((i) => i.id === value);
+  const selectedIngredient = selectedRawIngredient || selectedPreparedItem;
+
+  // Get the display name based on the type of ingredient
+  const getDisplayName = () => {
+    if (selectedRawIngredient) return selectedRawIngredient.product;
+    if (selectedPreparedItem) return selectedPreparedItem.name;
+    return "";
+  };
+
+  const [search, setSearch] = useState(() => getDisplayName());
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   // Update search when selected ingredient changes
   useEffect(() => {
-    if (selectedIngredient) {
-      setSearch(selectedIngredient.product);
-    }
+    setSearch(getDisplayName());
   }, [selectedIngredient]);
 
   // Close dropdown when clicking outside
@@ -61,13 +75,23 @@ const IngredientSelect: React.FC<{
   }, []);
 
   // Filter ingredients based on search
-  const filteredIngredients = ingredients.filter(
+  const filteredRawIngredients = rawIngredients.filter(
     (item) =>
       item.product.toLowerCase().includes(search.toLowerCase()) ||
       (item.vendor_codes?.current?.code || "")
         .toLowerCase()
         .includes(search.toLowerCase()),
   );
+
+  // Filter prepared items based on search
+  const filteredPreparedItems = preparedItems.filter((item) =>
+    item.name.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  // Combine the filtered results
+  const hasRawResults = filteredRawIngredients.length > 0;
+  const hasPreparedResults = filteredPreparedItems.length > 0;
+  const hasResults = hasRawResults || hasPreparedResults;
 
   return (
     <div ref={wrapperRef} className="relative w-full">
@@ -80,40 +104,79 @@ const IngredientSelect: React.FC<{
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
-          placeholder="Search ingredients..."
+          placeholder="Search ingredients or prep items..."
           className="input w-full bg-gray-800/50 pl-10"
         />
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
       </div>
 
-      {open && search !== selectedIngredient?.product && (
+      {open && search !== getDisplayName() && (
         <div className="absolute z-50 w-full mt-1 bg-gray-800 rounded-lg border border-gray-700 shadow-lg max-h-64 overflow-auto">
           <div className="p-2 space-y-1">
-            {filteredIngredients.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => {
-                  onChange(item.id);
-                  setSearch(item.product);
-                  setOpen(false);
-                }}
-                className={`w-full text-left px-3 py-2 rounded-lg transition-colors
-                  ${value === item.id ? "bg-primary-500/20 text-primary-400" : "hover:bg-gray-700/50 text-gray-300"}`}
-              >
-                <div className="font-medium">{item.product}</div>
-                <div className="text-xs text-gray-500 flex justify-between">
-                  {item.recipe_unit_type && (
-                    <span>Unit: {item.recipe_unit_type}</span>
-                  )}
-                  {item.vendor_codes?.current?.code && (
-                    <span>Code: {item.vendor_codes.current.code}</span>
-                  )}
+            {/* Raw Ingredients Section */}
+            {hasRawResults && (
+              <div className="mb-2">
+                <div className="text-xs font-medium text-gray-500 px-3 py-1 uppercase">
+                  Raw Ingredients
                 </div>
-              </button>
-            ))}
-            {filteredIngredients.length === 0 && (
+                {filteredRawIngredients.map((item) => (
+                  <button
+                    key={`raw-${item.id}`}
+                    onClick={() => {
+                      onChange(item.id, "raw");
+                      setSearch(item.product);
+                      setOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-lg transition-colors
+                      ${value === item.id ? "bg-primary-500/20 text-primary-400" : "hover:bg-gray-700/50 text-gray-300"}`}
+                  >
+                    <div className="font-medium">{item.product}</div>
+                    <div className="text-xs text-gray-500 flex justify-between">
+                      {item.recipe_unit_type && (
+                        <span>Unit: {item.recipe_unit_type}</span>
+                      )}
+                      {item.vendor_codes?.current?.code && (
+                        <span>Code: {item.vendor_codes.current.code}</span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Prepared Items Section */}
+            {hasPreparedResults && (
+              <div>
+                <div className="text-xs font-medium text-gray-500 px-3 py-1 uppercase">
+                  Prepared Items
+                </div>
+                {filteredPreparedItems.map((item) => (
+                  <button
+                    key={`prep-${item.id}`}
+                    onClick={() => {
+                      onChange(item.id, "prepared");
+                      setSearch(item.name);
+                      setOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-lg transition-colors
+                      ${value === item.id ? "bg-primary-500/20 text-primary-400" : "hover:bg-gray-700/50 text-gray-300"}`}
+                  >
+                    <div className="font-medium flex items-center gap-2">
+                      <ChefHat className="w-3 h-3 text-blue-400" />
+                      {item.name}
+                    </div>
+                    <div className="text-xs text-gray-500 flex justify-between">
+                      {item.unit_type && <span>Unit: {item.unit_type}</span>}
+                      <span>Prep Item</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {!hasResults && (
               <div className="text-center py-2 text-gray-500 text-sm">
-                No ingredients found
+                No ingredients or prep items found
               </div>
             )}
           </div>
@@ -129,7 +192,8 @@ const SortableIngredientRow = ({
   index,
   handleIngredientChange,
   removeIngredient,
-  masterIngredients,
+  rawIngredients,
+  preparedItems,
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({ id: ingredient.id });
@@ -152,8 +216,11 @@ const SortableIngredientRow = ({
         <div className="flex-1">
           <IngredientSelect
             value={ingredient.name}
-            onChange={(value) => handleIngredientChange(index, "name", value)}
-            ingredients={masterIngredients}
+            onChange={(value, type) =>
+              handleIngredientChange(index, "name", value, type)
+            }
+            rawIngredients={rawIngredients}
+            preparedItems={preparedItems}
           />
         </div>
       </div>
@@ -232,6 +299,10 @@ export const IngredientsInput: React.FC<{
     }),
   );
 
+  const [preparedItems, setPreparedItems] = useState<any[]>([]);
+  const [isLoadingPrepared, setIsLoadingPrepared] = useState(true);
+  const [preparedError, setPreparedError] = useState<string | null>(null);
+
   const handleDragEnd = (event) => {
     const { active, over } = event;
 
@@ -251,8 +322,8 @@ export const IngredientsInput: React.FC<{
   const {
     ingredients: masterIngredients,
     fetchIngredients,
-    isLoading,
-    error,
+    isLoading: isLoadingMaster,
+    error: masterError,
   } = useMasterIngredientsStore((state) => ({
     ingredients: state.ingredients,
     fetchIngredients: state.fetchIngredients,
@@ -260,80 +331,157 @@ export const IngredientsInput: React.FC<{
     error: state.error,
   }));
 
-  // Fetch master ingredients on mount
+  // Fetch prepared items (recipes with type="prepared")
+  const fetchPreparedItems = async () => {
+    try {
+      setIsLoadingPrepared(true);
+      setPreparedError(null);
+
+      const { data, error } = await supabase
+        .from("recipes")
+        .select("id, name, type, unit_type, cost_per_unit")
+        .eq("type", "prepared");
+
+      if (error) throw error;
+
+      setPreparedItems(data || []);
+    } catch (error) {
+      console.error("Error fetching prepared items:", error);
+      setPreparedError("Failed to load prepared items");
+    } finally {
+      setIsLoadingPrepared(false);
+    }
+  };
+
+  // Fetch master ingredients and prepared items on mount
   useEffect(() => {
     fetchIngredients();
+    fetchPreparedItems();
   }, [fetchIngredients]);
 
   // Initialize ingredients from recipe data
   useEffect(() => {
-    if (recipe.ingredients && recipe.ingredients.length > 0) {
-      // Validate and update ingredient data with master ingredients
+    if (
+      recipe.ingredients &&
+      recipe.ingredients.length > 0 &&
+      masterIngredients.length > 0 &&
+      preparedItems.length > 0
+    ) {
+      // Validate and update ingredient data with master ingredients and prepared items
       const validatedIngredients = recipe.ingredients.map((ingredient) => {
-        const masterIngredient = masterIngredients.find(
-          (mi) => mi.id === ingredient.name,
-        );
-        if (masterIngredient) {
-          return {
-            ...ingredient,
-            unit: masterIngredient.recipe_unit_type || ingredient.unit,
-            cost: masterIngredient.cost_per_recipe_unit || ingredient.cost,
-          };
+        if (ingredient.type === "raw") {
+          const masterIngredient = masterIngredients.find(
+            (mi) => mi.id === ingredient.name,
+          );
+          if (masterIngredient) {
+            return {
+              ...ingredient,
+              unit: masterIngredient.recipe_unit_type || ingredient.unit,
+              cost: masterIngredient.cost_per_recipe_unit || ingredient.cost,
+            };
+          }
+        } else if (ingredient.type === "prepared") {
+          const preparedItem = preparedItems.find(
+            (pi) => pi.id === ingredient.name,
+          );
+          if (preparedItem) {
+            return {
+              ...ingredient,
+              unit: preparedItem.unit_type || ingredient.unit,
+              cost: preparedItem.cost_per_unit || ingredient.cost,
+            };
+          }
         }
         return ingredient;
       });
 
       onChange({ ingredients: validatedIngredients });
     }
-  }, [masterIngredients]); // Only run when master ingredients are loaded
+  }, [masterIngredients, preparedItems]); // Run when master ingredients or prepared items are loaded
 
   const handleIngredientChange = (
     index: number,
     field: string,
     value: string,
+    type?: "raw" | "prepared",
   ) => {
     try {
       const newIngredients = [...recipe.ingredients];
       const ingredient = newIngredients[index];
 
       if (field === "name") {
-        const masterIngredient = masterIngredients.find(
-          (mi) => mi.id === value,
-        );
-        if (masterIngredient) {
-          // Update ingredient with master ingredient information
-          ingredient.name = value;
-          ingredient.unit = masterIngredient.recipe_unit_type || "";
-          ingredient.cost = Number(masterIngredient.cost_per_recipe_unit) || 0;
+        if (type === "raw" || (!type && ingredient.type === "raw")) {
+          // Handle raw ingredient selection
+          const masterIngredient = masterIngredients.find(
+            (mi) => mi.id === value,
+          );
+          if (masterIngredient) {
+            // Update ingredient with master ingredient information
+            ingredient.name = value;
+            ingredient.type = "raw";
+            ingredient.unit = masterIngredient.recipe_unit_type || "";
+            ingredient.cost =
+              Number(masterIngredient.cost_per_recipe_unit) || 0;
 
-          // Log for debugging
-          console.log("Selected master ingredient:", masterIngredient);
-          console.log("Updated ingredient:", ingredient);
+            // Log for debugging
+            console.log("Selected master ingredient:", masterIngredient);
+            console.log("Updated ingredient:", ingredient);
 
-          // Update recipe allergens when ingredient changes
-          const currentAllergens = new Set(recipe.allergenInfo?.contains || []);
-          if (masterIngredient.allergens?.length) {
-            masterIngredient.allergens.forEach((allergen) =>
-              currentAllergens.add(allergen),
+            // Update recipe allergens when ingredient changes
+            const currentAllergens = new Set(
+              recipe.allergenInfo?.contains || [],
             );
-          }
-
-          // Recalculate all allergens from all ingredients
-          const allAllergens = new Set<string>();
-          newIngredients.forEach((ing) => {
-            const mi = masterIngredients.find((m) => m.id === ing.name);
-            if (mi?.allergens?.length) {
-              mi.allergens.forEach((allergen) => allAllergens.add(allergen));
+            if (masterIngredient.allergens?.length) {
+              masterIngredient.allergens.forEach((allergen) =>
+                currentAllergens.add(allergen),
+              );
             }
-          });
 
-          onChange({
-            ingredients: newIngredients,
-            allergenInfo: {
-              ...recipe.allergenInfo,
-              contains: Array.from(allAllergens),
-            },
-          });
+            // Recalculate all allergens from all ingredients
+            const allAllergens = new Set<string>();
+            newIngredients.forEach((ing) => {
+              if (ing.type === "raw") {
+                const mi = masterIngredients.find((m) => m.id === ing.name);
+                if (mi?.allergens?.length) {
+                  mi.allergens.forEach((allergen) =>
+                    allAllergens.add(allergen),
+                  );
+                }
+              }
+            });
+
+            onChange({
+              ingredients: newIngredients,
+              allergenInfo: {
+                ...recipe.allergenInfo,
+                contains: Array.from(allAllergens),
+              },
+            });
+          }
+        } else if (
+          type === "prepared" ||
+          (!type && ingredient.type === "prepared")
+        ) {
+          // Handle prepared item selection
+          const preparedItem = preparedItems.find((pi) => pi.id === value);
+          if (preparedItem) {
+            // Update ingredient with prepared item information
+            ingredient.name = value;
+            ingredient.type = "prepared";
+            ingredient.unit = preparedItem.unit_type || "";
+            ingredient.cost = Number(preparedItem.cost_per_unit) || 0;
+
+            // Log for debugging
+            console.log("Selected prepared item:", preparedItem);
+            console.log("Updated ingredient:", ingredient);
+
+            // Note: We don't update allergens for prepared items here
+            // as that would require fetching the prepared item's ingredients
+
+            onChange({
+              ingredients: newIngredients,
+            });
+          }
         }
       } else {
         ingredient[field] = value;
@@ -348,12 +496,13 @@ export const IngredientsInput: React.FC<{
   const addIngredient = () => {
     const newIngredient = {
       id: `ing-${Date.now()}`,
-      type: "raw",
+      type: "raw", // Default to raw, will be updated when ingredient is selected
       name: "",
       quantity: "",
       unit: "",
       notes: "",
       cost: 0,
+      commonMeasure: "",
     };
 
     onChange({ ingredients: [...recipe.ingredients, newIngredient] });
@@ -365,10 +514,13 @@ export const IngredientsInput: React.FC<{
     // Recalculate allergens after removing ingredient
     const allAllergens = new Set<string>();
     newIngredients.forEach((ing) => {
-      const mi = masterIngredients.find((m) => m.id === ing.name);
-      if (mi?.allergens?.length) {
-        mi.allergens.forEach((allergen) => allAllergens.add(allergen));
+      if (ing.type === "raw") {
+        const mi = masterIngredients.find((m) => m.id === ing.name);
+        if (mi?.allergens?.length) {
+          mi.allergens.forEach((allergen) => allAllergens.add(allergen));
+        }
       }
+      // Note: We don't process allergens for prepared items here
     });
 
     onChange({
@@ -380,10 +532,15 @@ export const IngredientsInput: React.FC<{
     });
   };
 
+  const isLoading = isLoadingMaster || isLoadingPrepared;
+  const error = masterError || preparedError;
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-32">
-        <div className="text-gray-400">Loading ingredients...</div>
+        <div className="text-gray-400">
+          Loading ingredients and prepared items...
+        </div>
       </div>
     );
   }
@@ -395,8 +552,8 @@ export const IngredientsInput: React.FC<{
         <div>
           <p className="font-medium">Error Loading Ingredients</p>
           <p className="text-sm text-gray-300 mt-1">
-            Please try refreshing the page or contact support if the problem
-            persists.
+            {error}. Please try refreshing the page or contact support if the
+            problem persists.
           </p>
         </div>
       </div>
@@ -449,7 +606,8 @@ export const IngredientsInput: React.FC<{
                 index={index}
                 handleIngredientChange={handleIngredientChange}
                 removeIngredient={removeIngredient}
-                masterIngredients={masterIngredients}
+                rawIngredients={masterIngredients}
+                preparedItems={preparedItems}
               />
             ))}
           </div>
