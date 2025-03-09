@@ -17,13 +17,17 @@ import {
   History,
   Bell,
   Calendar,
+  Home,
 } from "lucide-react";
 
 export const menuItems = (isDev: boolean) => {
   const items = [
     {
       id: "account",
-      items: [{ icon: User, label: "My Account", path: "/admin/account" }],
+      items: [
+        { icon: User, label: "My Account", path: "/admin/account" },
+        { icon: Home, label: "Dashboard", path: "/admin" },
+      ],
     },
     {
       id: "kitchen",
