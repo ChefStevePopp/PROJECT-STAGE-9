@@ -30,6 +30,7 @@ export const menuItems = (isDev: boolean) => {
       label: "KITCHEN",
       items: [
         { icon: ChefHat, label: "Recipe Manager", path: "/admin/recipes" },
+        { icon: UtensilsCrossed, label: "Task Manager", path: "/admin/tasks" },
       ],
     },
     {

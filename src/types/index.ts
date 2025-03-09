@@ -1,5 +1,6 @@
-export * from './excel';
-export * from './inventory';
+export * from "./excel";
+export * from "./inventory";
+export * from "./tasks";
 
 export interface MasterIngredient {
   id?: string;
@@ -28,8 +29,13 @@ export interface MasterIngredientsStore {
   isLoading: boolean;
   isImporting: boolean;
   fetchIngredients: () => Promise<void>;
-  addIngredient: (ingredient: Omit<MasterIngredient, 'id' | 'lastUpdated'>) => Promise<void>;
-  updateIngredient: (id: string, updates: Partial<MasterIngredient>) => Promise<void>;
+  addIngredient: (
+    ingredient: Omit<MasterIngredient, "id" | "lastUpdated">,
+  ) => Promise<void>;
+  updateIngredient: (
+    id: string,
+    updates: Partial<MasterIngredient>,
+  ) => Promise<void>;
   deleteIngredient: (id: string) => Promise<void>;
   importIngredients: (data: any[]) => Promise<void>;
   clearIngredients: () => Promise<void>;

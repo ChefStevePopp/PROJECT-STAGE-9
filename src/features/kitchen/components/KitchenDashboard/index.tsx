@@ -1,7 +1,8 @@
 import React from "react";
 import { ThumbsUp, AlertTriangle, ChefHat } from "lucide-react";
 import { useTeamStore } from "@/stores/teamStore";
-import { StaffSchedule } from "./StaffSchedule";
+import { StaffSchedule } from "../StaffSchedule";
+import { TasksWidget } from "./TasksWidget";
 
 export const KitchenDashboard: React.FC = () => {
   const team = useTeamStore((state) => state.members);
@@ -79,7 +80,7 @@ export const KitchenDashboard: React.FC = () => {
           </div>
         </div>
         {/* Staff Schedule */}
-        <StaffSchedule team={team} />
+        <TasksWidget />
       </div>
     </div>
   );

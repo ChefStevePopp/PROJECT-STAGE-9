@@ -14,6 +14,7 @@ import { MyAccount } from "@/features/account/components/MyAccount";
 import { OrganizationSettings } from "../components/settings/OrganizationSettings";
 import { ActivityLogList } from "../components/ActivityLogList";
 import { ScheduleManager } from "../components/sections/ScheduleManager";
+import { TaskManager } from "../components/sections/TaskManager";
 
 export const AdminRoutes: React.FC = () => {
   return (
@@ -33,6 +34,7 @@ export const AdminRoutes: React.FC = () => {
         <Route path="activity" element={<ActivityLogList />} />
         <Route path="account" element={<MyAccount />} />
         <Route path="account/*" element={<MyAccount />} />
+        <Route path="tasks" element={<TaskManager />} />
       </Route>
     </Routes>
   );

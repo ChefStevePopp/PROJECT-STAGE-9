@@ -1440,6 +1440,101 @@ export type Database = {
           },
         ]
       }
+      tasks: {
+        Row: {
+          actual_time: number | null
+          assignee_id: string | null
+          completed: boolean
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          due_date: string
+          estimated_time: number
+          id: string
+          notes: string | null
+          organization_id: string
+          priority: string
+          recipe_id: string | null
+          station: string | null
+          tags: string[] | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          actual_time?: number | null
+          assignee_id?: string | null
+          completed?: boolean
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          due_date: string
+          estimated_time?: number
+          id?: string
+          notes?: string | null
+          organization_id: string
+          priority?: string
+          recipe_id?: string | null
+          station?: string | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          actual_time?: number | null
+          assignee_id?: string | null
+          completed?: boolean
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          due_date?: string
+          estimated_time?: number
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          priority?: string
+          recipe_id?: string | null
+          station?: string | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "organization_team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes_with_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vendor_code_changes: {
         Row: {
           action: string | null
@@ -1983,6 +2078,11 @@ export type Database = {
         | "team_member_removed"
         | "role_changed"
         | "settings_updated"
+        | "task_created"
+        | "task_updated"
+        | "task_deleted"
+        | "task_completed"
+        | "task_assigned"
     }
     CompositeTypes: {
       [_ in never]: never

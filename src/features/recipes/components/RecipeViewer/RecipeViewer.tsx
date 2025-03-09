@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { ChefHat, UtensilsCrossed, Search, Book, Printer } from "lucide-react";
+import {
+  ChefHat,
+  UtensilsCrossed,
+  Search,
+  Book,
+  Printer,
+  Package,
+} from "lucide-react";
 import { Navigate } from "react-router-dom";
 import { useRecipeStore } from "@/stores/recipeStore";
 import RecipeCard from "../RecipeCard";
@@ -8,11 +15,14 @@ import { useSupabase } from "@/context/SupabaseContext";
 import toast from "react-hot-toast";
 
 export const RecipeViewer: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"prepared" | "final">("prepared");
+  const [activeTab, setActiveTab] = useState<
+    "prepared" | "final" | "receiving"
+  >("prepared");
   const [searchTerm, setSearchTerm] = useState("");
   const [viewingRecipe, setViewingRecipe] = useState<Recipe | null>(null);
   const [organizationId, setOrganizationId] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
 
   const { recipes, fetchRecipes } = useRecipeStore();
   const { supabase } = useSupabase();
@@ -68,6 +78,12 @@ export const RecipeViewer: React.FC = () => {
       label: "Final Plates",
       icon: ChefHat,
       color: "green",
+    },
+    {
+      id: "receiving" as const,
+      label: "Receiving Items",
+      icon: Package,
+      color: "amber",
     },
   ] as const;
 
@@ -132,6 +148,32 @@ export const RecipeViewer: React.FC = () => {
         />
       </div>
 
+      {/* Receiving Items Description */}
+      {activeTab === "receiving" && (
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 mb-4">
+          <div
+            className="flex justify-between items-center cursor-pointer"
+            onClick={() => setDescriptionExpanded(!descriptionExpanded)}
+          >
+            <h3 className="text-lg font-medium text-amber-400">
+              Receiving Items
+            </h3>
+            <button className="text-amber-400 hover:text-amber-300">
+              {descriptionExpanded ? "Minimize" : "Learn More"}
+            </button>
+          </div>
+          {descriptionExpanded && (
+            <p className="text-gray-300 mt-2">
+              Receiving items are an important part of mise-en-place that have
+              costs and specific handling instructions associated with them.
+              This section helps document proper receiving procedures for
+              produce, proteins, and other ingredients to ensure quality, food
+              safety, and cost control from the moment items enter your kitchen.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Recipe Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredRecipes.length > 0 ? (
@@ -148,8 +190,10 @@ export const RecipeViewer: React.FC = () => {
             <div className="w-16 h-16 rounded-full bg-gray-800/50 flex items-center justify-center mb-4">
               {activeTab === "prepared" ? (
                 <UtensilsCrossed className="w-8 h-8 text-gray-600" />
-              ) : (
+              ) : activeTab === "final" ? (
                 <ChefHat className="w-8 h-8 text-gray-600" />
+              ) : (
+                <Package className="w-8 h-8 text-gray-600" />
               )}
             </div>
             <h3 className="text-lg font-medium text-white mb-2">
@@ -157,8 +201,8 @@ export const RecipeViewer: React.FC = () => {
             </h3>
             <p className="text-gray-400 max-w-md">
               {searchTerm
-                ? `No ${activeTab === "prepared" ? "prep items" : "final plates"} match your search.`
-                : `No ${activeTab === "prepared" ? "prep items" : "final plates"} available.`}
+                ? `No ${activeTab === "prepared" ? "prep items" : activeTab === "final" ? "final plates" : "receiving items"} match your search.`
+                : `No ${activeTab === "prepared" ? "prep items" : activeTab === "final" ? "final plates" : "receiving items"} available.`}
             </p>
           </div>
         )}

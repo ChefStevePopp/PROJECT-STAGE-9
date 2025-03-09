@@ -1,7 +1,7 @@
 export interface Recipe {
   id: string;
   organizationId: string;
-  type: 'prepared' | 'final';
+  type: "prepared" | "final" | "receiving";
   name: string;
   description: string;
   majorGroup?: string;
@@ -15,12 +15,12 @@ export interface Recipe {
     labelImageUrl?: string;
     temperature?: {
       value: number;
-      unit: 'F' | 'C';
+      unit: "F" | "C";
       tolerance: number;
     };
     shelfLife?: {
       value: number;
-      unit: 'hours' | 'days' | 'weeks';
+      unit: "hours" | "days" | "weeks";
     };
     specialInstructions?: string[];
   };
@@ -48,7 +48,7 @@ export interface Recipe {
 
 export interface RecipeIngredient {
   id: string;
-  type: 'raw' | 'prepared';
+  type: "raw" | "prepared";
   name: string;
   quantity: string;
   unit: string;
@@ -61,7 +61,7 @@ export interface RecipeStep {
   id: string;
   instruction: string;
   notes?: string;
-  warningLevel?: 'info' | 'warning' | 'critical';
+  warningLevel?: "info" | "warning" | "critical";
   timeInMinutes?: number;
   equipment?: string[];
   qualityChecks?: string[];
@@ -70,6 +70,6 @@ export interface RecipeStep {
   isCriticalControlPoint?: boolean;
   temperature?: {
     value: number;
-    unit: 'F' | 'C';
+    unit: "F" | "C";
   };
 }
