@@ -8,24 +8,26 @@ import { supabase } from "@/lib/supabase";
 
 export const MyAccount: React.FC = () => {
   const [activeTab, setActiveTab] = useState("kitchen");
-  const { user, organization, isLoading, error } = useAuth();
+  const { user, organization, organizationId, isLoading, error } = useAuth();
   const [kitchenRole, setKitchenRole] = useState<string | null>(null);
 
   // Fetch kitchen role
   useEffect(() => {
     const fetchKitchenRole = async () => {
-      if (!user?.id || !organization?.id) return;
+      if (!user?.id || !organizationId) return;
 
       try {
         const { data, error } = await supabase
           .from("organization_team_members")
           .select("kitchen_role")
-          .eq("organization_id", organization.id)
-          .eq("user_id", user.id)
+          .eq("organization_id", organizationId)
+          .eq("email", user.email)
           .single();
 
         if (!error && data) {
           setKitchenRole(data.kitchen_role);
+        } else {
+          console.log("No kitchen role found, error:", error);
         }
       } catch (err) {
         console.error("Error fetching kitchen role:", err);
@@ -33,7 +35,7 @@ export const MyAccount: React.FC = () => {
     };
 
     fetchKitchenRole();
-  }, [user?.id, organization?.id]);
+  }, [user?.id, user?.email, organizationId]);
 
   const tabs = [
     { id: "kitchen", label: "Your Kitchen", color: "primary" },
@@ -79,7 +81,9 @@ export const MyAccount: React.FC = () => {
       {/* Debug Info */}
       <div className="p-4 bg-gray-800/50 rounded-lg text-xs font-mono text-gray-400">
         <div>User ID: {user.id}</div>
-        <div>Organization: {organization.name}</div>
+        <div>User Email: {user.email}</div>
+        <div>Organization ID: {organizationId || "Not set"}</div>
+        <div>Organization: {organization?.name || "Not available"}</div>
         <div>Kitchen Role: {kitchenRole || "None"}</div>
       </div>
 

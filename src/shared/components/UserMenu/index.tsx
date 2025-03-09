@@ -6,7 +6,7 @@ import { ROUTES } from "@/config/routes";
 
 export const UserMenu: React.FC = () => {
   const navigate = useNavigate();
-  const { user, organization, signOut } = useAuth();
+  const { user, organization, organizationId, signOut } = useAuth();
 
   if (!user) return null;
 
@@ -66,6 +66,18 @@ export const UserMenu: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Debug Info */}
+        <div className="px-4 py-2 border-b border-gray-700/50 mb-2">
+          <div className="text-xs text-gray-500">
+            <div>User ID: {user.id}</div>
+            <div>Org ID: {organizationId || "Not set"}</div>
+            <div>
+              Org from metadata:{" "}
+              {user.user_metadata?.organizationId || "Not set"}
+            </div>
+          </div>
+        </div>
 
         <button
           onClick={() => navigate(ROUTES.ADMIN.MY_ACCOUNT)}
