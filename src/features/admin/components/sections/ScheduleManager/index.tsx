@@ -26,6 +26,8 @@ import {
   EmployeeMatchingModal,
 } from "./components";
 import { parseScheduleCsvWithMapping } from "@/lib/schedule-parser-enhanced";
+import { useScheduleMappingStore } from "@/stores/scheduleMappingStore";
+import { MappingManager } from "./components/MappingManager";
 
 // Helper function to format time based on user preference
 const formatTime = (timeStr: string, format: "12h" | "24h"): string => {
@@ -96,7 +98,6 @@ export const ScheduleManager: React.FC = () => {
   const [upcomingSchedule, setUpcomingSchedule] = useState<any | null>(null);
   const [activateImmediately, setActivateImmediately] = useState(false);
   const [showCSVConfig, setShowCSVConfig] = useState(false);
-  const [savedMappings, setSavedMappings] = useState<ColumnMapping[]>([]);
   const [selectedMapping, setSelectedMapping] = useState<ColumnMapping | null>(
     null,
   );
@@ -143,18 +144,13 @@ export const ScheduleManager: React.FC = () => {
     sync7shiftsSchedule,
   } = useScheduleStore();
 
-  // Load saved mappings from localStorage on component mount
+  // Get the mapping store functions
+  const { mappings, fetchMappings } = useScheduleMappingStore();
+
+  // Load saved mappings from the store on component mount
   useEffect(() => {
-    const savedMappingsStr = localStorage.getItem("schedule-csv-mappings");
-    if (savedMappingsStr) {
-      try {
-        const mappings = JSON.parse(savedMappingsStr);
-        setSavedMappings(mappings);
-      } catch (error) {
-        console.error("Error loading saved mappings:", error);
-      }
-    }
-  }, []);
+    fetchMappings();
+  }, [fetchMappings]);
 
   // Parse CSV file
   const parseCSVFile = (file: File) => {
@@ -204,18 +200,19 @@ export const ScheduleManager: React.FC = () => {
 
   // Save a column mapping
   const handleSaveMapping = (mapping: ColumnMapping) => {
-    // Check if we're updating an existing mapping
-    const updatedMappings = savedMappings.some((m) => m.id === mapping.id)
-      ? savedMappings.map((m) => (m.id === mapping.id ? mapping : m))
-      : [...savedMappings, mapping];
-
-    setSavedMappings(updatedMappings);
-    setSelectedMapping(mapping);
-    localStorage.setItem(
-      "schedule-csv-mappings",
-      JSON.stringify(updatedMappings),
-    );
-    setShowCSVConfig(false);
+    // Use the store to save the mapping
+    useScheduleMappingStore
+      .getState()
+      .saveMapping(mapping)
+      .then(() => {
+        setSelectedMapping(mapping);
+        setShowCSVConfig(false);
+        toast.success("Mapping saved successfully");
+      })
+      .catch((error) => {
+        console.error("Error saving mapping:", error);
+        toast.error("Failed to save mapping");
+      });
   };
 
   // Handle upload
@@ -501,6 +498,9 @@ export const ScheduleManager: React.FC = () => {
       // Fetch previous schedules when the tab is selected
       const { fetchPreviousSchedules } = useScheduleStore.getState();
       fetchPreviousSchedules();
+    } else if (activeTab === "config") {
+      // Fetch mappings when the config tab is selected
+      fetchMappings();
     }
   }, [activeTab]);
 
@@ -1148,101 +1148,18 @@ export const ScheduleManager: React.FC = () => {
                 Manage CSV import mappings for different schedule formats
               </p>
             </div>
-            <div className="ml-auto">
-              <button
-                onClick={() => {
-                  setCsvFile(null);
-                  setSelectedMapping(null);
-                  setShowCSVConfig(true);
-                }}
-                className="btn-primary"
-              >
-                Create New Mapping
-              </button>
-            </div>
           </div>
 
-          {/* Saved Mappings */}
-          <div className="space-y-6">
-            <h3 className="text-lg font-medium text-white mb-4">
-              Saved Mappings
-            </h3>
-
-            {savedMappings.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {savedMappings.map((mapping) => (
-                  <div
-                    key={mapping.id}
-                    className={`bg-gray-800/50 rounded-lg p-4 border ${selectedMapping?.id === mapping.id ? "border-purple-500" : "border-gray-700"} hover:border-purple-500/50 cursor-pointer transition-colors`}
-                    onClick={() => setSelectedMapping(mapping)}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-white">{mapping.name}</h4>
-                      <span className="px-2 py-0.5 text-xs rounded-full bg-gray-700 text-gray-300">
-                        {mapping.format}
-                      </span>
-                    </div>
-                    <div className="text-sm text-gray-400">
-                      {mapping.format === "standard" && (
-                        <p>
-                          Standard format with date, start time, and end time
-                          columns
-                        </p>
-                      )}
-                      {mapping.format === "weekly" && (
-                        <p>Weekly format with days of the week as columns</p>
-                      )}
-                      {mapping.format === "custom" && (
-                        <p>Custom format with user-defined mappings</p>
-                      )}
-                    </div>
-                    <div className="flex justify-end mt-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          // Set the mapping first
-                          setSelectedMapping(mapping);
-                          // Then open the CSV config modal
-                          setIsUploadModalOpen(true);
-                          // Show the CSV config immediately
-                          setTimeout(() => setShowCSVConfig(true), 100);
-                        }}
-                        className="text-sm text-purple-400 hover:text-purple-300"
-                      >
-                        Edit
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 bg-gray-800/50 rounded-lg">
-                <Settings className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-white mb-2">
-                  No Saved Mappings
-                </h3>
-                <p className="text-gray-400 max-w-md mx-auto mb-4">
-                  Create a mapping to define how your CSV files should be
-                  imported. This helps handle different schedule formats from
-                  various systems.
-                </p>
-                <button
-                  onClick={() => {
-                    // Open the upload modal first
-                    setIsUploadModalOpen(true);
-                    // Reset any existing file and mapping
-                    setCsvFile(null);
-                    setSelectedMapping(null);
-                    // Show the CSV config immediately
-                    setShowCSVConfig(true);
-                  }}
-                  className="btn-primary"
-                >
-                  Create First Mapping
-                </button>
-              </div>
-            )}
-          </div>
+          {/* Mapping Manager Component */}
+          <MappingManager
+            onSelectMapping={setSelectedMapping}
+            onCreateMapping={() => {
+              setCsvFile(null);
+              setSelectedMapping(null);
+              setIsUploadModalOpen(true);
+              setShowCSVConfig(true);
+            }}
+          />
 
           {/* CSV Format Information */}
           <div className="mt-6 bg-gray-800/50 rounded-lg p-6">
@@ -1625,6 +1542,7 @@ export const ScheduleManager: React.FC = () => {
                   setIsUploadModalOpen(false);
                   setCsvFile(null);
                   setPreviewData(null);
+                  setShowCSVConfig(false);
                 }}
                 className="text-gray-400 hover:text-white"
               >
@@ -1683,7 +1601,7 @@ export const ScheduleManager: React.FC = () => {
                       csvFile={csvFile}
                       onSaveMapping={handleSaveMapping}
                       onClose={() => setShowCSVConfig(false)}
-                      savedMappings={savedMappings}
+                      savedMappings={mappings}
                     />
                   ) : (
                     <>
@@ -1753,14 +1671,14 @@ export const ScheduleManager: React.FC = () => {
                           CSV Format
                         </h3>
 
-                        {savedMappings.length > 0 ? (
+                        {mappings.length > 0 ? (
                           <div className="space-y-4">
                             <div>
                               <label className="block text-sm font-medium text-gray-400 mb-2">
                                 Select a saved mapping
                               </label>
                               <div className="flex flex-wrap gap-2">
-                                {savedMappings.map((mapping) => (
+                                {mappings.map((mapping) => (
                                   <button
                                     key={mapping.id}
                                     onClick={() => setSelectedMapping(mapping)}
