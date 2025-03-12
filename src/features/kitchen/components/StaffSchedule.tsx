@@ -4,6 +4,7 @@ import type { TeamMemberData } from "@/features/team/types";
 import { useScheduleStore } from "@/stores/scheduleStore";
 import type { ScheduleShift } from "@/types/schedule";
 import { useTeamStore } from "@/stores/teamStore";
+import { useAuth } from "@/hooks/useAuth";
 
 interface StaffScheduleProps {
   team: TeamMemberData[];
@@ -13,6 +14,7 @@ export const StaffSchedule: React.FC<StaffScheduleProps> = ({ team }) => {
   const { currentSchedule, fetchCurrentSchedule, fetchShifts, scheduleShifts } =
     useScheduleStore();
   const { members, fetchTeamMembers } = useTeamStore();
+  const { organization } = useAuth();
   const [todayShifts, setTodayShifts] = useState<ScheduleShift[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -40,10 +42,34 @@ export const StaffSchedule: React.FC<StaffScheduleProps> = ({ team }) => {
     loadSchedule();
   }, [fetchCurrentSchedule, fetchShifts]);
 
-  // Filter shifts for today's date
+  // Filter shifts for today's date (using organization timezone)
   useEffect(() => {
+    // Get the organization's timezone or default to local browser timezone
+    const orgTimezone =
+      organization?.settings?.timezone ||
+      Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    // Create today's date in the organization's timezone
     const today = new Date();
-    const todayStr = today.toISOString().split("T")[0]; // YYYY-MM-DD format
+
+    // Format the date in YYYY-MM-DD format for the organization's timezone
+    let todayStr;
+    try {
+      todayStr = today
+        .toLocaleDateString("en-CA", {
+          timeZone: orgTimezone,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        })
+        .replace(/\//g, "-");
+    } catch (e) {
+      // Fallback if timezone is invalid
+      console.error("Invalid timezone:", orgTimezone, e);
+      todayStr = today.toISOString().split("T")[0]; // Default to ISO format
+    }
+
+    console.log(`Using timezone: ${orgTimezone}, Today's date: ${todayStr}`);
 
     // Filter shifts for today
     const shiftsForToday = scheduleShifts.filter(
@@ -66,7 +92,7 @@ export const StaffSchedule: React.FC<StaffScheduleProps> = ({ team }) => {
     });
 
     setTodayShifts(Object.values(uniqueShifts));
-  }, [scheduleShifts]);
+  }, [scheduleShifts, organization?.settings?.timezone]);
 
   // Format employee name (first name + last initial)
   const formatEmployeeName = (shift: ScheduleShift) => {
@@ -119,7 +145,7 @@ export const StaffSchedule: React.FC<StaffScheduleProps> = ({ team }) => {
     return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
   };
 
-  // Format time (24h to 12h with AM/PM)
+  // Format time (24h to 12h with AM/PM) using organization timezone
   const formatTime = (timeStr: string) => {
     if (!timeStr) return "";
 
@@ -134,7 +160,11 @@ export const StaffSchedule: React.FC<StaffScheduleProps> = ({ team }) => {
     <div className="card p-4">
       <h2 className="text-lg font-semibold text-white mb-3">
         Today's Team Members (
-        {new Date().toLocaleDateString("en-US", { weekday: "long" })})
+        {new Date().toLocaleDateString("en-US", {
+          weekday: "long",
+          timeZone: organization?.settings?.timezone || undefined,
+        })}
+        )
       </h2>
 
       {isLoading ? (

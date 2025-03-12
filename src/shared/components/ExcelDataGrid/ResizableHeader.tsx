@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { ArrowUpDown, Filter } from "lucide-react";
+import { ArrowUp, ArrowDown, Filter } from "lucide-react";
 import type { ExcelColumn } from "@/types";
 
 interface ResizableHeaderProps {
@@ -67,10 +67,11 @@ export const ResizableHeader: React.FC<ResizableHeaderProps> = ({
       >
         <span className="font-medium text-gray-300">{column.name}</span>
         <div className="flex items-center">
-          {sortDirection && (
-            <ArrowUpDown
-              className={`w-4 h-4 ${sortDirection === "asc" ? "text-primary-400" : "text-primary-400 transform rotate-180"}`}
-            />
+          {sortDirection === "asc" && (
+            <ArrowUp className="w-4 h-4 text-primary-400" />
+          )}
+          {sortDirection === "desc" && (
+            <ArrowDown className="w-4 h-4 text-primary-400" />
           )}
           {column.type !== "imageUrl" && (
             <button

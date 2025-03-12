@@ -24,6 +24,13 @@ interface ExcelDataGridProps<T> {
   onRowClick?: (row: T) => void;
 }
 
+// Helper to get nested value from object
+const getNestedValue = (obj: any, path: string) => {
+  return path.split(".").reduce((prev, curr) => {
+    return prev ? prev[curr] : null;
+  }, obj);
+};
+
 export function ExcelDataGrid<T>({
   columns,
   data,
@@ -224,13 +231,6 @@ export function ExcelDataGrid<T>({
     setFilters({});
     setActiveFilters([]);
     setGlobalFilter("");
-  };
-
-  // Helper to get nested value from object
-  const getNestedValue = (obj: any, path: string) => {
-    return path.split(".").reduce((prev, curr) => {
-      return prev ? prev[curr] : null;
-    }, obj);
   };
 
   // Render cell content based on column type

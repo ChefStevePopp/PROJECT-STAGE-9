@@ -2,6 +2,47 @@
 @tailwind components;
 @tailwind utilities;
 
+/* For Webkit browsers */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #1e293b; /* dark blue/slate-800 */
+}
+::-webkit-scrollbar-thumb {
+  background: #0ea5e9; /* sky-500 */
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #38bdf8; /* sky-400 */
+}
+
+/* For Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #0ea5e9 #1e293b;
+}
+
+/* For the dropdown background */
+select option {
+  background-color: #1f2937; /* dark gray/slate-800 */
+  color: white;
+  padding: 8px 12px;
+}
+
+/* For Firefox */
+select {
+  -moz-appearance: none;
+  background-color: #1f2937;
+  color: white;
+  padding-right: 2rem;
+}
+
+/* For styling the dropdown list in Webkit browsers */
+select::-ms-expand {
+  display: none;
+}
+
 @layer base {
   :root {
     color-scheme: dark;
@@ -16,7 +57,12 @@
     @apply bg-gray-900 text-gray-100 font-body text-fluid-base;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-display;
     text-wrap: balance;
   }
@@ -36,7 +82,8 @@
     @apply text-fluid-base leading-fluid-normal;
     text-wrap: pretty;
   }
-  pre, code {
+  pre,
+  code {
     @apply font-mono;
   }
   .status {
@@ -100,6 +147,18 @@
            placeholder:text-gray-500;
   }
 
+  /* Select/Dropdown */
+  select {
+    @apply bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-2 text-base
+           focus:outline-none focus:ring-2 focus:ring-primary-500/50
+           appearance-none cursor-pointer;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+    padding-right: 2.5rem;
+  }
+
   /* Tab */
   .tab {
     @apply relative flex items-center gap-3 px-6 py-3 rounded-lg transition-colors text-sm font-medium;
@@ -110,7 +169,7 @@
       @apply bg-gray-800 text-white;
     }
     &::before {
-      content: '';
+      content: "";
       @apply absolute -top-px left-0 right-0 h-1 rounded-full transition-opacity;
     }
     &:not(.active)::before {
@@ -152,14 +211,14 @@
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-gutter: stable;
-    
+
     /* Hide scrollbar by default */
     &::-webkit-scrollbar {
       width: 6px;
       height: 6px;
       background-color: transparent;
     }
-    
+
     /* Show scrollbar only when hovering or scrolling */
     &:hover::-webkit-scrollbar,
     &:focus::-webkit-scrollbar,
@@ -168,30 +227,30 @@
       width: 6px;
       height: 6px;
     }
-    
+
     &::-webkit-scrollbar-thumb {
       background-color: transparent;
-      border-radius: theme('borderRadius.full');
+      border-radius: theme("borderRadius.full");
       transition: background-color 0.2s;
     }
-    
+
     &:hover::-webkit-scrollbar-thumb,
     &:focus::-webkit-scrollbar-thumb,
     &:focus-within::-webkit-scrollbar-thumb,
     &.scrolling::-webkit-scrollbar-thumb {
-      background-color: theme('colors.gray.700');
+      background-color: theme("colors.gray.700");
     }
-    
+
     &::-webkit-scrollbar-track {
       background-color: transparent;
       transition: background-color 0.2s;
     }
-    
+
     &:hover::-webkit-scrollbar-track,
     &:focus::-webkit-scrollbar-track,
     &:focus-within::-webkit-scrollbar-track,
     &.scrolling::-webkit-scrollbar-track {
-      background-color: theme('colors.gray.800');
+      background-color: theme("colors.gray.800");
     }
   }
 

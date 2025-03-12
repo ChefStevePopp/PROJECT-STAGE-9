@@ -190,7 +190,7 @@ export const OperationsManager: React.FC = () => {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Categories Sidebar */}
         <div className="col-span-3">
           <div className="card p-6 bg-gray-800 rounded-xl p-4">
