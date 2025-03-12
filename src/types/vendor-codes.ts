@@ -4,6 +4,8 @@ export interface VendorCode {
   master_ingredient_id: string;
   vendor_id: string;
   code: string;
+  variation_label?: string;
+  note?: string;
   is_current: boolean;
   created_at: string;
   updated_at: string;

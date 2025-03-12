@@ -7,14 +7,29 @@ import {
   Calendar,
   RefreshCw,
   AlertTriangle,
+  ArrowRight,
+  Search,
 } from "lucide-react";
 import { useVendorCodesStore } from "@/stores/vendorCodesStore";
 import { useMasterIngredientsStore } from "@/stores/masterIngredientsStore";
 
 export const VendorAnalytics: React.FC = () => {
-  const { fetchPriceTrends, priceTrends, isLoading, error } =
-    useVendorCodesStore();
+  const {
+    fetchPriceTrends,
+    fetchPriceHistory,
+    priceTrends,
+    priceHistory,
+    isLoading,
+    error,
+  } = useVendorCodesStore();
   const { ingredients, fetchIngredients } = useMasterIngredientsStore();
+
+  // State for detailed price history view
+  const [selectedIngredient, setSelectedIngredient] = useState<
+    string | undefined
+  >();
+  const [selectedVendor, setSelectedVendor] = useState<string | undefined>();
+  const [searchTerm, setSearchTerm] = useState("");
 
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>(
     () => {
@@ -41,10 +56,15 @@ export const VendorAnalytics: React.FC = () => {
     >
   >({});
 
-  // Load ingredients, vendors, and price trends on mount
+  // Load ingredients, vendors, price trends, and history on mount
   useEffect(() => {
     fetchIngredients();
     fetchPriceTrends();
+
+    // If ingredient is selected, fetch its price history
+    if (selectedIngredient) {
+      fetchPriceHistory(selectedIngredient, selectedVendor);
+    }
 
     // Get unique vendors from operations settings
     const getVendors = async () => {
@@ -67,7 +87,13 @@ export const VendorAnalytics: React.FC = () => {
     };
 
     getVendors();
-  }, [fetchIngredients, fetchPriceTrends]);
+  }, [
+    fetchIngredients,
+    fetchPriceTrends,
+    fetchPriceHistory,
+    selectedIngredient,
+    selectedVendor,
+  ]);
 
   // Calculate vendor statistics
   useEffect(() => {
@@ -339,6 +365,155 @@ export const VendorAnalytics: React.FC = () => {
                 Category price comparison chart would be displayed here.
               </p>
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* Detailed Price History */}
+      <div className="card p-4 bg-gray-800/50">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-medium text-white">
+            Detailed Price History
+          </h3>
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search ingredients..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="input pl-10 w-full"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-2">
+              Ingredient
+            </label>
+            <select
+              value={selectedIngredient || ""}
+              onChange={(e) =>
+                setSelectedIngredient(e.target.value || undefined)
+              }
+              className="input w-full"
+            >
+              <option value="">All Ingredients</option>
+              {ingredients
+                .filter(
+                  (i) =>
+                    !searchTerm ||
+                    i.product.toLowerCase().includes(searchTerm.toLowerCase()),
+                )
+                .map((ingredient) => (
+                  <option key={ingredient.id} value={ingredient.id}>
+                    {ingredient.product}
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-2">
+              Vendor
+            </label>
+            <select
+              value={selectedVendor || ""}
+              onChange={(e) => setSelectedVendor(e.target.value || undefined)}
+              className="input w-full"
+            >
+              <option value="">All Vendors</option>
+              {vendors.map((vendor) => (
+                <option key={vendor} value={vendor}>
+                  {vendor}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-end">
+            <button
+              onClick={() => {
+                if (selectedIngredient) {
+                  fetchPriceHistory(selectedIngredient, selectedVendor);
+                }
+                fetchPriceTrends(selectedIngredient, selectedVendor);
+              }}
+              className="btn-primary w-full"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Apply Filters
+            </button>
+          </div>
+        </div>
+
+        {/* Price History Table */}
+        {isLoading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full"></div>
+          </div>
+        ) : priceHistory.length === 0 ? (
+          <div className="text-center py-8 bg-gray-900/30 rounded-lg">
+            <Calendar className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+            <h3 className="text-lg font-medium text-white mb-2">
+              No Price History
+            </h3>
+            <p className="text-gray-400 max-w-md mx-auto">
+              {selectedIngredient
+                ? "No price history found for the selected ingredient."
+                : "Select an ingredient to view its price history."}
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-900/50">
+                <tr>
+                  <th className="px-4 py-2 text-left text-sm font-medium text-gray-400">
+                    Date
+                  </th>
+                  <th className="px-4 py-2 text-left text-sm font-medium text-gray-400">
+                    Ingredient
+                  </th>
+                  <th className="px-4 py-2 text-left text-sm font-medium text-gray-400">
+                    Vendor
+                  </th>
+                  <th className="px-4 py-2 text-right text-sm font-medium text-gray-400">
+                    Price
+                  </th>
+                  <th className="px-4 py-2 text-left text-sm font-medium text-gray-400">
+                    Notes
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-700">
+                {priceHistory.map((record) => {
+                  const ingredient = ingredients.find(
+                    (i) => i.id === record.master_ingredient_id,
+                  );
+                  return (
+                    <tr key={record.id} className="hover:bg-gray-700/30">
+                      <td className="px-4 py-2 text-sm text-gray-300">
+                        {new Date(record.effective_date).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-2 text-sm text-white">
+                        {ingredient?.product || "Unknown"}
+                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-300">
+                        {record.vendor_id}
+                      </td>
+                      <td className="px-4 py-2 text-sm text-right font-medium text-white">
+                        ${record.price.toFixed(2)}
+                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-400">
+                        {record.notes || "-"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

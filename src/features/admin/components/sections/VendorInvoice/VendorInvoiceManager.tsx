@@ -9,6 +9,9 @@ import {
   Plus,
   Code,
   TrendingUp,
+  Umbrella,
+  Boxes,
+  Package,
 } from "lucide-react";
 import { CSVUploader } from "./components/CSVUploader";
 import { QuickStatCard } from "./components/QuickStatCard";
@@ -20,10 +23,11 @@ import { PDFUploader } from "./components/PDFUploader";
 import { PhotoUploader } from "./components/PhotoUploader";
 import { DataPreview } from "./components/DataPreview";
 import { MultiCodeManager } from "./components/MultiCodeManager";
+import { ItemCodeGroupManager } from "./components/ItemCodeGroupManager";
+import { UmbrellaIngredientManager } from "./components/UmbrellaIngredientManager";
 import { PriceHistoryView } from "./components/PriceHistoryView";
 import { VendorAnalytics } from "./components/VendorAnalytics";
 import { useVendorTemplatesStore } from "@/stores/vendorTemplatesStore";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import toast from "react-hot-toast";
 
 const TABS = [
@@ -33,16 +37,22 @@ const TABS = [
     icon: LineChart,
     color: "primary",
   },
-  { id: "analytics", label: "Analytics", icon: TrendingUp, color: "blue" },
-  { id: "codes", label: "Vendor Codes", icon: Code, color: "purple" },
+  { id: "analytics", label: "Analytics", icon: TrendingUp, color: "green" },
+  { id: "codes", label: "Item Code Groups", icon: Boxes, color: "amber" },
+  {
+    id: "umbrella",
+    label: "Umbrella Ingredients",
+    icon: Umbrella,
+    color: "rose",
+  },
   {
     id: "import",
     label: "Import Invoices",
     icon: FileSpreadsheet,
-    color: "green",
+    color: "purple",
   },
-  { id: "history", label: "Import History", icon: History, color: "emerald" },
-  { id: "settings", label: "CSV Settings", icon: Settings, color: "slate" },
+  { id: "history", label: "Import History", icon: History, color: "slate" },
+  { id: "settings", label: "CSV Settings", icon: Settings, color: "red" },
 ] as const;
 
 export const VendorInvoiceManager = () => {
@@ -237,9 +247,10 @@ export const VendorInvoiceManager = () => {
             />
           ) : (
             <>
-              {activeTab === "dashboard" && <PriceHistoryView />}
+              {activeTab === "dashboard" && <PriceHistory />}
               {activeTab === "analytics" && <VendorAnalytics />}
-              {activeTab === "codes" && <MultiCodeManager />}
+              {activeTab === "codes" && <ItemCodeGroupManager />}
+              {activeTab === "umbrella" && <UmbrellaIngredientManager />}
               {activeTab === "import" && (
                 <>
                   {importType === "csv" && (

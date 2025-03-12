@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   TrendingUp,
   LineChart,
@@ -6,8 +6,14 @@ import {
   ArrowDownRight,
   History,
   AlertTriangle,
+  RefreshCw,
+  Calendar,
+  DollarSign,
+  TrendingDown,
+  BarChart3,
 } from "lucide-react";
 import { useVendorPriceChangesStore } from "@/stores/vendorPriceChangesStore";
+import { useVendorCodesStore } from "@/stores/vendorCodesStore";
 import { QuickStatCard } from "./QuickStatCard";
 
 interface PriceChange {
@@ -22,13 +28,79 @@ interface PriceChange {
 }
 
 export const PriceHistory = () => {
-  const [daysToShow, setDaysToShow] = React.useState(45);
-  const { priceChanges, isLoading, error, fetchPriceChanges } =
-    useVendorPriceChangesStore();
+  const [daysToShow, setDaysToShow] = useState(45);
+  const {
+    priceChanges,
+    isLoading: priceChangesLoading,
+    error: priceChangesError,
+    fetchPriceChanges,
+  } = useVendorPriceChangesStore();
+  const {
+    priceTrends,
+    isLoading: trendsLoading,
+    error: trendsError,
+    fetchPriceTrends,
+  } = useVendorCodesStore();
 
-  React.useEffect(() => {
+  const [dateRange, setDateRange] = useState<{ start: string; end: string }>(
+    () => {
+      const end = new Date();
+      const start = new Date();
+      start.setMonth(start.getMonth() - 3); // Default to last 3 months
+      return {
+        start: start.toISOString().split("T")[0],
+        end: end.toISOString().split("T")[0],
+      };
+    },
+  );
+
+  const isLoading = priceChangesLoading || trendsLoading;
+  const error = priceChangesError || trendsError;
+
+  useEffect(() => {
     fetchPriceChanges(daysToShow);
-  }, [fetchPriceChanges, daysToShow]);
+    fetchPriceTrends();
+  }, [fetchPriceChanges, fetchPriceTrends, daysToShow]);
+
+  // Calculate price statistics
+  const priceStats = {
+    avgIncrease: 0,
+    avgDecrease: 0,
+    maxIncrease: 0,
+    maxDecrease: 0,
+    totalChanges: 0,
+  };
+
+  if (priceTrends.length > 0) {
+    const increases = priceTrends.filter((t) => t.price_change_percent > 0);
+    const decreases = priceTrends.filter((t) => t.price_change_percent < 0);
+
+    priceStats.avgIncrease =
+      increases.length > 0
+        ? increases.reduce((sum, t) => sum + t.price_change_percent, 0) /
+          increases.length
+        : 0;
+
+    priceStats.avgDecrease =
+      decreases.length > 0
+        ? Math.abs(
+            decreases.reduce((sum, t) => sum + t.price_change_percent, 0) /
+              decreases.length,
+          )
+        : 0;
+
+    priceStats.maxIncrease =
+      increases.length > 0
+        ? Math.max(...increases.map((t) => t.price_change_percent))
+        : 0;
+
+    priceStats.maxDecrease =
+      decreases.length > 0
+        ? Math.abs(Math.min(...decreases.map((t) => t.price_change_percent)))
+        : 0;
+
+    priceStats.totalChanges = increases.length + decreases.length;
+  }
 
   if (isLoading) {
     return (
@@ -52,52 +124,103 @@ export const PriceHistory = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3 mb-6 p-4 rounded-lg bg-[#1a1f2b]">
-        <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
-          <LineChart className="w-5 h-5 text-blue-400" />
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3 p-4 rounded-lg bg-[#1a1f2b]">
+          <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+            <LineChart className="w-5 h-5 text-blue-400" />
+          </div>
+          <div>
+            <h3 className="text-lg font-medium text-white">
+              Price History Dashboard
+            </h3>
+            <p className="text-sm text-gray-400">
+              Track and analyze vendor price changes
+            </p>
+          </div>
         </div>
-        <div>
-          <h3 className="text-lg font-medium text-white">
-            Price History Dashboard
-          </h3>
-          <p className="text-sm text-gray-400">
-            Track and analyze vendor price changes
-          </p>
-        </div>
+        <button
+          onClick={() => {
+            fetchPriceChanges(daysToShow);
+            fetchPriceTrends();
+          }}
+          className="btn-ghost"
+        >
+          <RefreshCw className="w-4 h-4 mr-2" />
+          Refresh
+        </button>
       </div>
 
-      {/* Quick Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <QuickStatCard
-          title="Price Changes (30d)"
-          value="124"
-          change="+12%"
-          trend="up"
-        />
-        <QuickStatCard
-          title="Avg Price Impact"
-          value="$2.45"
-          change="+$0.32"
-          trend="up"
-        />
-        <QuickStatCard
-          title="Items Updated"
-          value="1,432"
-          change="+89"
-          trend="up"
-        />
-        <QuickStatCard
-          title="Pending Reviews"
-          value="23"
-          change="-5"
-          trend="down"
-        />
+      {/* Price Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="card p-4 bg-gray-800/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary-500/20 flex items-center justify-center">
+              <DollarSign className="w-5 h-5 text-primary-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-400">
+                Total Price Changes
+              </h3>
+              <p className="text-2xl font-bold text-white">
+                {priceStats.totalChanges}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="card p-4 bg-gray-800/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+              <TrendingDown className="w-5 h-5 text-green-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-400">
+                Avg. Price Decrease
+              </h3>
+              <p className="text-2xl font-bold text-green-400">
+                {priceStats.avgDecrease.toFixed(1)}%
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="card p-4 bg-gray-800/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-rose-500/20 flex items-center justify-center">
+              <TrendingUp className="w-5 h-5 text-rose-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-400">
+                Avg. Price Increase
+              </h3>
+              <p className="text-2xl font-bold text-rose-400">
+                {priceStats.avgIncrease.toFixed(1)}%
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="card p-4 bg-gray-800/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+              <TrendingUp className="w-5 h-5 text-amber-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-400">
+                Max Price Increase
+              </h3>
+              <p className="text-2xl font-bold text-amber-400">
+                {priceStats.maxIncrease.toFixed(1)}%
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Recent Price Changes */}
       <div className="bg-gray-800/50 rounded-lg p-6">
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
             <h4 className="text-lg font-medium text-white">
               Recent Price Changes
             </h4>
@@ -117,9 +240,12 @@ export const PriceHistory = () => {
               </select>
             </div>
           </div>
-          <button className="btn-ghost btn-sm">
+          <button
+            onClick={() => (window.location.hash = "#analytics")}
+            className="btn-ghost btn-sm"
+          >
             <History className="w-4 h-4 mr-2" />
-            View All
+            View All History
           </button>
         </div>
 
