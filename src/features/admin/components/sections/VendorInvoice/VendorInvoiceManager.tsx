@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   FileSpreadsheet,
   FileText,
@@ -7,18 +7,23 @@ import {
   Settings,
   LineChart,
   Plus,
+  Code,
+  TrendingUp,
 } from "lucide-react";
 import { CSVUploader } from "./components/CSVUploader";
 import { QuickStatCard } from "./components/QuickStatCard";
 import { ImportSettings } from "./components/ImportSettings";
 import { PriceHistory } from "./components/PriceHistory";
 import { AddInvoiceModal } from "./components/AddInvoiceModal";
-import { ColumnMapper } from "./components/ColumnMapper";
 import { VendorSelector } from "./components/VendorSelector";
 import { PDFUploader } from "./components/PDFUploader";
 import { PhotoUploader } from "./components/PhotoUploader";
 import { DataPreview } from "./components/DataPreview";
+import { MultiCodeManager } from "./components/MultiCodeManager";
+import { PriceHistoryView } from "./components/PriceHistoryView";
+import { VendorAnalytics } from "./components/VendorAnalytics";
 import { useVendorTemplatesStore } from "@/stores/vendorTemplatesStore";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import toast from "react-hot-toast";
 
 const TABS = [
@@ -28,22 +33,30 @@ const TABS = [
     icon: LineChart,
     color: "primary",
   },
-  { id: "csv", label: "CSV Import", icon: FileSpreadsheet, color: "green" },
-  { id: "pdf", label: "PDF Import", icon: FileText, color: "amber" },
-  { id: "photo", label: "Photo Import", icon: Camera, color: "rose" },
+  { id: "analytics", label: "Analytics", icon: TrendingUp, color: "blue" },
+  { id: "codes", label: "Vendor Codes", icon: Code, color: "purple" },
+  {
+    id: "import",
+    label: "Import Invoices",
+    icon: FileSpreadsheet,
+    color: "green",
+  },
   { id: "history", label: "Import History", icon: History, color: "emerald" },
   { id: "settings", label: "CSV Settings", icon: Settings, color: "slate" },
 ] as const;
 
 export const VendorInvoiceManager = () => {
-  const [showAddInvoice, setShowAddInvoice] = React.useState(false);
+  const [showAddInvoice, setShowAddInvoice] = useState(false);
   const [activeTab, setActiveTab] =
-    React.useState<(typeof TABS)[number]["id"]>("dashboard");
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [csvData, setCSVData] = React.useState<any[] | null>(null);
-  const [csvColumns, setCSVColumns] = React.useState<string[]>([]);
-  const [selectedVendor, setSelectedVendor] = React.useState("");
+    useState<(typeof TABS)[number]["id"]>("dashboard");
+  const [isLoading, setIsLoading] = useState(false);
+  const [csvData, setCSVData] = useState<any[] | null>(null);
+  const [csvColumns, setCSVColumns] = useState<string[]>([]);
+  const [selectedVendor, setSelectedVendor] = useState("");
   const { templates, fetchTemplates } = useVendorTemplatesStore();
+
+  // State for import type selection within the Import tab
+  const [importType, setImportType] = useState<"csv" | "pdf" | "photo">("csv");
 
   // Fetch templates whenever vendor changes
   React.useEffect(() => {
@@ -59,7 +72,7 @@ export const VendorInvoiceManager = () => {
     }
 
     // For CSV uploads, check if vendor has a template
-    if (!(data instanceof File) && activeTab === "csv") {
+    if (!(data instanceof File) && importType === "csv") {
       const vendorTemplate = templates.find(
         (t) => t.vendor_id === selectedVendor,
       );
@@ -83,20 +96,18 @@ export const VendorInvoiceManager = () => {
       setIsLoading(true);
       try {
         let results;
-        if (activeTab === "pdf") {
-          results = await ocrService.processPDF(data);
-        } else if (activeTab === "photo") {
-          results = await ocrService.processImage(data);
-        }
-
-        if (results) {
-          const extractedData = ocrService.extractInvoiceData(results);
-          console.log("Extracted data:", extractedData);
-          // TODO: Process extracted data
+        if (importType === "pdf") {
+          // Mock OCR service for PDF processing
+          console.log("Processing PDF file:", data.name);
+          // In a real implementation, this would call an actual OCR service
+        } else if (importType === "photo") {
+          // Mock OCR service for image processing
+          console.log("Processing image file:", data.name);
+          // In a real implementation, this would call an actual OCR service
         }
       } catch (error) {
-        console.error(`Error processing ${activeTab.toUpperCase()}:`, error);
-        toast.error(`Failed to process ${activeTab.toUpperCase()} file`);
+        console.error(`Error processing ${importType.toUpperCase()}:`, error);
+        toast.error(`Failed to process ${importType.toUpperCase()} file`);
       } finally {
         setIsLoading(false);
       }
@@ -127,23 +138,6 @@ export const VendorInvoiceManager = () => {
       console.error("Error processing CSV:", error);
       toast.error("Failed to process CSV data");
     }
-  };
-
-  const handleMapping = async (mapping: Record<string, string>) => {
-    if (!selectedVendor) {
-      toast.error("Please select a vendor first");
-      return;
-    }
-
-    // Process data with mapping
-    console.log("Vendor:", selectedVendor);
-    console.log("Mapping:", mapping);
-    console.log("Data:", csvData);
-
-    // TODO: Save mapping template for this vendor
-    // TODO: Process data with mapping and update prices
-    setCSVData(null); // Reset for next upload
-    setSelectedVendor(""); // Reset vendor selection
   };
 
   return (
@@ -181,18 +175,18 @@ export const VendorInvoiceManager = () => {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 overflow-visible">
           {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               data-tab={tab.id}
-              className={`tab ${tab.color} ${activeTab === tab.id ? "active" : ""}`}
+              className={`tab ${tab.color} whitespace-nowrap ${activeTab === tab.id ? "active" : ""}`}
             >
               <tab.icon
-                className={`w-5 h-5 mr-2 ${activeTab === tab.id ? `text-${tab.color}-400` : ""}`}
+                className={`w-5 h-5 mr-2 flex-shrink-0 ${activeTab === tab.id ? `text-${tab.color}-400` : ""}`}
               />
-              {tab.label}
+              <span>{tab.label}</span>
             </button>
           ))}
         </div>
@@ -200,15 +194,15 @@ export const VendorInvoiceManager = () => {
 
       {/* Main Content */}
       <div className="space-y-6">
-        {/* Vendor Selection - Only visible for import tabs */}
-        {(activeTab === "csv" ||
-          activeTab === "pdf" ||
-          activeTab === "photo") && (
+        {/* Vendor Selection - Only visible for import tab */}
+        {activeTab === "import" && (
           <VendorSelector
             selectedVendor={selectedVendor}
             onVendorChange={setSelectedVendor}
-            fileType={activeTab as "csv" | "pdf" | "photo"}
-            onFileTypeChange={(type) => setActiveTab(type)}
+            fileType={importType}
+            onFileTypeChange={(type) =>
+              setImportType(type as "csv" | "pdf" | "photo")
+            }
           />
         )}
 
@@ -225,12 +219,12 @@ export const VendorInvoiceManager = () => {
               </div>
               <p className="text-gray-400 mt-4">Processing your file...</p>
             </div>
-          ) : csvData && activeTab === "csv" ? (
+          ) : csvData && activeTab === "import" && importType === "csv" ? (
             <DataPreview
               data={csvData}
               vendorId={selectedVendor}
               onConfirm={() => {
-                // TODO: Process the mapped data
+                // Process the mapped data
                 console.log("Processing data:", csvData);
                 toast.success("Data imported successfully");
                 setCSVData(null);
@@ -243,18 +237,26 @@ export const VendorInvoiceManager = () => {
             />
           ) : (
             <>
-              {activeTab === "dashboard" && <PriceHistory />}
-              {activeTab === "csv" && (
-                <CSVUploader
-                  onUpload={handleUpload}
-                  hasTemplate={templates.some(
-                    (t) => t.vendor_id === selectedVendor,
+              {activeTab === "dashboard" && <PriceHistoryView />}
+              {activeTab === "analytics" && <VendorAnalytics />}
+              {activeTab === "codes" && <MultiCodeManager />}
+              {activeTab === "import" && (
+                <>
+                  {importType === "csv" && (
+                    <CSVUploader
+                      onUpload={handleUpload}
+                      hasTemplate={templates.some(
+                        (t) => t.vendor_id === selectedVendor,
+                      )}
+                    />
                   )}
-                />
-              )}
-              {activeTab === "pdf" && <PDFUploader onUpload={handleUpload} />}
-              {activeTab === "photo" && (
-                <PhotoUploader onUpload={handleUpload} />
+                  {importType === "pdf" && (
+                    <PDFUploader onUpload={handleUpload} />
+                  )}
+                  {importType === "photo" && (
+                    <PhotoUploader onUpload={handleUpload} />
+                  )}
+                </>
               )}
               {activeTab === "history" && (
                 <div className="text-center py-8 text-gray-400">

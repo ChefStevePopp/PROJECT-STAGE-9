@@ -48,6 +48,7 @@ export const DataPreview: React.FC<Props> = ({
   } | null>(null);
   const [newIngredient, setNewIngredient] =
     useState<Partial<MasterIngredient> | null>(null);
+  const [excludedItems, setExcludedItems] = useState<string[]>([]);
 
   // Find price changes and existing items on component mount
   useEffect(() => {
@@ -95,16 +96,16 @@ export const DataPreview: React.FC<Props> = ({
 
   const handleConfirm = async () => {
     try {
-      // First ensure all items exist
-      if (
-        data.some(
-          (row) =>
-            !masterIngredients.find(
-              (mi) => mi.item_code === row.item_code.toString(),
-            ),
-        )
-      ) {
-        toast.error("Please add all new items before confirming");
+      // First ensure all items exist or are explicitly excluded
+      const unhandledItems = data.filter(
+        (row) =>
+          !masterIngredients.find(
+            (mi) => mi.item_code === row.item_code.toString(),
+          ) && !excludedItems.includes(row.item_code.toString()),
+      );
+
+      if (unhandledItems.length > 0) {
+        toast.error("Please handle all new items before confirming");
         return;
       }
 
@@ -223,16 +224,16 @@ export const DataPreview: React.FC<Props> = ({
               (row) =>
                 !masterIngredients.find(
                   (mi) => mi.item_code === row.item_code.toString(),
-                ),
+                ) && !excludedItems.includes(row.item_code.toString()),
             )}
             title={
               data.some(
                 (row) =>
                   !masterIngredients.find(
                     (mi) => mi.item_code === row.item_code.toString(),
-                  ),
+                  ) && !excludedItems.includes(row.item_code.toString()),
               )
-                ? "Please add all new items before confirming"
+                ? "Please handle all new items before confirming"
                 : ""
             }
           >
@@ -279,39 +280,66 @@ export const DataPreview: React.FC<Props> = ({
                 priceChange && Math.abs(priceChange.changePercent) > 0;
               const nameMismatch =
                 isExisting && matchingIngredient.product !== row.product_name;
+              const isExcluded = excludedItems.includes(
+                row.item_code.toString(),
+              );
 
               return (
                 <tr
                   key={index}
-                  className={`${isExisting ? "bg-gray-800/50" : ""} ${hasChange ? "bg-amber-500/5" : ""} ${nameMismatch ? "bg-blue-500/5" : ""}`}
+                  className={`
+                    ${isExisting ? "bg-gray-800/50" : ""} 
+                    ${hasChange ? "bg-amber-500/5" : ""} 
+                    ${nameMismatch ? "bg-blue-500/5" : ""}
+                    ${isExcluded ? "bg-gray-900/80 opacity-60" : ""}
+                  `}
                 >
-                  <td className="px-4 py-2 text-sm text-gray-300">
+                  <td
+                    className={`px-4 py-2 text-sm ${isExcluded ? "text-gray-500 line-through" : "text-gray-300"}`}
+                  >
                     {row.item_code}
                   </td>
-                  <td className="px-4 py-2 text-sm text-gray-300">
+                  <td
+                    className={`px-4 py-2 text-sm ${isExcluded ? "text-gray-500 line-through" : "text-gray-300"}`}
+                  >
                     {row.product_name}
-                    {nameMismatch && (
+                    {nameMismatch && !isExcluded && (
                       <div className="text-xs text-blue-400 mt-1">
                         Current name: {matchingIngredient.product}
                       </div>
                     )}
+                    {isExcluded && (
+                      <div className="text-xs text-rose-400 mt-1">
+                        Excluded from import
+                      </div>
+                    )}
                   </td>
-                  <td className="px-4 py-2 text-sm text-right">
+                  <td
+                    className={`px-4 py-2 text-sm text-right ${isExcluded ? "text-gray-500" : ""}`}
+                  >
                     {isExisting ? (
-                      <span className="text-gray-300">
+                      <span
+                        className={
+                          isExcluded ? "text-gray-500" : "text-gray-300"
+                        }
+                      >
                         ${matchingIngredient.current_price.toFixed(2)}
                       </span>
                     ) : (
                       <span className="text-gray-500">-</span>
                     )}
                   </td>
-                  <td className="px-4 py-2 text-sm text-right">
-                    <span className="text-gray-300">
+                  <td
+                    className={`px-4 py-2 text-sm text-right ${isExcluded ? "text-gray-500" : ""}`}
+                  >
+                    <span
+                      className={isExcluded ? "text-gray-500" : "text-gray-300"}
+                    >
                       ${parseFloat(row.unit_price).toFixed(2)}
                     </span>
                   </td>
                   <td className="px-4 py-2 text-sm text-right">
-                    {hasChange && (
+                    {hasChange && !isExcluded && (
                       <span
                         className={`inline-flex items-center gap-1 ${priceChange.changePercent > 0 ? "text-rose-400" : "text-emerald-400"}`}
                       >
@@ -326,7 +354,23 @@ export const DataPreview: React.FC<Props> = ({
                   </td>
                   <td className="px-4 py-2 text-sm text-right">
                     <div className="flex justify-end gap-2">
-                      {isExisting ? (
+                      {isExcluded ? (
+                        <button
+                          onClick={() => {
+                            setExcludedItems((prev) =>
+                              prev.filter(
+                                (item) => item !== row.item_code.toString(),
+                              ),
+                            );
+                            toast.success(
+                              `Item ${row.item_code} restored to import`,
+                            );
+                          }}
+                          className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-colors"
+                        >
+                          Restore
+                        </button>
+                      ) : isExisting ? (
                         <>
                           <button
                             onClick={() =>
@@ -415,6 +459,21 @@ export const DataPreview: React.FC<Props> = ({
                           >
                             Link Existing
                           </button>
+                          <button
+                            onClick={() => {
+                              // Add this item to the excluded items list
+                              setExcludedItems((prev) => [
+                                ...prev,
+                                row.item_code.toString(),
+                              ]);
+                              toast.success(
+                                `Item ${row.item_code} excluded from import`,
+                              );
+                            }}
+                            className="px-2 py-0.5 text-xs font-medium rounded-full bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 transition-colors"
+                          >
+                            × Do Not Add
+                          </button>
                         </div>
                       )}
                     </div>
@@ -430,6 +489,12 @@ export const DataPreview: React.FC<Props> = ({
         <div className="flex items-center justify-between text-sm">
           <span className="text-gray-400">Total Records:</span>
           <span className="text-white font-medium">{data.length}</span>
+        </div>
+        <div className="flex items-center justify-between text-sm mt-2">
+          <span className="text-gray-400">Excluded Items:</span>
+          <span className="text-rose-400 font-medium">
+            {excludedItems.length}
+          </span>
         </div>
       </div>
 

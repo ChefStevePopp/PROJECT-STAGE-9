@@ -1652,6 +1652,61 @@ export type Database = {
           },
         ]
       }
+      vendor_codes: {
+        Row: {
+          code: string
+          created_at: string | null
+          id: string
+          is_current: boolean | null
+          master_ingredient_id: string
+          organization_id: string
+          updated_at: string | null
+          vendor_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          id?: string
+          is_current?: boolean | null
+          master_ingredient_id: string
+          organization_id: string
+          updated_at?: string | null
+          vendor_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          id?: string
+          is_current?: boolean | null
+          master_ingredient_id?: string
+          organization_id?: string
+          updated_at?: string | null
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_codes_master_ingredient_id_fkey"
+            columns: ["master_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "master_ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_codes_master_ingredient_id_fkey"
+            columns: ["master_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "master_ingredients_with_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_codes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vendor_invoice_items: {
         Row: {
           code_changed: boolean | null
@@ -1851,6 +1906,84 @@ export type Database = {
           },
         ]
       }
+      vendor_price_history: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          effective_date: string | null
+          id: string
+          invoice_id: string | null
+          master_ingredient_id: string
+          notes: string | null
+          organization_id: string
+          price: number
+          vendor_code_id: string | null
+          vendor_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          effective_date?: string | null
+          id?: string
+          invoice_id?: string | null
+          master_ingredient_id: string
+          notes?: string | null
+          organization_id: string
+          price: number
+          vendor_code_id?: string | null
+          vendor_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          effective_date?: string | null
+          id?: string
+          invoice_id?: string | null
+          master_ingredient_id?: string
+          notes?: string | null
+          organization_id?: string
+          price?: number
+          vendor_code_id?: string | null
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_price_history_master_ingredient_id_fkey"
+            columns: ["master_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "master_ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_price_history_master_ingredient_id_fkey"
+            columns: ["master_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "master_ingredients_with_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_price_history_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_price_history_vendor_code_id_fkey"
+            columns: ["vendor_code_id"]
+            isOneToOne: false
+            referencedRelation: "current_vendor_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_price_history_vendor_code_id_fkey"
+            columns: ["vendor_code_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vendor_templates: {
         Row: {
           column_mapping: Json | null
@@ -1923,6 +2056,41 @@ export type Database = {
           },
         ]
       }
+      current_vendor_codes: {
+        Row: {
+          code: string | null
+          created_at: string | null
+          id: string | null
+          ingredient_name: string | null
+          master_ingredient_id: string | null
+          organization_id: string | null
+          updated_at: string | null
+          vendor_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_codes_master_ingredient_id_fkey"
+            columns: ["master_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "master_ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_codes_master_ingredient_id_fkey"
+            columns: ["master_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "master_ingredients_with_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_codes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       master_ingredients_with_categories: {
         Row: {
           allergen_celery: boolean | null
@@ -1975,6 +2143,7 @@ export type Database = {
           units_per_case: string | null
           updated_at: string | null
           vendor: string | null
+          vendor_codes: Json | null
           yield_percent: number | null
         }
         Relationships: [
@@ -2098,6 +2267,41 @@ export type Database = {
           yield_unit: string | null
         }
         Relationships: []
+      }
+      vendor_price_trends: {
+        Row: {
+          effective_date: string | null
+          ingredient_name: string | null
+          master_ingredient_id: string | null
+          organization_id: string | null
+          previous_price: number | null
+          price: number | null
+          price_change_percent: number | null
+          vendor_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_price_history_master_ingredient_id_fkey"
+            columns: ["master_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "master_ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_price_history_master_ingredient_id_fkey"
+            columns: ["master_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "master_ingredients_with_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_price_history_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
