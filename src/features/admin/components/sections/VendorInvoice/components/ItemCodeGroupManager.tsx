@@ -36,6 +36,7 @@ export const ItemCodeGroupManager: React.FC = () => {
   const { user } = useAuth();
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [ingredientSearchTerm, setIngredientSearchTerm] = useState("");
   const [selectedIngredient, setSelectedIngredient] =
     useState<MasterIngredient | null>(null);
   const [newCode, setNewCode] = useState("");
@@ -188,28 +189,42 @@ export const ItemCodeGroupManager: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-white">
-            Item Code Group Management
-          </h2>
-          <p className="text-gray-400">
-            Manage umbrella ingredients and their associated vendor codes
+      <div>
+        <h2 className="text-xl font-bold text-white">
+          Item Code Group Management
+        </h2>
+        <p className="text-gray-400">
+          Manage umbrella ingredients and their associated vendor codes
+        </p>
+      </div>
+      {/* Collapsible Info Box */}
+      <details className="w-full rounded-lg">
+        <summary className="cursor-pointer font-medium text-amber-400 hover:text-amber-300 transition-colors">
+          What are Item Code Groups?
+        </summary>
+        <div className="mt-2 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+          <p className="text-sm text-gray-300">
+            Item Code Groups help you manage different vendor codes for the same
+            product. For example, "Beef Brisket" might have different item codes
+            for various grades and sizes like GFS #12345 (Choice Grade, 12-14
+            lbs), GFS #12346 (Prime Grade, 10-12 lbs), and GFS #12347 (Trimmed,
+            8-10 lbs). This feature lets you track all these codes in one place,
+            including market vs. contract pricing, making inventory and ordering
+            more efficient.
           </p>
-          <div className="mt-2 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-            <h3 className="text-sm font-medium text-blue-400 mb-1">
-              What are Item Code Groups?
-            </h3>
-            <p className="text-sm text-gray-300">
-              Item Code Groups help you manage different vendor codes for the
-              same product. For example, "Beef Brisket" might have different
-              item codes for various grades and sizes like GFS #12345 (Choice
-              Grade, 12-14 lbs), GFS #12346 (Prime Grade, 10-12 lbs), and GFS
-              #12347 (Trimmed, 8-10 lbs). This feature lets you track all these
-              codes in one place, including market vs. contract pricing, making
-              inventory and ordering more efficient.
-            </p>
-          </div>
+        </div>
+      </details>
+      {/* Search Bar and Action Buttons */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by ingredient, code, or vendor..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="input pl-10 w-full"
+          />
         </div>
         <div className="flex gap-2">
           <button onClick={() => fetchVendorCodes()} className="btn-ghost">
@@ -218,124 +233,211 @@ export const ItemCodeGroupManager: React.FC = () => {
           </button>
           <button onClick={() => setIsAdding(true)} className="btn-primary">
             <Plus className="w-4 h-4 mr-2" />
-            Add New Code
+            Create New Code Group
           </button>
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-        <input
-          type="text"
-          placeholder="Search by ingredient, code, or vendor..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="input pl-10 w-full"
-        />
-      </div>
-
-      {/* Add New Code Form */}
+      {/* Create New Code Group Form - 4-line Layout with Explanations */}
       {isAdding && (
-        <div className="card p-6 bg-gray-800/50">
-          <h3 className="text-lg font-medium text-white mb-4">
-            Add New Vendor Code to Item Group
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">
-                Umbrella Ingredient
-              </label>
-              <select
-                value={selectedIngredient?.id || ""}
-                onChange={(e) => {
-                  const ingredient = ingredients.find(
-                    (i) => i.id === e.target.value,
-                  );
-                  setSelectedIngredient(ingredient || null);
-                }}
-                className="input w-full"
-                required
+        <div className="card p-4 bg-gray-900 border border-gray-700">
+          <div className="flex flex-col space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-md font-medium text-white">
+                <Plus className="w-4 h-4 inline-block mr-1 text-primary-400" />
+                Create New Code Group
+              </h3>
+              <button
+                onClick={() => setIsAdding(false)}
+                className="text-gray-400 hover:text-gray-300"
               >
-                <option value="">Select an umbrella ingredient</option>
-                {ingredients.map((ingredient) => (
-                  <option key={ingredient.id} value={ingredient.id}>
-                    {ingredient.product}
-                  </option>
-                ))}
-              </select>
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">
-                Vendor
+            {/* Row 1: Choose Vendor */}
+            <div className="flex flex-col space-y-1">
+              <label className="text-sm font-medium text-gray-300">
+                1. Choose Vendor <span className="text-rose-400">*</span>
               </label>
-              <select
-                value={newVendorId}
-                onChange={(e) => setNewVendorId(e.target.value)}
-                className="input w-full"
-                required
-              >
-                <option value="">Select a vendor</option>
-                {vendors.map((vendor) => (
-                  <option key={vendor} value={vendor}>
-                    {vendor}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">
-                Vendor Item Code
-              </label>
-              <input
-                type="text"
-                value={newCode}
-                onChange={(e) => setNewCode(e.target.value)}
-                placeholder="Enter vendor item code"
-                className="input w-full"
-                required
-              />
-              <div className="mt-2">
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Variation Label (optional)
-                </label>
-                <input
-                  type="text"
-                  value={variationLabel}
-                  onChange={(e) => setVariationLabel(e.target.value)}
-                  placeholder="e.g. Choice Grade, 12-14 lbs"
-                  className="input w-full"
-                />
+              <div className="flex items-center gap-2">
+                <select
+                  value={newVendorId}
+                  onChange={(e) => setNewVendorId(e.target.value)}
+                  className="input input-sm w-full bg-gray-800 text-xs py-1.5"
+                  required
+                >
+                  <option value="">Select a vendor</option>
+                  {vendors.map((vendor) => (
+                    <option key={vendor} value={vendor}>
+                      {vendor}
+                    </option>
+                  ))}
+                </select>
+                <div className="text-xs text-gray-500 max-w-xs">
+                  Select the supplier for this ingredient
+                </div>
               </div>
-              <div className="mt-2">
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Note/Tag (optional)
+            </div>
+
+            {/* Row 2: Choose Ingredient */}
+            <div className="flex flex-col space-y-1">
+              <label className="text-sm font-medium text-gray-300">
+                2. Choose Ingredient <span className="text-rose-400">*</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <div className="relative w-full">
+                  <input
+                    type="text"
+                    placeholder="Search for an ingredient..."
+                    className="input input-sm w-full bg-gray-800 text-xs py-1.5"
+                    value={ingredientSearchTerm}
+                    onChange={(e) => setIngredientSearchTerm(e.target.value)}
+                    onFocus={() => setIsAdding(true)}
+                  />
+                  {ingredientSearchTerm && (
+                    <div className="absolute z-50 mt-1 w-full max-h-60 overflow-auto bg-gray-800 border border-gray-700 rounded-md shadow-lg">
+                      {ingredients
+                        .filter(
+                          (ingredient) =>
+                            ingredient.product
+                              .toLowerCase()
+                              .includes(ingredientSearchTerm.toLowerCase()) ||
+                            (ingredient.item_code &&
+                              ingredient.item_code
+                                .toLowerCase()
+                                .includes(ingredientSearchTerm.toLowerCase())),
+                        )
+                        .slice(0, 10)
+                        .map((ingredient) => (
+                          <div
+                            key={ingredient.id}
+                            className="px-4 py-2 hover:bg-gray-700 cursor-pointer flex flex-col"
+                            onClick={() => {
+                              setSelectedIngredient(ingredient);
+                              setIngredientSearchTerm(ingredient.product);
+                              // Auto-populate item code if available
+                              if (ingredient && ingredient.item_code) {
+                                setNewCode(ingredient.item_code);
+                              }
+                            }}
+                          >
+                            <span className="text-white">
+                              {ingredient.product}
+                            </span>
+                            {ingredient.item_code && (
+                              <span className="text-xs text-gray-400">
+                                Code: {ingredient.item_code}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      {ingredients.filter(
+                        (ingredient) =>
+                          ingredient.product
+                            .toLowerCase()
+                            .includes(ingredientSearchTerm.toLowerCase()) ||
+                          (ingredient.item_code &&
+                            ingredient.item_code
+                              .toLowerCase()
+                              .includes(ingredientSearchTerm.toLowerCase())),
+                      ).length === 0 && (
+                        <div className="px-4 py-2 text-gray-400">
+                          No ingredients found
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="text-xs text-gray-500 max-w-xs">
+                  The base ingredient this code represents
+                </div>
+              </div>
+              {selectedIngredient && (
+                <div className="mt-2 p-2 bg-gray-700/50 rounded-md flex justify-between items-center">
+                  <div>
+                    <span className="text-sm text-white">
+                      {selectedIngredient.product}
+                    </span>
+                    {selectedIngredient.item_code && (
+                      <span className="ml-2 text-xs text-gray-400">
+                        Code: {selectedIngredient.item_code}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    className="text-gray-400 hover:text-gray-300"
+                    onClick={() => {
+                      setSelectedIngredient(null);
+                      setIngredientSearchTerm("");
+                    }}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Row 3: Variation Info */}
+            <div className="flex flex-col space-y-1">
+              <label className="text-sm font-medium text-gray-300">
+                3. Variation Info
+              </label>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <input
+                    type="text"
+                    value={newCode}
+                    onChange={(e) => setNewCode(e.target.value)}
+                    placeholder="Item Code (auto-populated if available)"
+                    className="input input-sm w-full bg-gray-800 text-xs py-1.5"
+                    required
+                  />
+                  <div className="text-xs text-gray-500 mt-1">
+                    Vendor's specific item code
+                  </div>
+                </div>
+                <div>
+                  <input
+                    type="text"
+                    value={variationLabel}
+                    onChange={(e) => setVariationLabel(e.target.value)}
+                    placeholder="Variation (e.g. Choice Grade, 12-14 lbs)"
+                    className="input input-sm w-full bg-gray-800 text-xs py-1.5"
+                  />
+                  <div className="text-xs text-gray-500 mt-1">
+                    Optional: Specific details about this variation
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Row 4: Add Tag & Button */}
+            <div className="flex items-end justify-between">
+              <div className="flex-1 mr-4">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  4. Choose Tag
                 </label>
                 <input
                   type="text"
                   value={noteTag}
                   onChange={(e) => setNoteTag(e.target.value)}
-                  placeholder="e.g. Preferred, Seasonal, etc."
-                  className="input w-full"
+                  placeholder="Optional: Add a tag (e.g. Contract pricing)"
+                  className="input input-sm w-full bg-gray-800 text-xs py-1.5"
                 />
+                <div className="text-xs text-gray-500 mt-1">
+                  Optional: Add a note or tag for this code
+                </div>
               </div>
+              <button
+                onClick={handleAddCode}
+                className="btn-primary whitespace-nowrap h-9"
+                disabled={!selectedIngredient || !newCode || !newVendorId}
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Create Code Group
+              </button>
             </div>
-          </div>
-
-          <div className="flex justify-end gap-2 mt-4">
-            <button onClick={() => setIsAdding(false)} className="btn-ghost">
-              Cancel
-            </button>
-            <button
-              onClick={handleAddCode}
-              className="btn-primary"
-              disabled={!selectedIngredient || !newCode || !newVendorId}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Code to Group
-            </button>
           </div>
         </div>
       )}
@@ -365,7 +467,7 @@ export const ItemCodeGroupManager: React.FC = () => {
                 className="btn-primary mt-4"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Create First Item Code Group
+                Create Your First Code Group
               </button>
             )}
           </div>
@@ -402,28 +504,28 @@ export const ItemCodeGroupManager: React.FC = () => {
                     <table className="w-full">
                       <thead className="bg-gray-900/50">
                         <tr>
-                          <th className="px-4 py-2 text-left text-sm font-medium text-gray-400">
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-400">
                             Vendor
                           </th>
-                          <th className="px-4 py-2 text-left text-sm font-medium text-gray-400">
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-400">
                             Item Code / Variation
                           </th>
-                          <th className="px-4 py-2 text-left text-sm font-medium text-gray-400">
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-400">
                             Recipe Unit
                           </th>
-                          <th className="px-4 py-2 text-right text-sm font-medium text-gray-400">
+                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-400">
                             Cost per Unit
                           </th>
-                          <th className="px-4 py-2 text-left text-sm font-medium text-gray-400">
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-400">
                             Note/Tag
                           </th>
-                          <th className="px-4 py-2 text-left text-sm font-medium text-gray-400">
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-400">
                             Status
                           </th>
-                          <th className="px-4 py-2 text-left text-sm font-medium text-gray-400">
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-400">
                             Last Updated
                           </th>
-                          <th className="px-4 py-2 text-right text-sm font-medium text-gray-400">
+                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-400">
                             Actions
                           </th>
                         </tr>
@@ -431,10 +533,10 @@ export const ItemCodeGroupManager: React.FC = () => {
                       <tbody className="divide-y divide-gray-700">
                         {codes.map((code) => (
                           <tr key={code.id} className="hover:bg-gray-700/30">
-                            <td className="px-4 py-2 text-sm text-gray-300">
+                            <td className="px-4 py-2 text-xs text-gray-300">
                               {code.vendor_id}
                             </td>
-                            <td className="px-4 py-2 text-sm text-gray-300">
+                            <td className="px-4 py-2 text-xs text-gray-300">
                               <div className="flex flex-col">
                                 <span>{code.code}</span>
                                 {code.variation_label ? (
@@ -466,7 +568,7 @@ export const ItemCodeGroupManager: React.FC = () => {
                                 )}
                               </div>
                             </td>
-                            <td className="px-4 py-2 text-sm text-gray-300">
+                            <td className="px-4 py-2 text-xs text-gray-300">
                               {/* Display recipe unit type from the master ingredient */}
                               {(() => {
                                 const ingredient = ingredients.find(
@@ -475,7 +577,7 @@ export const ItemCodeGroupManager: React.FC = () => {
                                 return ingredient?.recipe_unit_type || "EA";
                               })()}
                             </td>
-                            <td className="px-4 py-2 text-sm text-right text-gray-300">
+                            <td className="px-4 py-2 text-xs text-right text-gray-300">
                               {/* Display cost per recipe unit from the master ingredient */}
                               $
                               {(() => {
@@ -489,7 +591,7 @@ export const ItemCodeGroupManager: React.FC = () => {
                                 );
                               })()}
                             </td>
-                            <td className="px-4 py-2 text-sm text-gray-300">
+                            <td className="px-4 py-2 text-xs text-gray-300">
                               {editingNoteId === code.id ? (
                                 <div className="flex items-center gap-2">
                                   <input
@@ -543,7 +645,7 @@ export const ItemCodeGroupManager: React.FC = () => {
                                 </div>
                               )}
                             </td>
-                            <td className="px-4 py-2 text-sm">
+                            <td className="px-4 py-2 text-xs">
                               {code.is_current ? (
                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-400">
                                   <Check className="w-3 h-3 mr-1" />
@@ -555,10 +657,10 @@ export const ItemCodeGroupManager: React.FC = () => {
                                 </span>
                               )}
                             </td>
-                            <td className="px-4 py-2 text-sm text-gray-300">
+                            <td className="px-4 py-2 text-xs text-gray-300">
                               {new Date(code.updated_at).toLocaleDateString()}
                             </td>
-                            <td className="px-4 py-2 text-sm text-right">
+                            <td className="px-4 py-2 text-xs text-right">
                               <div className="flex justify-end gap-2">
                                 {!code.is_current && (
                                   <button
@@ -593,7 +695,7 @@ export const ItemCodeGroupManager: React.FC = () => {
                                     }
                                     deleteVendorCode(code.id);
                                   }}
-                                  className="p-1 text-gray-400 hover:text-rose-400 transition-colors"
+                                  className="p-1 text-rose-400 hover:text-rose-300 transition-colors"
                                   title="Delete code"
                                   disabled={code.is_current}
                                 >

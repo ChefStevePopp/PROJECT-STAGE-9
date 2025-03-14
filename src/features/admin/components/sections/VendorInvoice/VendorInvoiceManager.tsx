@@ -27,6 +27,7 @@ import { ItemCodeGroupManager } from "./components/ItemCodeGroupManager";
 import { UmbrellaIngredientManager } from "./components/UmbrellaIngredientManager";
 import { PriceHistoryView } from "./components/PriceHistoryView";
 import { VendorAnalytics } from "./components/VendorAnalytics";
+import { ImportHistory } from "./components/ImportHistory";
 import { useVendorTemplatesStore } from "@/stores/vendorTemplatesStore";
 import toast from "react-hot-toast";
 
@@ -38,21 +39,21 @@ const TABS = [
     color: "primary",
   },
   { id: "analytics", label: "Analytics", icon: TrendingUp, color: "green" },
-  { id: "codes", label: "Item Code Groups", icon: Boxes, color: "amber" },
+  { id: "codes", label: "Code Groups", icon: Boxes, color: "amber" },
   {
     id: "umbrella",
-    label: "Umbrella Ingredients",
+    label: "Umbrella Items",
     icon: Umbrella,
     color: "rose",
   },
   {
     id: "import",
-    label: "Import Invoices",
+    label: "Import",
     icon: FileSpreadsheet,
     color: "purple",
   },
-  { id: "history", label: "Import History", icon: History, color: "slate" },
-  { id: "settings", label: "CSV Settings", icon: Settings, color: "red" },
+  { id: "history", label: "History", icon: History, color: "slate" },
+  { id: "settings", label: "Settings", icon: Settings, color: "red" },
 ] as const;
 
 export const VendorInvoiceManager = () => {
@@ -191,10 +192,10 @@ export const VendorInvoiceManager = () => {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               data-tab={tab.id}
-              className={`tab ${tab.color} whitespace-nowrap ${activeTab === tab.id ? "active" : ""}`}
+              className={`tab ${tab.color} ${activeTab === tab.id ? "active" : ""}`}
             >
               <tab.icon
-                className={`w-5 h-5 mr-2 flex-shrink-0 ${activeTab === tab.id ? `text-${tab.color}-400` : ""}`}
+                className={`w-4 h-4 mr-2 flex-shrink-0 ${activeTab === tab.id ? `text-${tab.color}-400` : ""}`}
               />
               <span>{tab.label}</span>
             </button>
@@ -233,12 +234,20 @@ export const VendorInvoiceManager = () => {
             <DataPreview
               data={csvData}
               vendorId={selectedVendor}
-              onConfirm={() => {
-                // Process the mapped data
-                console.log("Processing data:", csvData);
-                toast.success("Data imported successfully");
-                setCSVData(null);
-                setSelectedVendor("");
+              onConfirm={async () => {
+                try {
+                  // The actual processing happens in the DataPreview component's handleConfirm method
+                  // which is called before this callback
+                  console.log("Import completed successfully");
+                  toast.success(
+                    "Data imported and prices updated successfully",
+                  );
+                  setCSVData(null);
+                  setSelectedVendor("");
+                } catch (error) {
+                  console.error("Error in import confirmation:", error);
+                  toast.error("There was an error completing the import");
+                }
               }}
               onCancel={() => {
                 setCSVData(null);
@@ -269,11 +278,7 @@ export const VendorInvoiceManager = () => {
                   )}
                 </>
               )}
-              {activeTab === "history" && (
-                <div className="text-center py-8 text-gray-400">
-                  Import history coming soon...
-                </div>
-              )}
+              {activeTab === "history" && <ImportHistory />}
               {activeTab === "settings" && <ImportSettings />}
             </>
           )}

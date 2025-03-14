@@ -8,12 +8,19 @@ import {
   Check,
   Ban,
   RefreshCw,
+  Plus,
+  Boxes,
+  Umbrella,
+  Trash2,
+  Link,
 } from "lucide-react";
 import { EditIngredientModal } from "@/features/admin/components/sections/recipe/MasterIngredientList/EditIngredientModal";
+import { LinkExistingIngredientModal } from "./LinkExistingIngredientModal";
 import type { MasterIngredient } from "@/types/master-ingredient";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import toast from "react-hot-toast";
+import { useMasterIngredientsStore } from "@/stores/masterIngredientsStore";
 
 interface Props {
   data: any[];
@@ -38,12 +45,13 @@ export const DataPreview: React.FC<Props> = ({
   onCancel,
 }) => {
   const { user } = useAuth();
+  const { bulkUpdatePrices } = useMasterIngredientsStore();
   const [priceChanges, setPriceChanges] = useState<PriceChange[]>([]);
   const [masterIngredients, setMasterIngredients] = useState<
     MasterIngredient[]
   >([]);
   const [linkingIngredient, setLinkingIngredient] = useState<{
-    matches: any[];
+    matches: MasterIngredient[];
     row: any;
   } | null>(null);
   const [newIngredient, setNewIngredient] =
@@ -114,39 +122,73 @@ export const DataPreview: React.FC<Props> = ({
 
       // Update all prices that were approved
       if (approvedChanges.length > 0) {
-        // Create price change records
-        const priceChangeRecords = approvedChanges.map((change) => ({
-          organization_id: user?.organization_id,
-          vendor_id: vendorId,
-          item_code: change.itemCode,
-          invoice_date: new Date().toISOString(),
-          old_price: change.oldPrice,
-          new_price: change.newPrice,
-          percent_change: change.changePercent,
-          approved: true,
-          approved_by: user?.id,
-          approved_at: new Date().toISOString(),
-        }));
+        try {
+          // Use the bulkUpdatePrices method from the store
+          const priceUpdates = approvedChanges.map((change) => ({
+            itemCode: change.itemCode,
+            newPrice: change.newPrice,
+          }));
 
-        // Insert price changes
-        const { error: insertError } = await supabase
-          .from("vendor_price_changes")
-          .insert(priceChangeRecords);
+          await bulkUpdatePrices(priceUpdates);
 
-        if (insertError) throw insertError;
+          // Create price change records for history
+          const priceChangeRecords = approvedChanges.map((change) => {
+            // Find the matching ingredient to get its ID
+            const matchingIngredient = masterIngredients.find(
+              (mi) => mi.item_code === change.itemCode.toString(),
+            );
 
-        // Update master ingredients prices
-        for (const change of approvedChanges) {
-          const { error: updateError } = await supabase
-            .from("master_ingredients")
-            .update({
-              current_price: change.newPrice,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("item_code", change.itemCode);
+            return {
+              organization_id: user?.user_metadata?.organizationId,
+              vendor_id: vendorId,
+              item_code: change.itemCode,
+              ingredient_id: matchingIngredient?.id,
+              invoice_date: new Date().toISOString(),
+              old_price: change.oldPrice,
+              new_price: change.newPrice,
+              percent_change: change.changePercent,
+              approved: true,
+              approved_by: user?.id,
+              approved_at: new Date().toISOString(),
+            };
+          });
 
-          if (updateError) throw updateError;
+          // Insert price changes into history
+          const { error: insertError } = await supabase
+            .from("vendor_price_changes")
+            .insert(priceChangeRecords);
+
+          if (insertError) throw insertError;
+        } catch (updateError) {
+          console.error("Error updating prices:", updateError);
+          toast.error("Failed to update ingredient prices");
+          throw updateError;
         }
+      }
+
+      // Record the import in the vendor_imports table
+      try {
+        const importRecord = {
+          organization_id: user?.user_metadata?.organizationId,
+          vendor_id: vendorId,
+          import_type: "csv", // This could be dynamic based on the import type
+          file_name: `${vendorId.toLowerCase()}_import_${new Date().toISOString().split("T")[0]}.csv`,
+          items_count: data.length,
+          price_changes: approvedChanges.length,
+          new_items: data.filter(
+            (row) =>
+              !masterIngredients.find(
+                (mi) => mi.item_code === row.item_code.toString(),
+              ),
+          ).length,
+          status: "completed",
+          created_by: user?.id,
+        };
+
+        await supabase.from("vendor_imports").insert([importRecord]);
+      } catch (importError) {
+        console.error("Error recording import:", importError);
+        // Don't fail the whole operation if just the import record fails
       }
 
       onConfirm();
@@ -411,6 +453,7 @@ export const DataPreview: React.FC<Props> = ({
                         </>
                       ) : (
                         <div className="flex gap-2">
+                          {/* Option 1: Add (Single Ingredient Import) */}
                           <button
                             onClick={() => {
                               setNewIngredient({
@@ -418,47 +461,48 @@ export const DataPreview: React.FC<Props> = ({
                                 item_code: row.item_code,
                                 current_price: parseFloat(row.unit_price),
                                 unit_of_measure: row.unit_of_measure,
-                                organization_id: user?.organization_id, // Add organization_id
+                                organization_id: user?.organization_id,
                               });
                             }}
-                            className="px-2 py-0.5 text-xs font-medium rounded-full bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
+                            className="p-1 rounded-lg transition-colors hover:bg-emerald-500/20 text-gray-400 hover:text-emerald-400"
+                            title="Add as Single Ingredient"
                           >
-                            + Add New
+                            <Plus className="w-4 h-4" />
                           </button>
+
+                          {/* Option 2: Add to Code Group */}
                           <button
-                            onClick={async () => {
-                              try {
-                                // First try to find by exact item code
-                                let { data: matches } = await supabase
-                                  .from("master_ingredients_with_categories")
-                                  .select("*")
-                                  .eq("item_code", row.item_code);
-
-                                // If no match by code, then search by name
-                                if (!matches?.length) {
-                                  const { data: nameMatches } = await supabase
-                                    .from("master_ingredients_with_categories")
-                                    .select("*")
-                                    .ilike("product", `%${row.product_name}%`)
-                                    .limit(10);
-                                  matches = nameMatches;
-                                }
-
-                                if (!matches?.length) {
-                                  toast.error("No matching ingredients found");
-                                  return;
-                                }
-
-                                setLinkingIngredient({ matches, row });
-                              } catch (error) {
-                                console.error("Error finding matches:", error);
-                                toast.error("Failed to find matches");
-                              }
+                            onClick={() => {
+                              // Code to add to code group would go here
+                              toast.info(
+                                `Adding ${row.product_name} to Code Group`,
+                              );
+                              // This would typically navigate to or open the Code Group manager
+                              // with this item pre-selected
                             }}
-                            className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-colors"
+                            className="p-1 rounded-lg transition-colors hover:bg-amber-500/20 text-gray-400 hover:text-amber-400"
+                            title="Add to Code Group"
                           >
-                            Link Existing
+                            <Boxes className="w-4 h-4" />
                           </button>
+
+                          {/* Option 3: Add to Umbrella Group */}
+                          <button
+                            onClick={() => {
+                              // Code to add to umbrella group would go here
+                              toast.info(
+                                `Adding ${row.product_name} to Umbrella Group`,
+                              );
+                              // This would typically navigate to or open the Umbrella Group manager
+                              // with this item pre-selected
+                            }}
+                            className="p-1 rounded-lg transition-colors hover:bg-blue-500/20 text-gray-400 hover:text-blue-400"
+                            title="Add to Umbrella Group"
+                          >
+                            <Umbrella className="w-4 h-4" />
+                          </button>
+
+                          {/* Option 4: Discard */}
                           <button
                             onClick={() => {
                               // Add this item to the excluded items list
@@ -470,9 +514,37 @@ export const DataPreview: React.FC<Props> = ({
                                 `Item ${row.item_code} excluded from import`,
                               );
                             }}
-                            className="px-2 py-0.5 text-xs font-medium rounded-full bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 transition-colors"
+                            className="p-1 rounded-lg transition-colors hover:bg-rose-500/20 text-gray-400 hover:text-rose-400"
+                            title="Discard Item"
                           >
-                            × Do Not Add
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+
+                          {/* Link Existing button - keeping this functionality */}
+                          <button
+                            onClick={() => {
+                              // Mark the item as excluded temporarily
+                              setExcludedItems((prev) => [
+                                ...prev,
+                                row.item_code.toString(),
+                              ]);
+
+                              // Set up the linking ingredient state
+                              setLinkingIngredient({
+                                row,
+                                matches: masterIngredients
+                                  .filter((ingredient) =>
+                                    ingredient.product
+                                      .toLowerCase()
+                                      .includes(row.product_name.toLowerCase()),
+                                  )
+                                  .slice(0, 10),
+                              });
+                            }}
+                            className="p-1 rounded-lg transition-colors hover:bg-indigo-500/20 text-gray-400 hover:text-indigo-400"
+                            title="Link to Existing Ingredient"
+                          >
+                            <Link className="w-4 h-4" />
                           </button>
                         </div>
                       )}
@@ -500,113 +572,36 @@ export const DataPreview: React.FC<Props> = ({
 
       {/* Link Existing Modal */}
       {linkingIngredient && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-gray-900 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-800">
-              <h3 className="text-lg font-medium text-white">
-                Link Existing Ingredient
-              </h3>
-              <p className="text-sm text-gray-400 mt-1">
-                Select the matching ingredient to link
-              </p>
-            </div>
-            <div className="p-4 space-y-2">
-              {linkingIngredient.matches.map((match) => (
-                <button
-                  key={match.id}
-                  onClick={async () => {
-                    try {
-                      // Create vendor code change record
-                      const { error: codeError } = await supabase
-                        .from("vendor_code_changes")
-                        .insert([
-                          {
-                            organization_id: user?.organization_id,
-                            ingredient_id: match.id,
-                            vendor_id: vendorId,
-                            invoice_date: new Date().toISOString(),
-                            old_code: match.item_code,
-                            new_code: linkingIngredient.row.item_code,
-                            handled: true,
-                            handled_by: user?.id,
-                            handled_at: new Date().toISOString(),
-                            action: "code_change",
-                            notes: `Code changed during invoice import from ${match.item_code} to ${linkingIngredient.row.item_code}`,
-                          },
-                        ]);
-
-                      if (codeError) throw codeError;
-
-                      // Update master ingredient with new code
-                      const { error: updateError } = await supabase
-                        .from("master_ingredients")
-                        .update({
-                          item_code: linkingIngredient.row.item_code,
-                          updated_at: new Date().toISOString(),
-                        })
-                        .eq("id", match.id);
-
-                      if (updateError) throw updateError;
-
-                      toast.success("Vendor code updated successfully");
-                      setLinkingIngredient(null);
-
-                      // Refresh price changes
-                      const { data: currentPrices } = await supabase
-                        .from("master_ingredients_with_categories")
-                        .select("id, item_code, current_price")
-                        .in(
-                          "item_code",
-                          data.map((item) => item.item_code),
-                        );
-
-                      if (currentPrices) {
-                        const changes = data
-                          .map((item) => {
-                            const current = currentPrices.find(
-                              (p) => p.item_code === item.item_code,
-                            );
-                            if (!current) return null;
-                            const oldPrice = current.current_price;
-                            const newPrice = parseFloat(item.unit_price);
-                            const changePercent =
-                              ((newPrice - oldPrice) / oldPrice) * 100;
-                            return {
-                              itemCode: item.item_code,
-                              oldPrice,
-                              newPrice,
-                              changePercent,
-                            };
-                          })
-                          .filter(Boolean);
-                        setPriceChanges(changes);
-                      }
-                    } catch (error) {
-                      console.error("Error linking ingredient:", error);
-                      toast.error("Failed to link ingredient");
-                    }
-                  }}
-                  className="w-full p-4 text-left bg-gray-800/50 hover:bg-gray-800 rounded-lg transition-colors"
-                >
-                  <div className="font-medium text-white">{match.product}</div>
-                  <div className="text-sm text-gray-400 mt-1">
-                    Current Code: {match.item_code} | Category:{" "}
-                    {match.category_name}
-                  </div>
-                </button>
-              ))}
-            </div>
-            <div className="p-4 border-t border-gray-800 flex justify-end gap-2">
-              <button
-                onClick={() => setLinkingIngredient(null)}
-                className="btn-ghost"
-              >
-                <X className="w-4 h-4 mr-2" />
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
+        <LinkExistingIngredientModal
+          isOpen={true}
+          onClose={() => {
+            // Remove from excluded items when closed
+            setExcludedItems((prev) =>
+              prev.filter(
+                (item) => item !== linkingIngredient.row.item_code.toString(),
+              ),
+            );
+            setLinkingIngredient(null);
+          }}
+          newItemCode={linkingIngredient.row.item_code}
+          newItemName={linkingIngredient.row.product_name}
+          vendorId={vendorId}
+          onSuccess={() => {
+            // Refresh the data after successful linking
+            toast.success(
+              `Successfully linked ${linkingIngredient.row.item_code} to existing ingredient`,
+            );
+            // Refresh the data
+            const refreshData = async () => {
+              const { data: ingredients } = await supabase
+                .from("master_ingredients_with_categories")
+                .select("*");
+              setMasterIngredients(ingredients || []);
+            };
+            refreshData();
+            setLinkingIngredient(null);
+          }}
+        />
       )}
 
       {/* New Ingredient Modal */}

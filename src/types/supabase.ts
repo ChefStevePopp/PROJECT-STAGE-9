@@ -1579,6 +1579,135 @@ export type Database = {
           },
         ]
       }
+      umbrella_ingredient_master_ingredients: {
+        Row: {
+          created_at: string | null
+          master_ingredient_id: string
+          umbrella_ingredient_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          master_ingredient_id: string
+          umbrella_ingredient_id: string
+        }
+        Update: {
+          created_at?: string | null
+          master_ingredient_id?: string
+          umbrella_ingredient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "umbrella_ingredient_master_ingredie_umbrella_ingredient_id_fkey"
+            columns: ["umbrella_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "umbrella_ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "umbrella_ingredient_master_ingredie_umbrella_ingredient_id_fkey"
+            columns: ["umbrella_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "umbrella_ingredients_with_details"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "umbrella_ingredient_master_ingredient_master_ingredient_id_fkey"
+            columns: ["master_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "master_ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "umbrella_ingredient_master_ingredient_master_ingredient_id_fkey"
+            columns: ["master_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "master_ingredients_with_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      umbrella_ingredients: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          major_group: string | null
+          name: string
+          organization_id: string
+          primary_master_ingredient_id: string | null
+          sub_category: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          major_group?: string | null
+          name: string
+          organization_id: string
+          primary_master_ingredient_id?: string | null
+          sub_category?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          major_group?: string | null
+          name?: string
+          organization_id?: string
+          primary_master_ingredient_id?: string | null
+          sub_category?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "umbrella_ingredients_category_fkey"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "food_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "umbrella_ingredients_major_group_fkey"
+            columns: ["major_group"]
+            isOneToOne: false
+            referencedRelation: "food_category_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "umbrella_ingredients_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "umbrella_ingredients_primary_master_ingredient_id_fkey"
+            columns: ["primary_master_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "master_ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "umbrella_ingredients_primary_master_ingredient_id_fkey"
+            columns: ["primary_master_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "master_ingredients_with_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "umbrella_ingredients_sub_category_fkey"
+            columns: ["sub_category"]
+            isOneToOne: false
+            referencedRelation: "food_sub_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vendor_code_changes: {
         Row: {
           action: string | null
@@ -1700,6 +1829,65 @@ export type Database = {
           },
           {
             foreignKeyName: "vendor_codes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendor_imports: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          file_name: string
+          file_url: string | null
+          id: string
+          import_type: string
+          items_count: number
+          metadata: Json | null
+          new_items: number
+          organization_id: string
+          price_changes: number
+          status: string
+          updated_at: string | null
+          vendor_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          file_name: string
+          file_url?: string | null
+          id?: string
+          import_type: string
+          items_count?: number
+          metadata?: Json | null
+          new_items?: number
+          organization_id: string
+          price_changes?: number
+          status?: string
+          updated_at?: string | null
+          vendor_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          file_name?: string
+          file_url?: string | null
+          id?: string
+          import_type?: string
+          items_count?: number
+          metadata?: Json | null
+          new_items?: number
+          organization_id?: string
+          price_changes?: number
+          status?: string
+          updated_at?: string | null
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_imports_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -2267,6 +2455,65 @@ export type Database = {
           yield_unit: string | null
         }
         Relationships: []
+      }
+      umbrella_ingredients_with_details: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          description: string | null
+          id: string | null
+          major_group: string | null
+          master_ingredients: Json | null
+          name: string | null
+          organization_id: string | null
+          primary_master_ingredient_id: string | null
+          sub_category: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "umbrella_ingredients_category_fkey"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "food_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "umbrella_ingredients_major_group_fkey"
+            columns: ["major_group"]
+            isOneToOne: false
+            referencedRelation: "food_category_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "umbrella_ingredients_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "umbrella_ingredients_primary_master_ingredient_id_fkey"
+            columns: ["primary_master_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "master_ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "umbrella_ingredients_primary_master_ingredient_id_fkey"
+            columns: ["primary_master_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "master_ingredients_with_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "umbrella_ingredients_sub_category_fkey"
+            columns: ["sub_category"]
+            isOneToOne: false
+            referencedRelation: "food_sub_categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vendor_price_trends: {
         Row: {

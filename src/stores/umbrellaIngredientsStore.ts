@@ -47,42 +47,43 @@ export const useUmbrellaIngredientsStore = create<UmbrellaIngredientsStore>(
       try {
         set({ isLoading: true, error: null });
 
-        // This is a placeholder - in a real implementation, you would fetch from your umbrella_ingredients table
-        // For now, we'll simulate by using the master_ingredients table and grouping by product name
-        const { data: masterIngredients, error: masterError } = await supabase
-          .from("master_ingredients_with_categories")
+        // Fetch umbrella ingredients from the database
+        const { data: umbrellaData, error: umbrellaError } = await supabase
+          .from("umbrella_ingredients_with_details")
           .select("*");
 
-        if (masterError) throw masterError;
+        if (umbrellaError) throw umbrellaError;
 
-        // Group by product name to simulate umbrella ingredients
-        const groupedByProduct: Record<string, MasterIngredient[]> = {};
-        masterIngredients?.forEach((ingredient) => {
-          if (!groupedByProduct[ingredient.product]) {
-            groupedByProduct[ingredient.product] = [];
+        // For each umbrella ingredient, fetch the associated master ingredients
+        const umbrellaIngredients: UmbrellaIngredientWithDetails[] = [];
+
+        for (const umbrella of umbrellaData || []) {
+          // Get master ingredients for this umbrella
+          const masterIngredientIds = umbrella.master_ingredients || [];
+
+          if (masterIngredientIds.length > 0) {
+            const { data: masterIngredients, error: masterError } =
+              await supabase
+                .from("master_ingredients_with_categories")
+                .select("*")
+                .in("id", masterIngredientIds);
+
+            if (masterError) throw masterError;
+
+            umbrellaIngredients.push({
+              ...umbrella,
+              master_ingredients: masterIngredientIds,
+              master_ingredient_details: masterIngredients || [],
+            });
+          } else {
+            // No master ingredients associated yet
+            umbrellaIngredients.push({
+              ...umbrella,
+              master_ingredients: [],
+              master_ingredient_details: [],
+            });
           }
-          groupedByProduct[ingredient.product].push(
-            ingredient as MasterIngredient,
-          );
-        });
-
-        // Convert to umbrella ingredients format
-        const umbrellaIngredients: UmbrellaIngredientWithDetails[] =
-          Object.entries(groupedByProduct).map(
-            ([productName, ingredients]) => ({
-              id: ingredients[0].id, // Use first ingredient's ID as umbrella ID (temporary)
-              organization_id: ingredients[0].organization_id,
-              name: productName,
-              description: "",
-              category: ingredients[0].category || undefined,
-              sub_category: ingredients[0].sub_category || undefined,
-              created_at: ingredients[0].created_at,
-              updated_at: ingredients[0].updated_at,
-              master_ingredients: ingredients.map((i) => i.id),
-              primary_master_ingredient_id: ingredients[0].id,
-              master_ingredient_details: ingredients,
-            }),
-          );
+        }
 
         set({ umbrellaIngredients, isLoading: false });
         return umbrellaIngredients;
@@ -105,31 +106,41 @@ export const useUmbrellaIngredientsStore = create<UmbrellaIngredientsStore>(
         let umbrellaIngredient = umbrellaIngredients.find((u) => u.id === id);
 
         if (!umbrellaIngredient) {
-          // If not in state, fetch it
-          // This is a placeholder - in a real implementation, you would fetch from your umbrella_ingredients table
-          const { data: ingredient, error } = await supabase
-            .from("master_ingredients_with_categories")
+          // If not in state, fetch it from the database
+          const { data: umbrella, error: umbrellaError } = await supabase
+            .from("umbrella_ingredients_with_details")
             .select("*")
             .eq("id", id)
             .single();
 
-          if (error) throw error;
-          if (!ingredient) return null;
+          if (umbrellaError) throw umbrellaError;
+          if (!umbrella) return null;
 
-          // Create a simulated umbrella ingredient
-          umbrellaIngredient = {
-            id: ingredient.id,
-            organization_id: ingredient.organization_id,
-            name: ingredient.product,
-            description: "",
-            category: ingredient.category || undefined,
-            sub_category: ingredient.sub_category || undefined,
-            created_at: ingredient.created_at,
-            updated_at: ingredient.updated_at,
-            master_ingredients: [ingredient.id],
-            primary_master_ingredient_id: ingredient.id,
-            master_ingredient_details: [ingredient as MasterIngredient],
-          };
+          // Get master ingredients for this umbrella
+          const masterIngredientIds = umbrella.master_ingredients || [];
+
+          if (masterIngredientIds.length > 0) {
+            const { data: masterIngredients, error: masterError } =
+              await supabase
+                .from("master_ingredients_with_categories")
+                .select("*")
+                .in("id", masterIngredientIds);
+
+            if (masterError) throw masterError;
+
+            umbrellaIngredient = {
+              ...umbrella,
+              master_ingredients: masterIngredientIds,
+              master_ingredient_details: masterIngredients || [],
+            };
+          } else {
+            // No master ingredients associated yet
+            umbrellaIngredient = {
+              ...umbrella,
+              master_ingredients: [],
+              master_ingredient_details: [],
+            };
+          }
         }
 
         return umbrellaIngredient;
@@ -143,46 +154,18 @@ export const useUmbrellaIngredientsStore = create<UmbrellaIngredientsStore>(
       try {
         set({ isLoading: true, error: null });
 
-        // This is a placeholder - in a real implementation, you would insert into your umbrella_ingredients table
-        // For now, we'll simulate by creating a master ingredient
-        const { data: newIngredient, error } = await supabase
-          .from("master_ingredients")
+        // Insert the umbrella ingredient into the database
+        const { data: newUmbrella, error } = await supabase
+          .from("umbrella_ingredients")
           .insert([
             {
-              product: data.name,
+              name: data.name,
               organization_id: data.organization_id,
+              description: data.description,
+              major_group: data.major_group,
               category: data.category,
               sub_category: data.sub_category,
-              // Add required fields for master_ingredients
-              item_code: `UMB-${Date.now()}`,
-              unit_of_measure: "EA",
-              vendor: "Umbrella",
-              current_price: 0,
-              // Set default values for required fields
-              allergen_celery: false,
-              allergen_citrus: false,
-              allergen_crustacean: false,
-              allergen_egg: false,
-              allergen_fish: false,
-              allergen_garlic: false,
-              allergen_gluten: false,
-              allergen_hot_pepper: false,
-              allergen_milk: false,
-              allergen_mushroom: false,
-              allergen_mustard: false,
-              allergen_nitrite: false,
-              allergen_onion: false,
-              allergen_peanut: false,
-              allergen_pork: false,
-              allergen_sesame: false,
-              allergen_shellfish: false,
-              allergen_soy: false,
-              allergen_sulphite: false,
-              allergen_treenut: false,
-              allergen_wheat: false,
-              cost_per_recipe_unit: 0,
-              recipe_unit_per_purchase_unit: 1,
-              yield_percent: 100,
+              primary_master_ingredient_id: data.primary_master_ingredient_id,
             },
           ])
           .select()
@@ -190,24 +173,23 @@ export const useUmbrellaIngredientsStore = create<UmbrellaIngredientsStore>(
 
         if (error) throw error;
 
-        // Create a simulated umbrella ingredient from the master ingredient
-        const umbrellaIngredient: UmbrellaIngredient = {
-          id: newIngredient.id,
-          organization_id: newIngredient.organization_id,
-          name: newIngredient.product,
-          description: "",
-          category: newIngredient.category || undefined,
-          sub_category: newIngredient.sub_category || undefined,
-          created_at: newIngredient.created_at,
-          updated_at: newIngredient.updated_at,
-          master_ingredients: [newIngredient.id],
-          primary_master_ingredient_id: newIngredient.id,
+        // Create a new umbrella ingredient with empty master ingredients
+        const umbrellaIngredient: UmbrellaIngredientWithDetails = {
+          ...newUmbrella,
+          master_ingredients: [],
+          master_ingredient_details: [],
         };
 
-        // Refresh umbrella ingredients
-        await get().fetchUmbrellaIngredients();
+        // Add the new umbrella ingredient to the state
+        set((state) => ({
+          ...state,
+          umbrellaIngredients: [
+            ...state.umbrellaIngredients,
+            umbrellaIngredient,
+          ],
+          isLoading: false,
+        }));
 
-        set({ isLoading: false });
         toast.success("Umbrella ingredient created successfully");
         return umbrellaIngredient;
       } catch (error) {
@@ -231,24 +213,52 @@ export const useUmbrellaIngredientsStore = create<UmbrellaIngredientsStore>(
       try {
         set({ isLoading: true, error: null });
 
-        // This is a placeholder - in a real implementation, you would update your umbrella_ingredients table
-        // For now, we'll simulate by updating the master ingredient
+        // Update the umbrella ingredient in the database
         const { error } = await supabase
-          .from("master_ingredients")
+          .from("umbrella_ingredients")
           .update({
-            product: data.name,
+            name: data.name,
+            description: data.description,
+            major_group: data.major_group,
             category: data.category,
             sub_category: data.sub_category,
+            primary_master_ingredient_id: data.primary_master_ingredient_id,
             updated_at: new Date().toISOString(),
           })
           .eq("id", id);
 
         if (error) throw error;
 
-        // Refresh umbrella ingredients
-        await get().fetchUmbrellaIngredients();
+        // Update the umbrella ingredient in state
+        set((state) => {
+          const updatedUmbrellaIngredients = state.umbrellaIngredients.map(
+            (umbrella) => {
+              if (umbrella.id === id) {
+                return {
+                  ...umbrella,
+                  name: data.name || umbrella.name,
+                  description: data.description || umbrella.description,
+                  major_group: data.major_group || umbrella.major_group,
+                  category: data.category || umbrella.category,
+                  sub_category: data.sub_category || umbrella.sub_category,
+                  primary_master_ingredient_id:
+                    data.primary_master_ingredient_id ||
+                    umbrella.primary_master_ingredient_id,
+                  updated_at: new Date().toISOString(),
+                };
+              }
+              return umbrella;
+            },
+          );
+          return {
+            ...state,
+            umbrellaIngredients: updatedUmbrellaIngredients,
+            isLoading: false,
+          };
+        });
 
-        set({ isLoading: false });
+        // Refresh the umbrella ingredients to get updated category names
+        get().fetchUmbrellaIngredients();
         toast.success("Umbrella ingredient updated successfully");
       } catch (error) {
         console.error("Error updating umbrella ingredient:", error);
@@ -267,19 +277,23 @@ export const useUmbrellaIngredientsStore = create<UmbrellaIngredientsStore>(
       try {
         set({ isLoading: true, error: null });
 
-        // This is a placeholder - in a real implementation, you would delete from your umbrella_ingredients table
-        // For now, we'll simulate by deleting the master ingredient
+        // Delete the umbrella ingredient from the database
         const { error } = await supabase
-          .from("master_ingredients")
+          .from("umbrella_ingredients")
           .delete()
           .eq("id", id);
 
         if (error) throw error;
 
-        // Refresh umbrella ingredients
-        await get().fetchUmbrellaIngredients();
+        // Remove the umbrella ingredient from state
+        set((state) => ({
+          ...state,
+          umbrellaIngredients: state.umbrellaIngredients.filter(
+            (umbrella) => umbrella.id !== id,
+          ),
+          isLoading: false,
+        }));
 
-        set({ isLoading: false });
         toast.success("Umbrella ingredient deleted successfully");
       } catch (error) {
         console.error("Error deleting umbrella ingredient:", error);
@@ -301,11 +315,55 @@ export const useUmbrellaIngredientsStore = create<UmbrellaIngredientsStore>(
       try {
         set({ isLoading: true, error: null });
 
-        // This is a placeholder - in a real implementation, you would update your umbrella_ingredients table
-        // For now, we'll just refresh the data
-        await get().fetchUmbrellaIngredients();
+        // Add the master ingredient to the umbrella in the database
+        const { error } = await supabase
+          .from("umbrella_ingredient_master_ingredients")
+          .insert([
+            {
+              umbrella_ingredient_id: umbrellaId,
+              master_ingredient_id: masterIngredientId,
+            },
+          ]);
 
-        set({ isLoading: false });
+        if (error) throw error;
+
+        // Find the master ingredient to add to the state
+        const { data: masterIngredient, error: masterError } = await supabase
+          .from("master_ingredients_with_categories")
+          .select("*")
+          .eq("id", masterIngredientId)
+          .single();
+
+        if (masterError) throw masterError;
+
+        // Update the umbrella ingredients in state
+        set((state) => {
+          const updatedUmbrellaIngredients = state.umbrellaIngredients.map(
+            (umbrella) => {
+              if (umbrella.id === umbrellaId) {
+                // Add the new master ingredient to this umbrella
+                return {
+                  ...umbrella,
+                  master_ingredients: [
+                    ...umbrella.master_ingredients,
+                    masterIngredientId,
+                  ],
+                  master_ingredient_details: [
+                    ...umbrella.master_ingredient_details,
+                    masterIngredient as MasterIngredient,
+                  ],
+                };
+              }
+              return umbrella;
+            },
+          );
+          return {
+            ...state,
+            umbrellaIngredients: updatedUmbrellaIngredients,
+            isLoading: false,
+          };
+        });
+
         toast.success("Master ingredient added to umbrella successfully");
       } catch (error) {
         console.error("Error adding master ingredient to umbrella:", error);
@@ -327,11 +385,42 @@ export const useUmbrellaIngredientsStore = create<UmbrellaIngredientsStore>(
       try {
         set({ isLoading: true, error: null });
 
-        // This is a placeholder - in a real implementation, you would update your umbrella_ingredients table
-        // For now, we'll just refresh the data
-        await get().fetchUmbrellaIngredients();
+        // Remove the master ingredient from the umbrella in the database
+        const { error } = await supabase
+          .from("umbrella_ingredient_master_ingredients")
+          .delete()
+          .eq("umbrella_ingredient_id", umbrellaId)
+          .eq("master_ingredient_id", masterIngredientId);
 
-        set({ isLoading: false });
+        if (error) throw error;
+
+        // Update the umbrella ingredients in state
+        set((state) => {
+          const updatedUmbrellaIngredients = state.umbrellaIngredients.map(
+            (umbrella) => {
+              if (umbrella.id === umbrellaId) {
+                // Remove the master ingredient from this umbrella
+                return {
+                  ...umbrella,
+                  master_ingredients: umbrella.master_ingredients.filter(
+                    (id) => id !== masterIngredientId,
+                  ),
+                  master_ingredient_details:
+                    umbrella.master_ingredient_details.filter(
+                      (ingredient) => ingredient.id !== masterIngredientId,
+                    ),
+                };
+              }
+              return umbrella;
+            },
+          );
+          return {
+            ...state,
+            umbrellaIngredients: updatedUmbrellaIngredients,
+            isLoading: false,
+          };
+        });
+
         toast.success("Master ingredient removed from umbrella successfully");
       } catch (error) {
         console.error("Error removing master ingredient from umbrella:", error);
@@ -353,11 +442,38 @@ export const useUmbrellaIngredientsStore = create<UmbrellaIngredientsStore>(
       try {
         set({ isLoading: true, error: null });
 
-        // This is a placeholder - in a real implementation, you would update your umbrella_ingredients table
-        // For now, we'll just refresh the data
-        await get().fetchUmbrellaIngredients();
+        // Update the primary master ingredient in the database
+        const { error } = await supabase
+          .from("umbrella_ingredients")
+          .update({
+            primary_master_ingredient_id: masterIngredientId,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", umbrellaId);
 
-        set({ isLoading: false });
+        if (error) throw error;
+
+        // Update the umbrella ingredients in state
+        set((state) => {
+          const updatedUmbrellaIngredients = state.umbrellaIngredients.map(
+            (umbrella) => {
+              if (umbrella.id === umbrellaId) {
+                // Set the primary master ingredient
+                return {
+                  ...umbrella,
+                  primary_master_ingredient_id: masterIngredientId,
+                };
+              }
+              return umbrella;
+            },
+          );
+          return {
+            ...state,
+            umbrellaIngredients: updatedUmbrellaIngredients,
+            isLoading: false,
+          };
+        });
+
         toast.success("Primary master ingredient set successfully");
       } catch (error) {
         console.error("Error setting primary master ingredient:", error);

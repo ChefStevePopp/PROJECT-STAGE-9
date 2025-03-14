@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Search,
   Plus,
@@ -11,10 +11,14 @@ import {
   Link,
   FileText,
   DollarSign,
-  Package,
+  Umbrella,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useUmbrellaIngredientsStore } from "@/stores/umbrellaIngredientsStore";
 import { useMasterIngredientsStore } from "@/stores/masterIngredientsStore";
+import { useFoodRelationshipsStore } from "@/stores/foodRelationshipsStore";
+import { useOperationsStore } from "@/stores/operationsStore";
 import {
   UmbrellaIngredient,
   UmbrellaIngredientWithDetails,
@@ -44,49 +48,57 @@ export const UmbrellaIngredientManager: React.FC = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [newUmbrellaName, setNewUmbrellaName] = useState("");
+  const [newUmbrellaMajorGroup, setNewUmbrellaMajorGroup] = useState("");
   const [newUmbrellaCategory, setNewUmbrellaCategory] = useState("");
   const [newUmbrellaSubCategory, setNewUmbrellaSubCategory] = useState("");
   const [filteredUmbrellaIngredients, setFilteredUmbrellaIngredients] =
     useState<UmbrellaIngredientWithDetails[]>([]);
   const [expandedUmbrellas, setExpandedUmbrellas] = useState<string[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [subCategories, setSubCategories] = useState<string[]>([]);
   const [isLinkingIngredient, setIsLinkingIngredient] = useState<string | null>(
     null,
   );
 
-  // Load umbrella ingredients and master ingredients on mount
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(5);
+  const [totalPages, setTotalPages] = useState(1);
+
+  // Get food relationships for cascading dropdowns
+  const {
+    majorGroups,
+    categories,
+    subCategories,
+    fetchFoodRelationships,
+    isLoading: isLoadingRelationships,
+  } = useFoodRelationshipsStore();
+
+  // Get operations settings
+  const { settings, fetchSettings } = useOperationsStore();
+
+  // Load umbrella ingredients, master ingredients, and food relationships on mount
   useEffect(() => {
     fetchUmbrellaIngredients();
     fetchIngredients();
+    fetchFoodRelationships();
+    fetchSettings();
+  }, [
+    fetchUmbrellaIngredients,
+    fetchIngredients,
+    fetchFoodRelationships,
+    fetchSettings,
+  ]);
 
-    // Get unique categories and subcategories
-    const getCategories = async () => {
-      try {
-        const { supabase } = await import("@/lib/supabase");
-        const { data: categoryData, error: categoryError } = await supabase
-          .from("food_categories")
-          .select("name")
-          .order("name");
+  // Get filtered categories based on major group
+  const filteredCategories = useMemo(() => {
+    if (!newUmbrellaMajorGroup) return [];
+    return categories.filter((c) => c.group_id === newUmbrellaMajorGroup);
+  }, [categories, newUmbrellaMajorGroup]);
 
-        const { data: subCategoryData, error: subCategoryError } =
-          await supabase
-            .from("food_sub_categories")
-            .select("name")
-            .order("name");
-
-        if (categoryError) throw categoryError;
-        if (subCategoryError) throw subCategoryError;
-
-        setCategories(categoryData?.map((c) => c.name) || []);
-        setSubCategories(subCategoryData?.map((c) => c.name) || []);
-      } catch (err) {
-        console.error("Error fetching categories:", err);
-      }
-    };
-
-    getCategories();
-  }, [fetchUmbrellaIngredients, fetchIngredients]);
+  // Get filtered subcategories based on category
+  const filteredSubCategories = useMemo(() => {
+    if (!newUmbrellaCategory) return [];
+    return subCategories.filter((s) => s.category_id === newUmbrellaCategory);
+  }, [subCategories, newUmbrellaCategory]);
 
   // Filter umbrella ingredients based on search term
   useEffect(() => {
@@ -109,6 +121,18 @@ export const UmbrellaIngredientManager: React.FC = () => {
     setFilteredUmbrellaIngredients(filtered);
   }, [searchTerm, umbrellaIngredients]);
 
+  // Calculate total pages
+  useEffect(() => {
+    setTotalPages(Math.ceil(filteredUmbrellaIngredients.length / itemsPerPage));
+  }, [filteredUmbrellaIngredients, itemsPerPage]);
+
+  // Get paginated data
+  const paginatedUmbrellaIngredients = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredUmbrellaIngredients.slice(startIndex, endIndex);
+  }, [filteredUmbrellaIngredients, currentPage, itemsPerPage]);
+
   // Handle creating a new umbrella ingredient
   const handleCreateUmbrella = async () => {
     if (!newUmbrellaName || !user?.user_metadata?.organizationId) {
@@ -120,12 +144,14 @@ export const UmbrellaIngredientManager: React.FC = () => {
       await createUmbrellaIngredient({
         name: newUmbrellaName,
         organization_id: user.user_metadata.organizationId,
+        major_group: newUmbrellaMajorGroup || undefined,
         category: newUmbrellaCategory || undefined,
         sub_category: newUmbrellaSubCategory || undefined,
       });
 
       // Reset form
       setNewUmbrellaName("");
+      setNewUmbrellaMajorGroup("");
       setNewUmbrellaCategory("");
       setNewUmbrellaSubCategory("");
       setIsCreating(false);
@@ -144,12 +170,14 @@ export const UmbrellaIngredientManager: React.FC = () => {
     try {
       await updateUmbrellaIngredient(id, {
         name: newUmbrellaName,
+        major_group: newUmbrellaMajorGroup || undefined,
         category: newUmbrellaCategory || undefined,
         sub_category: newUmbrellaSubCategory || undefined,
       });
 
       // Reset form
       setNewUmbrellaName("");
+      setNewUmbrellaMajorGroup("");
       setNewUmbrellaCategory("");
       setNewUmbrellaSubCategory("");
       setIsEditing(null);
@@ -169,6 +197,7 @@ export const UmbrellaIngredientManager: React.FC = () => {
   const startEditing = (umbrella: UmbrellaIngredient) => {
     setIsEditing(umbrella.id);
     setNewUmbrellaName(umbrella.name);
+    setNewUmbrellaMajorGroup(umbrella.major_group || "");
     setNewUmbrellaCategory(umbrella.category || "");
     setNewUmbrellaSubCategory(umbrella.sub_category || "");
   };
@@ -187,27 +216,42 @@ export const UmbrellaIngredientManager: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-white">
-            Umbrella Ingredient Management
-          </h2>
-          <p className="text-gray-400">
-            Create and manage umbrella ingredients to group related products
+      <div>
+        <h2 className="text-xl font-bold text-white">
+          Umbrella Ingredient Management
+        </h2>
+        <p className="text-gray-400">
+          Create and manage umbrella ingredients to group related products
+        </p>
+      </div>
+
+      {/* Collapsible Info Box */}
+      <details className="w-full rounded-lg">
+        <summary className="cursor-pointer font-medium text-amber-400 hover:text-amber-300 transition-colors">
+          What are Umbrella Ingredients?
+        </summary>
+        <div className="mt-2 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+          <p className="text-sm text-gray-300">
+            Umbrella Ingredients let you group similar products that serve the
+            same purpose in your kitchen. For example, you might create an
+            "Olive Oil" umbrella that includes different brands, sizes, and
+            grades of olive oil. This helps with recipe costing, inventory
+            management, and makes it easier to substitute products when needed.
           </p>
-          <div className="mt-2 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-            <h3 className="text-sm font-medium text-amber-400 mb-1">
-              What are Umbrella Ingredients?
-            </h3>
-            <p className="text-sm text-gray-300">
-              Umbrella Ingredients let you group similar products that serve the
-              same purpose in your kitchen. For example, you might create an
-              "Olive Oil" umbrella that includes different brands, sizes, and
-              grades of olive oil. This helps with recipe costing, inventory
-              management, and makes it easier to substitute products when
-              needed.
-            </p>
-          </div>
+        </div>
+      </details>
+
+      {/* Search Bar and Action Buttons */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search umbrella ingredients..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="input pl-10 w-full"
+          />
         </div>
         <div className="flex gap-2">
           <button
@@ -224,88 +268,130 @@ export const UmbrellaIngredientManager: React.FC = () => {
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-        <input
-          type="text"
-          placeholder="Search umbrella ingredients..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="input pl-10 w-full"
-        />
-      </div>
-
       {/* Create New Umbrella Ingredient Form */}
       {isCreating && (
-        <div className="card p-6 bg-gray-800/50">
-          <h3 className="text-lg font-medium text-white mb-4">
-            Create New Umbrella Ingredient
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">
-                Name
-              </label>
-              <input
-                type="text"
-                value={newUmbrellaName}
-                onChange={(e) => setNewUmbrellaName(e.target.value)}
-                placeholder="Enter umbrella ingredient name"
-                className="input w-full"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">
-                Category
-              </label>
-              <select
-                value={newUmbrellaCategory}
-                onChange={(e) => setNewUmbrellaCategory(e.target.value)}
-                className="input w-full"
+        <div className="card p-4 bg-gray-900 border border-gray-700">
+          <div className="flex flex-col space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-md font-medium text-white">
+                <Plus className="w-4 h-4 inline-block mr-1 text-rose-400" />
+                Create New Umbrella Ingredient
+              </h3>
+              <button
+                onClick={() => setIsCreating(false)}
+                className="text-gray-400 hover:text-gray-300"
               >
-                <option value="">Select a category</option>
-                {categories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">
-                Sub-Category
-              </label>
-              <select
-                value={newUmbrellaSubCategory}
-                onChange={(e) => setNewUmbrellaSubCategory(e.target.value)}
-                className="input w-full"
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Name <span className="text-rose-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newUmbrellaName}
+                  onChange={(e) => setNewUmbrellaName(e.target.value)}
+                  placeholder="Enter umbrella ingredient name"
+                  className="input w-full"
+                  required
+                />
+                <div className="text-xs text-gray-500 mt-1">
+                  The name for this umbrella group (e.g. "Olive Oil")
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Major Group
+                </label>
+                <select
+                  value={newUmbrellaMajorGroup}
+                  onChange={(e) => {
+                    setNewUmbrellaMajorGroup(e.target.value);
+                    setNewUmbrellaCategory(""); // Reset category when major group changes
+                    setNewUmbrellaSubCategory(""); // Reset sub-category when major group changes
+                  }}
+                  className="input w-full"
+                >
+                  <option value="">Select a major group</option>
+                  {majorGroups?.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="text-xs text-gray-500 mt-1">
+                  The major group this umbrella belongs to
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Category
+                </label>
+                <select
+                  value={newUmbrellaCategory}
+                  onChange={(e) => {
+                    setNewUmbrellaCategory(e.target.value);
+                    setNewUmbrellaSubCategory(""); // Reset sub-category when category changes
+                  }}
+                  className="input w-full"
+                  disabled={!newUmbrellaMajorGroup} // Disable if no major group selected
+                >
+                  <option value="">Select a category</option>
+                  {filteredCategories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="text-xs text-gray-500 mt-1">
+                  The category within the major group
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Sub-Category
+                </label>
+                <select
+                  value={newUmbrellaSubCategory}
+                  onChange={(e) => setNewUmbrellaSubCategory(e.target.value)}
+                  className="input w-full"
+                  disabled={!newUmbrellaCategory} // Disable if no category selected
+                >
+                  <option value="">Select a sub-category</option>
+                  {filteredSubCategories.map((subCategory) => (
+                    <option key={subCategory.id} value={subCategory.id}>
+                      {subCategory.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="text-xs text-gray-500 mt-1">
+                  Optional: A more specific classification
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => setIsCreating(false)}
+                className="btn-ghost"
               >
-                <option value="">Select a sub-category</option>
-                {subCategories.map((subCategory) => (
-                  <option key={subCategory} value={subCategory}>
-                    {subCategory}
-                  </option>
-                ))}
-              </select>
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateUmbrella}
+                className="btn-primary"
+                disabled={!newUmbrellaName}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create Umbrella Ingredient
+              </button>
             </div>
-          </div>
-
-          <div className="flex justify-end gap-2 mt-4">
-            <button onClick={() => setIsCreating(false)} className="btn-ghost">
-              Cancel
-            </button>
-            <button
-              onClick={handleCreateUmbrella}
-              className="btn-primary"
-              disabled={!newUmbrellaName}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Create Umbrella Ingredient
-            </button>
           </div>
         </div>
       )}
@@ -340,10 +426,10 @@ export const UmbrellaIngredientManager: React.FC = () => {
             )}
           </div>
         ) : (
-          filteredUmbrellaIngredients.map((umbrella) => (
+          paginatedUmbrellaIngredients.map((umbrella) => (
             <div key={umbrella.id} className="card p-4 bg-gray-800/50">
               {/* Umbrella Header */}
-              <div className="flex items-center justify-between mb-3">
+              <div className="mb-3">
                 {isEditing === umbrella.id ? (
                   <div className="flex-1 flex items-center gap-4">
                     <input
@@ -354,14 +440,34 @@ export const UmbrellaIngredientManager: React.FC = () => {
                       placeholder="Umbrella ingredient name"
                     />
                     <select
+                      value={newUmbrellaMajorGroup}
+                      onChange={(e) => {
+                        setNewUmbrellaMajorGroup(e.target.value);
+                        setNewUmbrellaCategory("");
+                        setNewUmbrellaSubCategory("");
+                      }}
+                      className="input w-40"
+                    >
+                      <option value="">Select major group</option>
+                      {majorGroups?.map((group) => (
+                        <option key={group.id} value={group.id}>
+                          {group.name}
+                        </option>
+                      ))}
+                    </select>
+                    <select
                       value={newUmbrellaCategory}
-                      onChange={(e) => setNewUmbrellaCategory(e.target.value)}
-                      className="input w-48"
+                      onChange={(e) => {
+                        setNewUmbrellaCategory(e.target.value);
+                        setNewUmbrellaSubCategory("");
+                      }}
+                      className="input w-40"
+                      disabled={!newUmbrellaMajorGroup}
                     >
                       <option value="">Select category</option>
-                      {categories.map((category) => (
-                        <option key={category} value={category}>
-                          {category}
+                      {filteredCategories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
                         </option>
                       ))}
                     </select>
@@ -370,12 +476,13 @@ export const UmbrellaIngredientManager: React.FC = () => {
                       onChange={(e) =>
                         setNewUmbrellaSubCategory(e.target.value)
                       }
-                      className="input w-48"
+                      className="input w-40"
+                      disabled={!newUmbrellaCategory}
                     >
                       <option value="">Select sub-category</option>
-                      {subCategories.map((subCategory) => (
-                        <option key={subCategory} value={subCategory}>
-                          {subCategory}
+                      {filteredSubCategories.map((subCategory) => (
+                        <option key={subCategory.id} value={subCategory.id}>
+                          {subCategory.name}
                         </option>
                       ))}
                     </select>
@@ -396,55 +503,112 @@ export const UmbrellaIngredientManager: React.FC = () => {
                   </div>
                 ) : (
                   <>
-                    <h3 className="text-lg font-medium text-white flex items-center gap-2">
-                      <Package className="w-5 h-5 text-primary-400" />
-                      {umbrella.name}
-                      <span className="text-xs bg-primary-500/20 text-primary-400 px-2 py-0.5 rounded-full">
-                        Umbrella Ingredient
-                      </span>
-                    </h3>
-                    <div className="flex items-center gap-2 text-sm text-gray-400">
-                      {umbrella.category && (
-                        <span className="bg-gray-700/50 px-2 py-0.5 rounded">
-                          {umbrella.category}
+                    {/* Line 1: Name and badge on left, action buttons on right */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Umbrella className="w-5 h-5 text-rose-400 flex-shrink-0" />
+                        <h3 className="text-lg font-medium text-white">
+                          {umbrella.name}
+                        </h3>
+                        <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full">
+                          Umbrella Ingredient
                         </span>
-                      )}
-                      {umbrella.sub_category && (
-                        <span className="bg-gray-700/50 px-2 py-0.5 rounded">
-                          {umbrella.sub_category}
-                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => toggleExpanded(umbrella.id)}
+                          className="p-1.5 text-gray-400 hover:text-blue-400 transition-colors rounded-md hover:bg-gray-700/30"
+                          title={
+                            expandedUmbrellas.includes(umbrella.id)
+                              ? "Hide linked items"
+                              : "Show linked items"
+                          }
+                        >
+                          <Link className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => startEditing(umbrella)}
+                          className="p-1.5 text-gray-400 hover:text-amber-400 transition-colors rounded-md hover:bg-gray-700/30"
+                          title="Edit umbrella ingredient"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => deleteUmbrellaIngredient(umbrella.id)}
+                          className="p-1.5 text-gray-400 hover:text-rose-400 transition-colors rounded-md hover:bg-gray-700/30"
+                          title="Delete umbrella ingredient"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Line 2: Categories on left, linked ingredients preview on right */}
+                    <div className="flex justify-between items-center mb-2">
+                      <div className="flex items-center gap-2 text-sm text-gray-400">
+                        {umbrella.major_group_name && (
+                          <span className="bg-gray-700/50 px-2 py-0.5 rounded">
+                            {umbrella.major_group_name}
+                          </span>
+                        )}
+                        {umbrella.category_name && (
+                          <span className="bg-gray-700/50 px-2 py-0.5 rounded">
+                            {umbrella.category_name}
+                          </span>
+                        )}
+                        {umbrella.sub_category_name && (
+                          <span className="bg-gray-700/50 px-2 py-0.5 rounded">
+                            {umbrella.sub_category_name}
+                          </span>
+                        )}
+                        {!umbrella.category_name &&
+                          !umbrella.sub_category_name &&
+                          !umbrella.major_group_name && (
+                            <span className="text-gray-500 italic text-xs">
+                              No categories assigned
+                            </span>
+                          )}
+                      </div>
+                      {umbrella.master_ingredient_details.length > 0 && (
+                        <div className="flex flex-wrap gap-1 justify-end">
+                          {umbrella.master_ingredient_details
+                            .slice(0, 2)
+                            .map((ingredient) => (
+                              <span
+                                key={ingredient.id}
+                                className="text-xs bg-gray-700/50 px-2 py-0.5 rounded-full text-gray-300"
+                              >
+                                {ingredient.product}
+                              </span>
+                            ))}
+                          {umbrella.master_ingredient_details.length > 2 && (
+                            <span className="text-xs bg-gray-700/50 px-2 py-0.5 rounded-full text-gray-300">
+                              +{umbrella.master_ingredient_details.length - 2}{" "}
+                              more
+                            </span>
+                          )}
+                        </div>
                       )}
                     </div>
-                    <div className="flex gap-2 ml-auto">
+
+                    {/* Line 3: Show linked items details button on right */}
+                    <div className="flex justify-end">
                       <button
                         onClick={() => toggleExpanded(umbrella.id)}
-                        className="btn-ghost text-sm"
+                        className="text-xs text-gray-400 hover:text-blue-400 transition-colors"
                       >
-                        <Link className="w-4 h-4 mr-1" />
                         {expandedUmbrellas.includes(umbrella.id)
-                          ? "Hide Linked Items"
-                          : "Show Linked Items"}
-                      </button>
-                      <button
-                        onClick={() => startEditing(umbrella)}
-                        className="btn-ghost text-sm"
-                      >
-                        <Edit className="w-4 h-4 mr-1" />
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => deleteUmbrellaIngredient(umbrella.id)}
-                        className="btn-ghost text-sm text-rose-400 hover:text-rose-300"
-                      >
-                        <Trash2 className="w-4 h-4 mr-1" />
-                        Delete
+                          ? "Hide details"
+                          : "Show details"}
                       </button>
                     </div>
                   </>
                 )}
               </div>
 
-              {/* Linked Master Ingredients */}
+              {/* We've moved the linked ingredients preview to line 2 */}
+
+              {/* Linked Master Ingredients (expanded view) */}
               {expandedUmbrellas.includes(umbrella.id) && (
                 <div className="mt-4 border-t border-gray-700 pt-4">
                   <div className="flex items-center justify-between mb-3">
@@ -524,7 +688,7 @@ export const UmbrellaIngredientManager: React.FC = () => {
                                         ingredient.id,
                                       )
                                     }
-                                    className="form-radio h-3 w-3 text-primary-500"
+                                    className="form-radio h-3 w-3 text-rose-500"
                                   />
                                 </td>
                                 <td className="px-4 py-2 text-xs text-right">
@@ -566,6 +730,37 @@ export const UmbrellaIngredientManager: React.FC = () => {
               )}
             </div>
           ))
+        )}
+
+        {/* Pagination Controls */}
+        {filteredUmbrellaIngredients.length > 0 && (
+          <div className="flex items-center justify-between mt-6">
+            <div className="text-sm text-gray-400">
+              Showing {paginatedUmbrellaIngredients.length} of{" "}
+              {filteredUmbrellaIngredients.length} umbrella ingredients
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="p-2 rounded-lg bg-gray-800 text-gray-400 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <span className="text-sm text-gray-300">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                onClick={() =>
+                  setCurrentPage(Math.min(totalPages, currentPage + 1))
+                }
+                disabled={currentPage === totalPages}
+                className="p-2 rounded-lg bg-gray-800 text-gray-400 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
         )}
       </div>
 

@@ -32,7 +32,7 @@ export const AdminLayout: React.FC = () => {
               <UserMenu />
             </div>
           </div>
-          <div className="p-4 md:p-6 lg:p-8 max-w-full">
+          <div className="p-4 md:p-6 lg:p-8 w-full overflow-x-auto">
             <Outlet />
           </div>
         </div>

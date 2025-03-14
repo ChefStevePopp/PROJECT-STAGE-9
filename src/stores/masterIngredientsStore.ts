@@ -12,10 +12,17 @@ interface MasterIngredientsStore {
     id: string,
     updates: Partial<MasterIngredient>,
   ) => Promise<void>;
+  updateIngredientByItemCode: (
+    itemCode: string,
+    updates: Partial<MasterIngredient>,
+  ) => Promise<void>;
+  bulkUpdatePrices: (
+    priceUpdates: Array<{ itemCode: string; newPrice: number }>,
+  ) => Promise<void>;
 }
 
 export const useMasterIngredientsStore = create<MasterIngredientsStore>(
-  (set) => ({
+  (set, get) => ({
     ingredients: [],
     isLoading: false,
     error: null,
@@ -157,6 +164,65 @@ export const useMasterIngredientsStore = create<MasterIngredientsStore>(
         await store.fetchIngredients();
       } catch (error) {
         console.error("Error updating ingredient:", error);
+        throw error;
+      }
+    },
+    updateIngredientByItemCode: async (itemCode, updates) => {
+      try {
+        console.log(`Updating ingredient with item code ${itemCode}:`, updates);
+
+        const { error } = await supabase
+          .from("master_ingredients")
+          .update({
+            ...updates,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("item_code", itemCode);
+
+        if (error) throw error;
+
+        // Refresh the ingredients list
+        await get().fetchIngredients();
+      } catch (error) {
+        console.error(
+          `Error updating ingredient with item code ${itemCode}:`,
+          error,
+        );
+        throw error;
+      }
+    },
+
+    bulkUpdatePrices: async (priceUpdates) => {
+      try {
+        console.log(
+          "Bulk updating prices for",
+          priceUpdates.length,
+          "ingredients",
+        );
+
+        // Process updates sequentially to avoid potential conflicts
+        for (const update of priceUpdates) {
+          const { error } = await supabase
+            .from("master_ingredients")
+            .update({
+              current_price: update.newPrice,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("item_code", update.itemCode);
+
+          if (error) {
+            console.error(
+              `Error updating price for item code ${update.itemCode}:`,
+              error,
+            );
+            throw error;
+          }
+        }
+
+        // Refresh the ingredients list after all updates
+        await get().fetchIngredients();
+      } catch (error) {
+        console.error("Error in bulk price update:", error);
         throw error;
       }
     },
