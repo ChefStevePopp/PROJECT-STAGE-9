@@ -2458,16 +2458,50 @@ export type Database = {
       }
       umbrella_ingredients_with_details: {
         Row: {
+          allergen_celery: boolean | null
+          allergen_citrus: boolean | null
+          allergen_crustacean: boolean | null
+          allergen_custom1_active: boolean | null
+          allergen_custom1_name: string | null
+          allergen_custom2_active: boolean | null
+          allergen_custom2_name: string | null
+          allergen_custom3_active: boolean | null
+          allergen_custom3_name: string | null
+          allergen_egg: boolean | null
+          allergen_fish: boolean | null
+          allergen_garlic: boolean | null
+          allergen_gluten: boolean | null
+          allergen_hot_pepper: boolean | null
+          allergen_milk: boolean | null
+          allergen_mushroom: boolean | null
+          allergen_mustard: boolean | null
+          allergen_nitrite: boolean | null
+          allergen_notes: string | null
+          allergen_onion: boolean | null
+          allergen_peanut: boolean | null
+          allergen_pork: boolean | null
+          allergen_sesame: boolean | null
+          allergen_shellfish: boolean | null
+          allergen_soy: boolean | null
+          allergen_sulphite: boolean | null
+          allergen_treenut: boolean | null
+          allergen_wheat: boolean | null
           category: string | null
+          category_name: string | null
+          cost_per_recipe_unit: number | null
           created_at: string | null
           description: string | null
           id: string | null
           major_group: string | null
+          major_group_name: string | null
           master_ingredients: Json | null
           name: string | null
           organization_id: string | null
           primary_master_ingredient_id: string | null
+          recipe_unit_type: string | null
+          storage_area: string | null
           sub_category: string | null
+          sub_category_name: string | null
           updated_at: string | null
         }
         Relationships: [

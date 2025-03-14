@@ -224,7 +224,6 @@ export const UmbrellaIngredientManager: React.FC = () => {
           Create and manage umbrella ingredients to group related products
         </p>
       </div>
-
       {/* Collapsible Info Box */}
       <details className="w-full rounded-lg">
         <summary className="cursor-pointer font-medium text-amber-400 hover:text-amber-300 transition-colors">
@@ -240,7 +239,6 @@ export const UmbrellaIngredientManager: React.FC = () => {
           </p>
         </div>
       </details>
-
       {/* Search Bar and Action Buttons */}
       <div className="flex items-center justify-between gap-4">
         <div className="relative flex-1">
@@ -267,7 +265,6 @@ export const UmbrellaIngredientManager: React.FC = () => {
           </button>
         </div>
       </div>
-
       {/* Create New Umbrella Ingredient Form */}
       {isCreating && (
         <div className="card p-4 bg-gray-900 border border-gray-700">
@@ -395,7 +392,6 @@ export const UmbrellaIngredientManager: React.FC = () => {
           </div>
         </div>
       )}
-
       {/* Umbrella Ingredients List */}
       <div className="space-y-4">
         {isLoading ? (
@@ -510,7 +506,7 @@ export const UmbrellaIngredientManager: React.FC = () => {
                         <h3 className="text-lg font-medium text-white">
                           {umbrella.name}
                         </h3>
-                        <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full">
+                        <span className="text-xs bg-slate-500/20 text-slate-400 px-2 py-0.5 rounded-full">
                           Umbrella Ingredient
                         </span>
                       </div>
@@ -639,19 +635,25 @@ export const UmbrellaIngredientManager: React.FC = () => {
                             <th className="px-4 py-2 text-left text-xs font-medium text-gray-400">
                               Product Name
                             </th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-400">
+                            <th className="px-4 py-2 text-xs font-medium text-gray-400 text-center">
                               Item Code
                             </th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-400">
+                            <th className="px-4 py-2 text-center text-xs font-medium text-gray-400">
                               Vendor
                             </th>
-                            <th className="px-4 py-2 text-right text-xs font-medium text-gray-400">
+                            <th className="px-4 py-2 text-center text-xs font-medium text-gray-400">
                               Current Price
+                            </th>
+                            <th className="px-4 py-2 text-center text-xs font-medium text-gray-400">
+                              Recipe Unit
+                            </th>
+                            <th className="px-4 py-2 text-center text-xs font-medium text-gray-400">
+                              Cost per Recipe Unit
                             </th>
                             <th className="px-4 py-2 text-center text-xs font-medium text-gray-400">
                               Primary
                             </th>
-                            <th className="px-4 py-2 text-right text-xs font-medium text-gray-400">
+                            <th className="px-4 py-2 text-center text-xs font-medium text-gray-400">
                               Actions
                             </th>
                           </tr>
@@ -663,17 +665,23 @@ export const UmbrellaIngredientManager: React.FC = () => {
                                 key={ingredient.id}
                                 className="hover:bg-gray-700/30"
                               >
-                                <td className="px-4 py-2 text-xs text-white">
+                                <td className="px-4 py-2 text-left text-xs text-white">
                                   {ingredient.product}
                                 </td>
-                                <td className="px-4 py-2 text-xs text-gray-300">
+                                <td className="px-4 py-2 text-center text-xs text-gray-300">
                                   {ingredient.item_code}
                                 </td>
-                                <td className="px-4 py-2 text-xs text-gray-300">
+                                <td className="px-4 py-2 text-center text-xs text-gray-300">
                                   {ingredient.vendor}
                                 </td>
-                                <td className="px-4 py-2 text-xs text-right text-gray-300">
+                                <td className="px-4 py-2 text-center text-xs text-gray-300">
                                   ${ingredient.current_price.toFixed(2)}
+                                </td>
+                                <td className="text-xs text-center text-gray-300 px-0.5 py-2">
+                                  {ingredient.recipe_unit_type || "EA"}
+                                </td>
+                                <td className="px-4 py-2 text-center text-bold text-xs text-green-400">
+                                  ${ingredient.cost_per_recipe_unit.toFixed(2)}
                                 </td>
                                 <td className="px-4 py-2 text-xs text-center">
                                   <input
@@ -763,7 +771,6 @@ export const UmbrellaIngredientManager: React.FC = () => {
           </div>
         )}
       </div>
-
       {/* Link Master Ingredient Modal */}
       {isLinkingIngredient && (
         <LinkMasterIngredientModal
