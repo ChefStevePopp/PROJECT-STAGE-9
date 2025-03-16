@@ -22,6 +22,7 @@ interface ExcelDataGridProps<T> {
   onCategoryChange?: (category: string) => void;
   type?: string;
   onRowClick?: (row: T) => void;
+  onRefresh?: () => void;
 }
 
 // Helper to get nested value from object
@@ -38,6 +39,7 @@ export function ExcelDataGrid<T>({
   onCategoryChange,
   type = "default",
   onRowClick,
+  onRefresh,
 }: ExcelDataGridProps<T>) {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -280,29 +282,10 @@ export function ExcelDataGrid<T>({
   };
 
   return (
-    <div className="overflow-hidden">
+    <div className="w-full overflow-hidden">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between mb-4 gap-4">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" />
-          <input
-            type="text"
-            value={globalFilter}
-            onChange={(e) => setGlobalFilter(e.target.value)}
-            placeholder="Search all columns..."
-            className="input pl-10 w-full"
-          />
-          {globalFilter && (
-            <button
-              onClick={() => setGlobalFilter("")}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-300"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2">
+        <div className="flex-1 flex items-center gap-2">
           <button
             onClick={() => setShowFilterPanel(!showFilterPanel)}
             className={`btn-ghost ${activeFilters.length > 0 ? "text-primary-400" : ""}`}
@@ -323,6 +306,17 @@ export function ExcelDataGrid<T>({
             <Download className="w-4 h-4 mr-2" />
             Export
           </button>
+
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              className="btn-ghost flex items-center gap-1"
+              title="Refresh data"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Refresh
+            </button>
+          )}
         </div>
       </div>
 
@@ -444,7 +438,7 @@ export function ExcelDataGrid<T>({
 
       {/* Data Table */}
       <div className="overflow-x-auto rounded-lg border border-gray-700">
-        <table className="w-full">
+        <table className="w-full min-w-[800px]">
           <thead className="bg-slate-900 text-gray-500">
             <tr>
               {columns
@@ -501,7 +495,8 @@ export function ExcelDataGrid<T>({
                         key={`${rowIndex}-${column.key}`}
                         className="px-4 py-2 text-sm text-gray-300"
                         style={{
-                          width: `${columnWidths[column.key] || column.width}px`,
+                          minWidth: `${columnWidths[column.key] || column.width}px`,
+                          maxWidth: `${(columnWidths[column.key] || column.width) * 1.5}px`,
                         }}
                       >
                         {renderCell(column, row)}

@@ -1628,7 +1628,36 @@ export type Database = {
       }
       umbrella_ingredients: {
         Row: {
+          allergen_celery: boolean
+          allergen_citrus: boolean
+          allergen_crustacean: boolean
+          allergen_custom1_active: boolean | null
+          allergen_custom1_name: string | null
+          allergen_custom2_active: boolean | null
+          allergen_custom2_name: string | null
+          allergen_custom3_active: boolean | null
+          allergen_custom3_name: string | null
+          allergen_egg: boolean
+          allergen_fish: boolean
+          allergen_garlic: boolean
+          allergen_gluten: boolean
+          allergen_hot_pepper: boolean
+          allergen_milk: boolean
+          allergen_mushroom: boolean
+          allergen_mustard: boolean
+          allergen_nitrite: boolean
+          allergen_notes: string | null
+          allergen_onion: boolean
+          allergen_peanut: boolean
+          allergen_pork: boolean
+          allergen_sesame: boolean
+          allergen_shellfish: boolean
+          allergen_soy: boolean
+          allergen_sulphite: boolean
+          allergen_treenut: boolean
+          allergen_wheat: boolean
           category: string | null
+          cost_per_recipe_unit: number | null
           created_at: string | null
           description: string | null
           id: string
@@ -1636,11 +1665,42 @@ export type Database = {
           name: string
           organization_id: string
           primary_master_ingredient_id: string | null
+          recipe_unit_type: string | null
+          storage_area: string | null
           sub_category: string | null
           updated_at: string | null
         }
         Insert: {
+          allergen_celery?: boolean
+          allergen_citrus?: boolean
+          allergen_crustacean?: boolean
+          allergen_custom1_active?: boolean | null
+          allergen_custom1_name?: string | null
+          allergen_custom2_active?: boolean | null
+          allergen_custom2_name?: string | null
+          allergen_custom3_active?: boolean | null
+          allergen_custom3_name?: string | null
+          allergen_egg?: boolean
+          allergen_fish?: boolean
+          allergen_garlic?: boolean
+          allergen_gluten?: boolean
+          allergen_hot_pepper?: boolean
+          allergen_milk?: boolean
+          allergen_mushroom?: boolean
+          allergen_mustard?: boolean
+          allergen_nitrite?: boolean
+          allergen_notes?: string | null
+          allergen_onion?: boolean
+          allergen_peanut?: boolean
+          allergen_pork?: boolean
+          allergen_sesame?: boolean
+          allergen_shellfish?: boolean
+          allergen_soy?: boolean
+          allergen_sulphite?: boolean
+          allergen_treenut?: boolean
+          allergen_wheat?: boolean
           category?: string | null
+          cost_per_recipe_unit?: number | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -1648,11 +1708,42 @@ export type Database = {
           name: string
           organization_id: string
           primary_master_ingredient_id?: string | null
+          recipe_unit_type?: string | null
+          storage_area?: string | null
           sub_category?: string | null
           updated_at?: string | null
         }
         Update: {
+          allergen_celery?: boolean
+          allergen_citrus?: boolean
+          allergen_crustacean?: boolean
+          allergen_custom1_active?: boolean | null
+          allergen_custom1_name?: string | null
+          allergen_custom2_active?: boolean | null
+          allergen_custom2_name?: string | null
+          allergen_custom3_active?: boolean | null
+          allergen_custom3_name?: string | null
+          allergen_egg?: boolean
+          allergen_fish?: boolean
+          allergen_garlic?: boolean
+          allergen_gluten?: boolean
+          allergen_hot_pepper?: boolean
+          allergen_milk?: boolean
+          allergen_mushroom?: boolean
+          allergen_mustard?: boolean
+          allergen_nitrite?: boolean
+          allergen_notes?: string | null
+          allergen_onion?: boolean
+          allergen_peanut?: boolean
+          allergen_pork?: boolean
+          allergen_sesame?: boolean
+          allergen_shellfish?: boolean
+          allergen_soy?: boolean
+          allergen_sulphite?: boolean
+          allergen_treenut?: boolean
+          allergen_wheat?: boolean
           category?: string | null
+          cost_per_recipe_unit?: number | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -1660,6 +1751,8 @@ export type Database = {
           name?: string
           organization_id?: string
           primary_master_ingredient_id?: string | null
+          recipe_unit_type?: string | null
+          storage_area?: string | null
           sub_category?: string | null
           updated_at?: string | null
         }
@@ -2494,7 +2587,7 @@ export type Database = {
           id: string | null
           major_group: string | null
           major_group_name: string | null
-          master_ingredients: Json | null
+          master_ingredients: string[] | null
           name: string | null
           organization_id: string | null
           primary_master_ingredient_id: string | null

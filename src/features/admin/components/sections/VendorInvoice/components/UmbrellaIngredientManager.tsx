@@ -15,10 +15,10 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { useUmbrellaIngredientsStore } from "@/stores/umbrellaIngredientsStore";
 import { useMasterIngredientsStore } from "@/stores/masterIngredientsStore";
 import { useFoodRelationshipsStore } from "@/stores/foodRelationshipsStore";
 import { useOperationsStore } from "@/stores/operationsStore";
+import { useUmbrellaIngredientsStore } from "@/stores/umbrellaIngredientsStore";
 import {
   UmbrellaIngredient,
   UmbrellaIngredientWithDetails,
@@ -27,6 +27,7 @@ import { MasterIngredient } from "@/types/master-ingredient";
 import { useAuth } from "@/hooks/useAuth";
 import toast from "react-hot-toast";
 import { LinkMasterIngredientModal } from "./LinkMasterIngredientModal";
+import { supabase } from "@/lib/supabase";
 
 export const UmbrellaIngredientManager: React.FC = () => {
   const {
@@ -37,10 +38,11 @@ export const UmbrellaIngredientManager: React.FC = () => {
     deleteUmbrellaIngredient,
     addMasterIngredientToUmbrella,
     removeMasterIngredientFromUmbrella,
-    setPrimaryMasterIngredient,
     isLoading,
     error,
   } = useUmbrellaIngredientsStore();
+
+  const { setUmbrellaIngredientFromPrimary } = useMasterIngredientsStore();
   const { ingredients, fetchIngredients } = useMasterIngredientsStore();
   const { user } = useAuth();
 
@@ -507,10 +509,71 @@ export const UmbrellaIngredientManager: React.FC = () => {
                           {umbrella.name}
                         </h3>
                         <span className="text-xs bg-slate-500/20 text-slate-400 px-2 py-0.5 rounded-full">
-                          Umbrella Ingredient
+                          Umbrella ID: {umbrella.id.substring(0, 8)}...
                         </span>
                       </div>
                       <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            // Save the current umbrella ingredient data and sync with master ingredients
+                            updateUmbrellaIngredient(umbrella.id, {
+                              name: umbrella.name,
+                              description: umbrella.description,
+                              major_group: umbrella.major_group,
+                              category: umbrella.category,
+                              sub_category: umbrella.sub_category,
+                              primary_master_ingredient_id:
+                                umbrella.primary_master_ingredient_id,
+                              // Include all allergen data
+                              allergen_peanut: umbrella.allergen_peanut,
+                              allergen_crustacean: umbrella.allergen_crustacean,
+                              allergen_treenut: umbrella.allergen_treenut,
+                              allergen_shellfish: umbrella.allergen_shellfish,
+                              allergen_sesame: umbrella.allergen_sesame,
+                              allergen_soy: umbrella.allergen_soy,
+                              allergen_fish: umbrella.allergen_fish,
+                              allergen_wheat: umbrella.allergen_wheat,
+                              allergen_milk: umbrella.allergen_milk,
+                              allergen_sulphite: umbrella.allergen_sulphite,
+                              allergen_egg: umbrella.allergen_egg,
+                              allergen_gluten: umbrella.allergen_gluten,
+                              allergen_mustard: umbrella.allergen_mustard,
+                              allergen_celery: umbrella.allergen_celery,
+                              allergen_garlic: umbrella.allergen_garlic,
+                              allergen_onion: umbrella.allergen_onion,
+                              allergen_nitrite: umbrella.allergen_nitrite,
+                              allergen_mushroom: umbrella.allergen_mushroom,
+                              allergen_hot_pepper: umbrella.allergen_hot_pepper,
+                              allergen_citrus: umbrella.allergen_citrus,
+                              allergen_pork: umbrella.allergen_pork,
+                              allergen_custom1_name:
+                                umbrella.allergen_custom1_name,
+                              allergen_custom1_active:
+                                umbrella.allergen_custom1_active,
+                              allergen_custom2_name:
+                                umbrella.allergen_custom2_name,
+                              allergen_custom2_active:
+                                umbrella.allergen_custom2_active,
+                              allergen_custom3_name:
+                                umbrella.allergen_custom3_name,
+                              allergen_custom3_active:
+                                umbrella.allergen_custom3_active,
+                              allergen_notes: umbrella.allergen_notes,
+                              storage_area: umbrella.storage_area,
+                              recipe_unit_type: umbrella.recipe_unit_type,
+                              cost_per_recipe_unit:
+                                umbrella.cost_per_recipe_unit,
+                            }).then(() => {
+                              toast.success(
+                                "Umbrella ingredient details saved and synced with master ingredients",
+                              );
+                            });
+                          }}
+                          className="p-1.5 text-gray-400 hover:text-green-400 transition-colors rounded-md hover:bg-gray-700/30"
+                          title="Save umbrella ingredient details and sync with master ingredients"
+                        >
+                          <Save className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => toggleExpanded(umbrella.id)}
                           className="p-1.5 text-gray-400 hover:text-blue-400 transition-colors rounded-md hover:bg-gray-700/30"
@@ -690,12 +753,22 @@ export const UmbrellaIngredientManager: React.FC = () => {
                                       umbrella.primary_master_ingredient_id ===
                                       ingredient.id
                                     }
-                                    onChange={() =>
-                                      setPrimaryMasterIngredient(
-                                        umbrella.id,
-                                        ingredient.id,
-                                      )
-                                    }
+                                    onChange={() => {
+                                      // Allow changing the primary ingredient selection (UI only)
+                                      // Update the filtered list to show the selection
+                                      setFilteredUmbrellaIngredients((prev) =>
+                                        prev.map((u) => {
+                                          if (u.id === umbrella.id) {
+                                            return {
+                                              ...u,
+                                              primary_master_ingredient_id:
+                                                ingredient.id,
+                                            };
+                                          }
+                                          return u;
+                                        }),
+                                      );
+                                    }}
                                     className="form-radio h-3 w-3 text-rose-500"
                                   />
                                 </td>
@@ -732,6 +805,221 @@ export const UmbrellaIngredientManager: React.FC = () => {
                           )}
                         </tbody>
                       </table>
+
+                      {/* Add Save Primary Ingredient Button */}
+                      <div className="flex justify-end mt-4">
+                        <button
+                          onClick={async () => {
+                            if (!umbrella.primary_master_ingredient_id) {
+                              toast.error(
+                                "Please select a primary ingredient first",
+                              );
+                              return;
+                            }
+
+                            // Find the selected master ingredient to get its data
+                            const primaryIngredient =
+                              umbrella.master_ingredient_details.find(
+                                (ing) =>
+                                  ing.id ===
+                                  umbrella.primary_master_ingredient_id,
+                              );
+
+                            if (!primaryIngredient) {
+                              toast.error(
+                                "Could not find the selected primary ingredient",
+                              );
+                              return;
+                            }
+
+                            console.log("Selected primary ingredient:", {
+                              id: primaryIngredient.id,
+                              product: primaryIngredient.product,
+                              item_code: primaryIngredient.item_code,
+                            });
+
+                            try {
+                              // Step 1: Fetch the primary ingredient data from master_ingredients table
+                              const { data: masterIngredientData, error } =
+                                await supabase
+                                  .from("master_ingredients_with_categories")
+                                  .select("*")
+                                  .eq(
+                                    "id",
+                                    umbrella.primary_master_ingredient_id,
+                                  )
+                                  .single();
+
+                              if (error) {
+                                console.error(
+                                  "Error fetching primary ingredient:",
+                                  error,
+                                );
+                                toast.error(
+                                  "Failed to fetch primary ingredient data",
+                                );
+                                return;
+                              }
+
+                              if (!masterIngredientData) {
+                                toast.error(
+                                  "Failed to fetch primary ingredient data",
+                                );
+                                return;
+                              }
+
+                              // Step 2: Update the umbrella ingredient with the fetched data
+                              updateUmbrellaIngredient(umbrella.id, {
+                                // Keep the existing name, description, and primary_master_ingredient_id
+                                name: umbrella.name,
+                                description: umbrella.description,
+                                primary_master_ingredient_id:
+                                  umbrella.primary_master_ingredient_id,
+
+                                // Copy data from the primary ingredient
+                                major_group:
+                                  masterIngredientData.major_group || "",
+                                category: masterIngredientData.category || "",
+                                sub_category:
+                                  masterIngredientData.sub_category || "",
+                                storage_area:
+                                  masterIngredientData.storage_area || "",
+                                recipe_unit_type:
+                                  masterIngredientData.recipe_unit_type || "",
+                                cost_per_recipe_unit:
+                                  masterIngredientData.cost_per_recipe_unit ||
+                                  0,
+
+                                // Copy all allergen data from the primary ingredient
+                                allergen_peanut: Boolean(
+                                  masterIngredientData.allergen_peanut,
+                                ),
+                                allergen_crustacean: Boolean(
+                                  masterIngredientData.allergen_crustacean,
+                                ),
+                                allergen_treenut: Boolean(
+                                  masterIngredientData.allergen_treenut,
+                                ),
+                                allergen_shellfish: Boolean(
+                                  masterIngredientData.allergen_shellfish,
+                                ),
+                                allergen_sesame: Boolean(
+                                  masterIngredientData.allergen_sesame,
+                                ),
+                                allergen_soy: Boolean(
+                                  masterIngredientData.allergen_soy,
+                                ),
+                                allergen_fish: Boolean(
+                                  masterIngredientData.allergen_fish,
+                                ),
+                                allergen_wheat: Boolean(
+                                  masterIngredientData.allergen_wheat,
+                                ),
+                                allergen_milk: Boolean(
+                                  masterIngredientData.allergen_milk,
+                                ),
+                                allergen_sulphite: Boolean(
+                                  masterIngredientData.allergen_sulphite,
+                                ),
+                                allergen_egg: Boolean(
+                                  masterIngredientData.allergen_egg,
+                                ),
+                                allergen_gluten: Boolean(
+                                  masterIngredientData.allergen_gluten,
+                                ),
+                                allergen_mustard: Boolean(
+                                  masterIngredientData.allergen_mustard,
+                                ),
+                                allergen_celery: Boolean(
+                                  masterIngredientData.allergen_celery,
+                                ),
+                                allergen_garlic: Boolean(
+                                  masterIngredientData.allergen_garlic,
+                                ),
+                                allergen_onion: Boolean(
+                                  masterIngredientData.allergen_onion,
+                                ),
+                                allergen_nitrite: Boolean(
+                                  masterIngredientData.allergen_nitrite,
+                                ),
+                                allergen_mushroom: Boolean(
+                                  masterIngredientData.allergen_mushroom,
+                                ),
+                                allergen_hot_pepper: Boolean(
+                                  masterIngredientData.allergen_hot_pepper,
+                                ),
+                                allergen_citrus: Boolean(
+                                  masterIngredientData.allergen_citrus,
+                                ),
+                                allergen_pork: Boolean(
+                                  masterIngredientData.allergen_pork,
+                                ),
+                                allergen_custom1_name:
+                                  masterIngredientData.allergen_custom1_name ||
+                                  null,
+                                allergen_custom1_active: Boolean(
+                                  masterIngredientData.allergen_custom1_active,
+                                ),
+                                allergen_custom2_name:
+                                  masterIngredientData.allergen_custom2_name ||
+                                  null,
+                                allergen_custom2_active: Boolean(
+                                  masterIngredientData.allergen_custom2_active,
+                                ),
+                                allergen_custom3_name:
+                                  masterIngredientData.allergen_custom3_name ||
+                                  null,
+                                allergen_custom3_active: Boolean(
+                                  masterIngredientData.allergen_custom3_active,
+                                ),
+                                allergen_notes:
+                                  masterIngredientData.allergen_notes || null,
+                              })
+                                .then(() => {
+                                  // Step 3: Show success message that primary data was fetched
+                                  toast.success("Primary Data Fetched");
+
+                                  // Step 4: Sync the data to the master ingredient using the primary_master_ingredient_id
+                                  return useMasterIngredientsStore
+                                    .getState()
+                                    .updatePrimaryMasterIngredientFromUmbrella(
+                                      umbrella.id,
+                                    );
+                                })
+                                .then(() => {
+                                  // Show success message for the sync
+                                  toast.success(
+                                    "Primary ingredient updated and synced with master ingredients",
+                                  );
+
+                                  // Force refresh after setting primary ingredient
+                                  setTimeout(
+                                    () => fetchUmbrellaIngredients(),
+                                    500,
+                                  );
+                                })
+                                .catch((error) => {
+                                  console.error("Error syncing data:", error);
+                                  toast.error(
+                                    "Failed to sync data with primary ingredient",
+                                  );
+                                });
+                            } catch (error) {
+                              console.error(
+                                "Error in primary ingredient update:",
+                                error,
+                              );
+                              toast.error(
+                                "Failed to update primary ingredient",
+                              );
+                            }
+                          }}
+                          className="btn bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-md text-sm flex items-center gap-2"
+                        >
+                          <Save className="w-4 h-4" />
+                          Save Primary Ingredient
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

@@ -21,6 +21,7 @@ export const MasterIngredientList = () => {
   const [searchTerm, setSearchTerm] = React.useState("");
 
   const { ingredients, fetchIngredients } = useMasterIngredientsStore();
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
 
   const filteredIngredients = React.useMemo(() => {
     return ingredients.filter(
@@ -72,6 +73,19 @@ export const MasterIngredientList = () => {
       console.error("Error updating ingredient:", error);
       toast.error("Failed to update ingredient");
       throw error;
+    }
+  };
+
+  const handleRefresh = async () => {
+    try {
+      setIsRefreshing(true);
+      await fetchIngredients();
+      toast.success("Ingredients refreshed");
+    } catch (error) {
+      console.error("Error refreshing ingredients:", error);
+      toast.error("Failed to refresh ingredients");
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -150,9 +164,11 @@ export const MasterIngredientList = () => {
       </div>
 
       <ExcelDataGrid
-        data={filteredIngredients}
+        data={isRefreshing ? [] : filteredIngredients}
         columns={masterIngredientColumns}
         onRowClick={(row) => setEditingIngredient(row)}
+        onRefresh={handleRefresh}
+        isLoading={isRefreshing}
       />
 
       {(editingIngredient || newIngredient) && (
