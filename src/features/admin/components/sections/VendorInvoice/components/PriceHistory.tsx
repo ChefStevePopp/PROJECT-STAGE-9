@@ -2,30 +2,17 @@ import React, { useState, useEffect } from "react";
 import {
   TrendingUp,
   LineChart,
-  ArrowUpRight,
-  ArrowDownRight,
   History,
   AlertTriangle,
   RefreshCw,
-  Calendar,
   DollarSign,
   TrendingDown,
-  BarChart3,
 } from "lucide-react";
 import { useVendorPriceChangesStore } from "@/stores/vendorPriceChangesStore";
 import { useVendorCodesStore } from "@/stores/vendorCodesStore";
-import { QuickStatCard } from "./QuickStatCard";
-
-interface PriceChange {
-  id: string;
-  vendor: string;
-  item_code: string;
-  product_name: string;
-  old_price: number;
-  new_price: number;
-  change_percent: number;
-  date: string;
-}
+import { ExcelDataGrid } from "@/shared/components/ExcelDataGrid";
+import { priceHistoryColumns } from "./PriceHistory/columns";
+import { PriceChangeCell } from "./PriceHistory/PriceChangeCell";
 
 export const PriceHistory = () => {
   const [daysToShow, setDaysToShow] = useState(45);
@@ -101,6 +88,11 @@ export const PriceHistory = () => {
 
     priceStats.totalChanges = increases.length + decreases.length;
   }
+
+  // Filter out price changes with 0% change
+  const filteredPriceChanges = priceChanges.filter(
+    (change) => change.change_percent !== 0,
+  );
 
   if (isLoading) {
     return (
@@ -249,82 +241,12 @@ export const PriceHistory = () => {
           </button>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-900/50">
-              <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">
-                  Date
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">
-                  Vendor
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">
-                  Item Code
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">
-                  Product
-                </th>
-                <th className="px-4 py-3 text-right text-sm font-medium text-gray-400">
-                  Old Price
-                </th>
-                <th className="px-4 py-3 text-right text-sm font-medium text-gray-400">
-                  New Price
-                </th>
-                <th className="px-4 py-3 text-right text-sm font-medium text-gray-400">
-                  Change
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-800">
-              {priceChanges.length > 0 ? (
-                priceChanges.map((change) => (
-                  <tr key={change.id} className="hover:bg-gray-800/30">
-                    <td className="px-4 py-3 text-sm text-gray-300">
-                      {new Date(change.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-300">
-                      {change.vendor_id}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-300">
-                      {change.item_code}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-300">
-                      {change.product_name}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-300 text-right">
-                      ${change.old_price.toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-300 text-right">
-                      ${change.new_price.toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-right">
-                      <span
-                        className={`inline-flex items-center gap-1 ${change.change_percent > 0 ? "text-rose-400" : "text-emerald-400"}`}
-                      >
-                        {change.change_percent > 0 ? (
-                          <ArrowUpRight className="w-4 h-4" />
-                        ) : (
-                          <ArrowDownRight className="w-4 h-4" />
-                        )}
-                        {Math.abs(change.change_percent)}%
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-4 py-8 text-center text-gray-400"
-                  >
-                    No price changes found in the last {daysToShow} days
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        {/* Excel Data Grid */}
+        <ExcelDataGrid
+          columns={priceHistoryColumns}
+          data={filteredPriceChanges}
+          onRefresh={() => fetchPriceChanges(daysToShow)}
+        />
       </div>
     </div>
   );

@@ -9,6 +9,9 @@ interface ResizableHeaderProps {
   sortDirection: "asc" | "desc" | null;
   isFiltered: boolean;
   onToggleFilter: () => void;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
+  onDragOver?: () => void;
 }
 
 export const ResizableHeader: React.FC<ResizableHeaderProps> = ({
@@ -18,6 +21,9 @@ export const ResizableHeader: React.FC<ResizableHeaderProps> = ({
   sortDirection,
   isFiltered,
   onToggleFilter,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
 }) => {
   const [isResizing, setIsResizing] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -60,6 +66,10 @@ export const ResizableHeader: React.FC<ResizableHeaderProps> = ({
       ref={headerRef}
       className="relative flex items-center h-full cursor-pointer select-none"
       style={{ width: `${column.width}px` }}
+      draggable={true}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
     >
       <div
         className="flex-1 flex items-center justify-between px-4 py-2"
@@ -73,17 +83,7 @@ export const ResizableHeader: React.FC<ResizableHeaderProps> = ({
           {sortDirection === "desc" && (
             <ArrowDown className="w-4 h-4 text-primary-400" />
           )}
-          {column.type !== "imageUrl" && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleFilter();
-              }}
-              className={`ml-2 ${isFiltered ? "text-primary-400" : "text-gray-500 hover:text-gray-300"}`}
-            >
-              <Filter className="w-4 h-4" />
-            </button>
-          )}
+          {/* Filter icons removed as requested */}
         </div>
       </div>
       <div

@@ -14,6 +14,7 @@ import { PaginationControls } from "./PaginationControls";
 import { ColumnFilter } from "./ColumnFilter";
 import { ResizableHeader } from "./ResizableHeader";
 import { AllergenCell } from "@/features/admin/components/sections/recipe/MasterIngredientList/components/AllergenCell";
+import { PriceChangeCell } from "@/features/admin/components/sections/VendorInvoice/components/PriceHistory/PriceChangeCell";
 
 interface ExcelDataGridProps<T> {
   columns: ExcelColumn[];
@@ -58,21 +59,66 @@ export function ExcelDataGrid<T>({
   const [globalFilter, setGlobalFilter] = useState("");
 
   // Column customization
-  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
-  const [visibleColumns, setVisibleColumns] = useState<string[]>(
-    columns.map((col) => col.key),
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(
+    () => {
+      // Try to load from localStorage
+      const savedWidths = localStorage.getItem(`excel-grid-widths-${type}`);
+      return savedWidths ? JSON.parse(savedWidths) : {};
+    },
   );
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
+    // Try to load from localStorage
+    const savedColumns = localStorage.getItem(`excel-grid-columns-${type}`);
+    return savedColumns
+      ? JSON.parse(savedColumns)
+      : columns.map((col) => col.key);
+  });
+  // Column order state
+  const [columnOrder, setColumnOrder] = useState<string[]>(() => {
+    // Try to load from localStorage
+    const savedOrder = localStorage.getItem(`excel-grid-order-${type}`);
+    return savedOrder ? JSON.parse(savedOrder) : columns.map((col) => col.key);
+  });
   const [showColumnSettings, setShowColumnSettings] = useState(false);
+  const [draggingColumn, setDraggingColumn] = useState<string | null>(null);
 
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [filters, globalFilter, categoryFilter]);
 
-  // Initialize visible columns when columns change
+  // Initialize columns when columns change
   useEffect(() => {
-    setVisibleColumns(columns.map((col) => col.key));
-  }, [columns]);
+    const columnKeys = columns.map((col) => col.key);
+    setVisibleColumns(columnKeys);
+
+    // Only reset column order if we don't have a saved order or if new columns are added
+    setColumnOrder((prev) => {
+      // If we have new columns that aren't in the current order, add them to the end
+      const newColumns = columnKeys.filter((key) => !prev.includes(key));
+      if (newColumns.length > 0) {
+        const updatedOrder = [
+          ...prev.filter((key) => columnKeys.includes(key)),
+          ...newColumns,
+        ];
+        localStorage.setItem(
+          `excel-grid-order-${type}`,
+          JSON.stringify(updatedOrder),
+        );
+        return updatedOrder;
+      }
+      // Otherwise filter out any columns that no longer exist
+      const filteredOrder = prev.filter((key) => columnKeys.includes(key));
+      if (filteredOrder.length !== prev.length) {
+        localStorage.setItem(
+          `excel-grid-order-${type}`,
+          JSON.stringify(filteredOrder),
+        );
+        return filteredOrder;
+      }
+      return prev;
+    });
+  }, [columns, type]);
 
   // Apply all filters and sorting to data
   const filteredData = useMemo(() => {
@@ -197,20 +243,35 @@ export function ExcelDataGrid<T>({
 
   // Handle column resize
   const handleColumnResize = (columnKey: string, width: number) => {
-    setColumnWidths((prev) => ({
-      ...prev,
-      [columnKey]: width,
-    }));
+    setColumnWidths((prev) => {
+      const newWidths = {
+        ...prev,
+        [columnKey]: width,
+      };
+      // Save to localStorage
+      localStorage.setItem(
+        `excel-grid-widths-${type}`,
+        JSON.stringify(newWidths),
+      );
+      return newWidths;
+    });
   };
 
   // Toggle column visibility
   const toggleColumnVisibility = (columnKey: string) => {
     setVisibleColumns((prev) => {
+      let newColumns;
       if (prev.includes(columnKey)) {
-        return prev.filter((key) => key !== columnKey);
+        newColumns = prev.filter((key) => key !== columnKey);
       } else {
-        return [...prev, columnKey];
+        newColumns = [...prev, columnKey];
       }
+      // Save to localStorage
+      localStorage.setItem(
+        `excel-grid-columns-${type}`,
+        JSON.stringify(newColumns),
+      );
+      return newColumns;
     });
   };
 
@@ -242,10 +303,13 @@ export function ExcelDataGrid<T>({
 
     switch (column.type) {
       case "currency":
-        return `$${Number(value).toFixed(2)}`;
+        return `${Number(value).toFixed(2)}`;
 
       case "date":
         return new Date(value).toLocaleDateString();
+
+      case "percent":
+        return `${Number(value).toFixed(1)}%`;
 
       case "imageUrl":
         return value ? (
@@ -276,6 +340,10 @@ export function ExcelDataGrid<T>({
     // Check if there's a custom cell renderer for this column
     if (column.type === "allergen") {
       return <AllergenCell ingredient={row} />;
+    }
+
+    if (column.type === "percent" && column.key === "change_percent") {
+      return <PriceChangeCell value={getNestedValue(row, column.key)} />;
     }
 
     return renderCellContent(row, column);
@@ -370,18 +438,43 @@ export function ExcelDataGrid<T>({
             <h3 className="text-white font-medium">Column Settings</h3>
             <div className="flex gap-4">
               <button
-                onClick={() => setColumnWidths({})}
+                onClick={() => {
+                  setColumnWidths({});
+                  localStorage.removeItem(`excel-grid-widths-${type}`);
+                }}
                 className="text-sm text-gray-400 hover:text-white flex items-center gap-1"
               >
                 <RefreshCw className="w-4 h-4" />
                 Reset widths
               </button>
               <button
-                onClick={() => setVisibleColumns(columns.map((col) => col.key))}
+                onClick={() => {
+                  const allColumns = columns.map((col) => col.key);
+                  setVisibleColumns(allColumns);
+                  localStorage.setItem(
+                    `excel-grid-columns-${type}`,
+                    JSON.stringify(allColumns),
+                  );
+                }}
                 className="text-sm text-gray-400 hover:text-white flex items-center gap-1"
               >
                 <Eye className="w-4 h-4" />
                 Show all
+              </button>
+              <button
+                onClick={() => {
+                  // Reset column order to default (same as columns array)
+                  const defaultOrder = columns.map((col) => col.key);
+                  setColumnOrder(defaultOrder);
+                  localStorage.setItem(
+                    `excel-grid-order-${type}`,
+                    JSON.stringify(defaultOrder),
+                  );
+                }}
+                className="text-sm text-gray-400 hover:text-white flex items-center gap-1"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Reset order
               </button>
               <button
                 onClick={() => setShowColumnSettings(false)}
@@ -393,45 +486,109 @@ export function ExcelDataGrid<T>({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {columns.map((column) => (
-              <div key={column.key} className="flex flex-col space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id={`col-visible-${column.key}`}
-                      checked={visibleColumns.includes(column.key)}
-                      onChange={() => toggleColumnVisibility(column.key)}
-                      className="mr-2"
-                    />
-                    <label
-                      htmlFor={`col-visible-${column.key}`}
-                      className="text-sm text-gray-300"
-                    >
-                      {column.name}
-                    </label>
-                  </div>
-                </div>
+          <div className="flex flex-col space-y-4">
+            <div className="text-sm text-gray-400 mb-2">
+              <p>
+                Drag and drop column headers to reorder columns. Check/uncheck
+                to show/hide columns.
+              </p>
+            </div>
 
-                {visibleColumns.includes(column.key) && (
-                  <div className="flex items-center ml-6">
-                    <span className="text-xs text-gray-500 mr-2">Width:</span>
-                    <input
-                      type="number"
-                      min="50"
-                      max="500"
-                      value={columnWidths[column.key] || column.width}
-                      onChange={(e) =>
-                        handleColumnResize(column.key, Number(e.target.value))
-                      }
-                      className="input w-20 py-1 text-sm"
-                    />
-                    <span className="ml-1 text-gray-500">px</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {columns.map((column) => (
+                <div key={column.key} className="flex flex-col space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id={`col-visible-${column.key}`}
+                        checked={visibleColumns.includes(column.key)}
+                        onChange={() => toggleColumnVisibility(column.key)}
+                        className="mr-2"
+                      />
+                      <label
+                        htmlFor={`col-visible-${column.key}`}
+                        className="text-sm text-gray-300"
+                      >
+                        {column.name}
+                      </label>
+                    </div>
                   </div>
-                )}
+
+                  {visibleColumns.includes(column.key) && (
+                    <div className="flex items-center ml-6">
+                      <span className="text-xs text-gray-500 mr-2">Width:</span>
+                      <input
+                        type="number"
+                        min="50"
+                        max="500"
+                        value={columnWidths[column.key] || column.width}
+                        onChange={(e) =>
+                          handleColumnResize(column.key, Number(e.target.value))
+                        }
+                        className="input w-20 py-1 text-sm"
+                      />
+                      <span className="ml-1 text-gray-500">px</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 border-t border-gray-700 pt-4">
+              <h4 className="text-white font-medium mb-2">Column Order</h4>
+              <div className="bg-gray-800 p-3 rounded-md">
+                <div className="flex flex-wrap gap-2">
+                  {columnOrder
+                    .filter((columnKey) => visibleColumns.includes(columnKey))
+                    .map((columnKey, index) => {
+                      const column = columns.find(
+                        (col) => col.key === columnKey,
+                      );
+                      if (!column) return null;
+                      return (
+                        <div
+                          key={column.key}
+                          className="bg-gray-700 text-gray-300 px-3 py-1 rounded-md text-sm flex items-center"
+                          draggable={true}
+                          onDragStart={() => setDraggingColumn(column.key)}
+                          onDragEnd={() => setDraggingColumn(null)}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            if (
+                              draggingColumn &&
+                              draggingColumn !== column.key
+                            ) {
+                              // Reorder columns
+                              const newOrder = [...columnOrder];
+                              const fromIndex =
+                                newOrder.indexOf(draggingColumn);
+                              const toIndex = newOrder.indexOf(column.key);
+                              if (fromIndex !== -1 && toIndex !== -1) {
+                                newOrder.splice(fromIndex, 1);
+                                newOrder.splice(toIndex, 0, draggingColumn);
+                                setColumnOrder(newOrder);
+                                // Save to localStorage
+                                localStorage.setItem(
+                                  `excel-grid-order-${type}`,
+                                  JSON.stringify(newOrder),
+                                );
+                              }
+                            }
+                            setDraggingColumn(null);
+                          }}
+                        >
+                          {column.name}
+                        </div>
+                      );
+                    })}
+                </div>
+                <div className="text-xs text-gray-500 mt-2">
+                  Drag and drop to reorder columns
+                </div>
               </div>
-            ))}
+            </div>
           </div>
         </div>
       )}
@@ -441,43 +598,81 @@ export function ExcelDataGrid<T>({
         <table className="w-full min-w-[800px]">
           <thead className="bg-slate-900 text-gray-500">
             <tr>
-              {columns
-                .filter((column) => visibleColumns.includes(column.key))
-                .map((column) => (
-                  <th
-                    key={column.key}
-                    className="p-0 text-sm text-center text-bold"
-                  >
-                    <ResizableHeader
-                      column={{
-                        ...column,
-                        width: columnWidths[column.key] || column.width,
-                      }}
-                      onResize={(width) =>
-                        handleColumnResize(column.key, width)
-                      }
-                      onSort={() => handleSort(column.key)}
-                      sortDirection={
-                        sortColumn === column.key ? sortDirection : null
-                      }
-                      isFiltered={activeFilters.includes(column.key)}
-                      onToggleFilter={() => {
-                        if (activeFilters.includes(column.key)) {
-                          handleFilterChange(column.key, null);
-                        } else {
-                          setShowFilterPanel(true);
-                          // Focus the filter input for this column
-                          setTimeout(() => {
-                            const input = document.querySelector(
-                              `[data-filter-key="${column.key}"]`,
-                            );
-                            if (input) (input as HTMLInputElement).focus();
-                          }, 100);
+              {/* Use columnOrder to determine the order of columns */}
+              {columnOrder
+                .filter((columnKey) => visibleColumns.includes(columnKey))
+                .map((columnKey) => {
+                  const column = columns.find((col) => col.key === columnKey);
+                  if (!column) return null;
+                  return (
+                    <th
+                      key={column.key}
+                      className="p-0 text-sm text-center text-bold"
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        if (draggingColumn && draggingColumn !== column.key) {
+                          // Highlight the drop target
+                          e.currentTarget.classList.add("bg-gray-700");
                         }
                       }}
-                    />
-                  </th>
-                ))}
+                      onDragLeave={(e) => {
+                        e.currentTarget.classList.remove("bg-gray-700");
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.currentTarget.classList.remove("bg-gray-700");
+                        if (draggingColumn && draggingColumn !== column.key) {
+                          // Reorder columns
+                          const newOrder = [...columnOrder];
+                          const fromIndex = newOrder.indexOf(draggingColumn);
+                          const toIndex = newOrder.indexOf(column.key);
+                          if (fromIndex !== -1 && toIndex !== -1) {
+                            newOrder.splice(fromIndex, 1);
+                            newOrder.splice(toIndex, 0, draggingColumn);
+                            setColumnOrder(newOrder);
+                            // Save to localStorage
+                            localStorage.setItem(
+                              `excel-grid-order-${type}`,
+                              JSON.stringify(newOrder),
+                            );
+                          }
+                        }
+                        setDraggingColumn(null);
+                      }}
+                    >
+                      <ResizableHeader
+                        column={{
+                          ...column,
+                          width: columnWidths[column.key] || column.width,
+                        }}
+                        onResize={(width) =>
+                          handleColumnResize(column.key, width)
+                        }
+                        onSort={() => handleSort(column.key)}
+                        sortDirection={
+                          sortColumn === column.key ? sortDirection : null
+                        }
+                        isFiltered={activeFilters.includes(column.key)}
+                        onToggleFilter={() => {
+                          if (activeFilters.includes(column.key)) {
+                            handleFilterChange(column.key, null);
+                          } else {
+                            setShowFilterPanel(true);
+                            // Focus the filter input for this column
+                            setTimeout(() => {
+                              const input = document.querySelector(
+                                `[data-filter-key="${column.key}"]`,
+                              );
+                              if (input) (input as HTMLInputElement).focus();
+                            }, 100);
+                          }
+                        }}
+                        onDragStart={() => setDraggingColumn(column.key)}
+                        onDragEnd={() => setDraggingColumn(null)}
+                      />
+                    </th>
+                  );
+                })}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-700">
@@ -488,28 +683,34 @@ export function ExcelDataGrid<T>({
                   className={`hover:bg-gray-700/50 transition-colors ${onRowClick ? "cursor-pointer" : ""}`}
                   onClick={() => onRowClick && onRowClick(row)}
                 >
-                  {columns
-                    .filter((column) => visibleColumns.includes(column.key))
-                    .map((column) => (
-                      <td
-                        key={`${rowIndex}-${column.key}`}
-                        className="px-4 py-2 text-sm text-gray-300"
-                        style={{
-                          minWidth: `${columnWidths[column.key] || column.width}px`,
-                          maxWidth: `${(columnWidths[column.key] || column.width) * 1.5}px`,
-                        }}
-                      >
-                        {renderCell(column, row)}
-                      </td>
-                    ))}
+                  {columnOrder
+                    .filter((columnKey) => visibleColumns.includes(columnKey))
+                    .map((columnKey) => {
+                      const column = columns.find(
+                        (col) => col.key === columnKey,
+                      );
+                      if (!column) return null;
+                      return (
+                        <td
+                          key={`${rowIndex}-${column.key}`}
+                          className="px-4 py-2 text-sm text-gray-300"
+                          style={{
+                            minWidth: `${columnWidths[column.key] || column.width}px`,
+                            maxWidth: `${(columnWidths[column.key] || column.width) * 1.5}px`,
+                          }}
+                        >
+                          {renderCell(column, row)}
+                        </td>
+                      );
+                    })}
                 </tr>
               ))
             ) : (
               <tr>
                 <td
                   colSpan={
-                    columns.filter((column) =>
-                      visibleColumns.includes(column.key),
+                    columnOrder.filter((columnKey) =>
+                      visibleColumns.includes(columnKey),
                     ).length
                   }
                   className="px-4 py-8 text-center text-gray-500"
