@@ -1,11 +1,11 @@
-import { create } from 'zustand';
-import { supabase } from '@/lib/supabase';
-import type { 
-  PriceChange, 
-  CodeChange, 
-  VendorInvoiceStats 
-} from '@/types/vendor-invoice';
-import toast from 'react-hot-toast';
+import { create } from "zustand";
+import { supabase } from "@/lib/supabase";
+import type {
+  PriceChange,
+  CodeChange,
+  VendorInvoiceStats,
+} from "@/types/vendor-invoice";
+import toast from "react-hot-toast";
 
 interface VendorInvoiceStore {
   priceChanges: PriceChange[];
@@ -13,12 +13,17 @@ interface VendorInvoiceStore {
   stats: VendorInvoiceStats;
   isLoading: boolean;
   error: string | null;
+  lastInvoice: { filename?: string; created_at: string } | null;
   fetchInvoiceData: (vendorId: string) => Promise<void>;
+  fetchLastInvoice: (vendorId: string) => Promise<void>;
   savePriceChanges: (changes: PriceChange[]) => Promise<void>;
   saveCodeChanges: (changes: CodeChange[]) => Promise<void>;
   approvePriceChange: (changeId: string) => Promise<void>;
   rejectPriceChange: (changeId: string) => Promise<void>;
-  handleCodeChange: (changeId: string, action: 'update' | 'new_item') => Promise<void>;
+  handleCodeChange: (
+    changeId: string,
+    action: "update" | "new_item",
+  ) => Promise<void>;
 }
 
 export const useVendorInvoiceStore = create<VendorInvoiceStore>((set, get) => ({
@@ -28,205 +33,259 @@ export const useVendorInvoiceStore = create<VendorInvoiceStore>((set, get) => ({
     itemsToUpdate: 0,
     averageChange: 0,
     potentialSavings: 0,
-    issueCount: 0
+    issueCount: 0,
   },
   isLoading: false,
   error: null,
+  lastInvoice: null,
 
   fetchInvoiceData: async (vendorId: string) => {
     set({ isLoading: true, error: null });
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user?.user_metadata?.organizationId) {
-        throw new Error('No organization ID found');
+        throw new Error("No organization ID found");
       }
 
       const [priceChangesRes, codeChangesRes] = await Promise.all([
         supabase
-          .from('vendor_price_changes')
-          .select('*')
-          .eq('organization_id', user.user_metadata.organizationId)
-          .eq('vendor_id', vendorId)
-          .order('invoice_date', { ascending: false }),
+          .from("vendor_price_changes")
+          .select("*")
+          .eq("organization_id", user.user_metadata.organizationId)
+          .eq("vendor_id", vendorId)
+          .order("invoice_date", { ascending: false }),
         supabase
-          .from('vendor_code_changes')
-          .select('*')
-          .eq('organization_id', user.user_metadata.organizationId)
-          .eq('vendor_id', vendorId)
-          .order('invoice_date', { ascending: false })
+          .from("vendor_code_changes")
+          .select("*")
+          .eq("organization_id", user.user_metadata.organizationId)
+          .eq("vendor_id", vendorId)
+          .order("invoice_date", { ascending: false }),
       ]);
 
       if (priceChangesRes.error) throw priceChangesRes.error;
       if (codeChangesRes.error) throw codeChangesRes.error;
 
-      set({ 
+      set({
         priceChanges: priceChangesRes.data,
         codeChanges: codeChangesRes.data,
-        error: null 
+        error: null,
       });
     } catch (error) {
-      console.error('Error fetching invoice data:', error);
-      set({ error: 'Failed to load invoice data' });
+      console.error("Error fetching invoice data:", error);
+      set({ error: "Failed to load invoice data" });
     } finally {
       set({ isLoading: false });
     }
   },
 
-  savePriceChanges: async (changes) => {
+  fetchLastInvoice: async (vendorId: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user?.user_metadata?.organizationId) {
-        throw new Error('No organization ID found');
+        throw new Error("No organization ID found");
       }
 
-      const { error } = await supabase
-        .from('vendor_price_changes')
-        .upsert(
-          changes.map(change => ({
-            organization_id: user.user_metadata.organizationId,
-            ...change
-          }))
-        );
+      const { data, error } = await supabase
+        .from("vendor_imports")
+        .select("file_name, created_at")
+        .eq("organization_id", user.user_metadata.organizationId)
+        .eq("vendor_id", vendorId)
+        .eq("status", "completed")
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        set({
+          lastInvoice: {
+            filename: data[0].file_name,
+            created_at: data[0].created_at,
+          },
+        });
+      } else {
+        set({ lastInvoice: null });
+      }
+    } catch (error) {
+      console.error("Error fetching last invoice:", error);
+      set({ lastInvoice: null });
+    }
+  },
+
+  savePriceChanges: async (changes) => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user?.user_metadata?.organizationId) {
+        throw new Error("No organization ID found");
+      }
+
+      const { error } = await supabase.from("vendor_price_changes").upsert(
+        changes.map((change) => ({
+          organization_id: user.user_metadata.organizationId,
+          ...change,
+        })),
+      );
 
       if (error) throw error;
       set({ priceChanges: changes });
-      toast.success('Price changes saved successfully');
+      toast.success("Price changes saved successfully");
     } catch (error) {
-      console.error('Error saving price changes:', error);
-      toast.error('Failed to save price changes');
+      console.error("Error saving price changes:", error);
+      toast.error("Failed to save price changes");
     }
   },
 
   saveCodeChanges: async (changes) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user?.user_metadata?.organizationId) {
-        throw new Error('No organization ID found');
+        throw new Error("No organization ID found");
       }
 
-      const { error } = await supabase
-        .from('vendor_code_changes')
-        .upsert(
-          changes.map(change => ({
-            organization_id: user.user_metadata.organizationId,
-            ...change
-          }))
-        );
+      const { error } = await supabase.from("vendor_code_changes").upsert(
+        changes.map((change) => ({
+          organization_id: user.user_metadata.organizationId,
+          ...change,
+        })),
+      );
 
       if (error) throw error;
       set({ codeChanges: changes });
-      toast.success('Code changes saved successfully');
+      toast.success("Code changes saved successfully");
     } catch (error) {
-      console.error('Error saving code changes:', error);
-      toast.error('Failed to save code changes');
+      console.error("Error saving code changes:", error);
+      toast.error("Failed to save code changes");
     }
   },
 
   approvePriceChange: async (changeId) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user?.user_metadata?.organizationId) {
-        throw new Error('No organization ID found');
+        throw new Error("No organization ID found");
       }
 
       const { error } = await supabase
-        .from('vendor_price_changes')
+        .from("vendor_price_changes")
         .update({
           approved: true,
           approved_by: user.id,
-          approved_at: new Date().toISOString()
+          approved_at: new Date().toISOString(),
         })
-        .eq('id', changeId)
-        .eq('organization_id', user.user_metadata.organizationId);
+        .eq("id", changeId)
+        .eq("organization_id", user.user_metadata.organizationId);
 
       if (error) throw error;
 
-      set(state => ({
-        priceChanges: state.priceChanges.map(change =>
+      set((state) => ({
+        priceChanges: state.priceChanges.map((change) =>
           change.id === changeId
-            ? { ...change, approved: true, approvedBy: user.id, approvedAt: new Date().toISOString() }
-            : change
-        )
+            ? {
+                ...change,
+                approved: true,
+                approvedBy: user.id,
+                approvedAt: new Date().toISOString(),
+              }
+            : change,
+        ),
       }));
 
-      toast.success('Price change approved');
+      toast.success("Price change approved");
     } catch (error) {
-      console.error('Error approving price change:', error);
-      toast.error('Failed to approve price change');
+      console.error("Error approving price change:", error);
+      toast.error("Failed to approve price change");
     }
   },
 
   rejectPriceChange: async (changeId) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user?.user_metadata?.organizationId) {
-        throw new Error('No organization ID found');
+        throw new Error("No organization ID found");
       }
 
       const { error } = await supabase
-        .from('vendor_price_changes')
+        .from("vendor_price_changes")
         .update({
           rejected_by: user.id,
-          rejected_at: new Date().toISOString()
+          rejected_at: new Date().toISOString(),
         })
-        .eq('id', changeId)
-        .eq('organization_id', user.user_metadata.organizationId);
+        .eq("id", changeId)
+        .eq("organization_id", user.user_metadata.organizationId);
 
       if (error) throw error;
 
-      set(state => ({
-        priceChanges: state.priceChanges.map(change =>
+      set((state) => ({
+        priceChanges: state.priceChanges.map((change) =>
           change.id === changeId
-            ? { ...change, rejectedBy: user.id, rejectedAt: new Date().toISOString() }
-            : change
-        )
+            ? {
+                ...change,
+                rejectedBy: user.id,
+                rejectedAt: new Date().toISOString(),
+              }
+            : change,
+        ),
       }));
 
-      toast.success('Price change rejected');
+      toast.success("Price change rejected");
     } catch (error) {
-      console.error('Error rejecting price change:', error);
-      toast.error('Failed to reject price change');
+      console.error("Error rejecting price change:", error);
+      toast.error("Failed to reject price change");
     }
   },
 
   handleCodeChange: async (changeId, action) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user?.user_metadata?.organizationId) {
-        throw new Error('No organization ID found');
+        throw new Error("No organization ID found");
       }
 
       const { error } = await supabase
-        .from('vendor_code_changes')
+        .from("vendor_code_changes")
         .update({
           handled: true,
           handled_by: user.id,
           handled_at: new Date().toISOString(),
-          action
+          action,
         })
-        .eq('id', changeId)
-        .eq('organization_id', user.user_metadata.organizationId);
+        .eq("id", changeId)
+        .eq("organization_id", user.user_metadata.organizationId);
 
       if (error) throw error;
 
-      set(state => ({
-        codeChanges: state.codeChanges.map(change =>
+      set((state) => ({
+        codeChanges: state.codeChanges.map((change) =>
           change.id === changeId
-            ? { 
-                ...change, 
-                handled: true, 
-                handledBy: user.id, 
+            ? {
+                ...change,
+                handled: true,
+                handledBy: user.id,
                 handledAt: new Date().toISOString(),
-                action 
+                action,
               }
-            : change
-        )
+            : change,
+        ),
       }));
 
-      toast.success('Code change handled successfully');
+      toast.success("Code change handled successfully");
     } catch (error) {
-      console.error('Error handling code change:', error);
-      toast.error('Failed to handle code change');
+      console.error("Error handling code change:", error);
+      toast.error("Failed to handle code change");
     }
-  }
+  },
 }));

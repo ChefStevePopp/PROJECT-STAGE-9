@@ -1,7 +1,16 @@
 import React from "react";
-import { Store, FileSpreadsheet, FileText, Camera, Info } from "lucide-react";
+import {
+  Store,
+  FileSpreadsheet,
+  FileText,
+  Camera,
+  Info,
+  Calendar,
+} from "lucide-react";
 import { useOperationsStore } from "@/stores/operationsStore";
 import { useVendorTemplatesStore } from "@/stores/vendorTemplatesStore";
+import { useVendorInvoiceStore } from "@/stores/vendorInvoiceStore";
+import { format } from "date-fns";
 
 interface Props {
   selectedVendor: string;
@@ -18,11 +27,18 @@ export const VendorSelector: React.FC<Props> = ({
 }) => {
   const { settings, fetchSettings } = useOperationsStore();
   const { templates } = useVendorTemplatesStore();
+  const { fetchLastInvoice, lastInvoice } = useVendorInvoiceStore();
   const vendors = settings?.vendors || [];
 
   React.useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
+
+  React.useEffect(() => {
+    if (selectedVendor) {
+      fetchLastInvoice(selectedVendor);
+    }
+  }, [selectedVendor, fetchLastInvoice]);
 
   return (
     <div className="card p-6">
@@ -57,21 +73,35 @@ export const VendorSelector: React.FC<Props> = ({
           </select>
           {selectedVendor && (
             <div className="mt-2">
-              {templates.some((t) => t.vendor_id === selectedVendor) ? (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg">
-                  <Info className="w-4 h-4" />
-                  <span className="text-xs font-medium">
-                    CSV template configured
-                  </span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-rose-500/10 text-rose-400 rounded-lg">
-                  <Info className="w-4 h-4" />
-                  <span className="text-xs font-medium">
-                    No CSV template - setup required
-                  </span>
-                </div>
-              )}
+              <div className="flex flex-col gap-2">
+                {templates.some((t) => t.vendor_id === selectedVendor) ? (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg">
+                      <Info className="w-4 h-4" />
+                      <span className="text-xs font-medium">
+                        CSV template configured
+                      </span>
+                    </div>
+                    {lastInvoice && (
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 text-blue-400 rounded-lg">
+                        <Calendar className="w-4 h-4" />
+                        <span className="text-xs font-medium">
+                          {lastInvoice.filename
+                            ? `Last upload: ${lastInvoice.filename}`
+                            : `Last upload: ${format(new Date(lastInvoice.created_at), "MMM d, yyyy")}`}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-rose-500/10 text-rose-400 rounded-lg">
+                    <Info className="w-4 h-4" />
+                    <span className="text-xs font-medium">
+                      No CSV template - setup required
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

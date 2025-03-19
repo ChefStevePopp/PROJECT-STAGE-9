@@ -62,6 +62,7 @@ export const VendorInvoiceManager = () => {
     useState<(typeof TABS)[number]["id"]>("dashboard");
   const [isLoading, setIsLoading] = useState(false);
   const [csvData, setCSVData] = useState<any[] | null>(null);
+  const [invoiceDate, setInvoiceDate] = useState<Date | null>(null);
   const [csvColumns, setCSVColumns] = useState<string[]>([]);
   const [selectedVendor, setSelectedVendor] = useState("");
   const { templates, fetchTemplates } = useVendorTemplatesStore();
@@ -76,7 +77,7 @@ export const VendorInvoiceManager = () => {
     }
   }, [selectedVendor, fetchTemplates]);
 
-  const handleUpload = async (data: any[] | File) => {
+  const handleUpload = async (data: any[] | File, fileDate?: Date) => {
     if (!selectedVendor) {
       toast.error("Please select a vendor first");
       return;
@@ -133,6 +134,17 @@ export const VendorInvoiceManager = () => {
         toast.error("Template mapping not found");
         return;
       }
+
+      // Set the invoice date from the file date if available
+      if (fileDate) {
+        setInvoiceDate(fileDate);
+      }
+
+      // Log the date being used for debugging
+      console.log(
+        "Using invoice date:",
+        fileDate ? fileDate.toLocaleDateString() : "Today's date",
+      );
 
       // Transform the data using the template mapping
       const transformedData = data.map((row) => ({
@@ -234,6 +246,8 @@ export const VendorInvoiceManager = () => {
             <DataPreview
               data={csvData}
               vendorId={selectedVendor}
+              invoiceDate={invoiceDate || new Date()}
+              onDateChange={(date) => setInvoiceDate(date)}
               onConfirm={async () => {
                 try {
                   // The actual processing happens in the DataPreview component's handleConfirm method
