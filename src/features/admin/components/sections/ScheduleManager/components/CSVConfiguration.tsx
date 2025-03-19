@@ -6,39 +6,20 @@ import {
   Check,
   RefreshCw,
   Download,
+  Trash2,
 } from "lucide-react";
 import Papa from "papaparse";
 import toast from "react-hot-toast";
+import { ColumnMapping } from "@/types/csv-mappings";
+import { useCSVMappingsStore } from "@/stores/csvMappingsStore";
+import { supabase } from "@/lib/supabase";
 
 interface CSVConfigurationProps {
   onSaveMapping: (mapping: ColumnMapping) => void;
   onClose: () => void;
   csvFile?: File | null;
   savedMappings?: ColumnMapping[];
-}
-
-export interface ColumnMapping {
-  id: string;
-  name: string;
-  format: "standard" | "weekly" | "custom";
-  employeeNameField: string;
-  roleField?: string;
-  dateField?: string;
-  startTimeField?: string;
-  endTimeField?: string;
-  breakDurationField?: string;
-  notesField?: string;
-  // For weekly format
-  mondayField?: string;
-  tuesdayField?: string;
-  wednesdayField?: string;
-  thursdayField?: string;
-  fridayField?: string;
-  saturdayField?: string;
-  sundayField?: string;
-  // For time parsing
-  timeFormat?: string;
-  rolePattern?: string;
+  organizationId?: string;
 }
 
 export const CSVConfiguration: React.FC<CSVConfigurationProps> = ({
@@ -46,7 +27,47 @@ export const CSVConfiguration: React.FC<CSVConfigurationProps> = ({
   onClose,
   csvFile,
   savedMappings = [],
+  organizationId,
 }) => {
+  // Get the current user and organization
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [orgId, setOrgId] = useState<string>("");
+
+  // CSV Mappings store
+  const { mappings, loading, fetchMappings, saveMapping, deleteMapping } =
+    useCSVMappingsStore();
+
+  // Fetch current user and organization
+  useEffect(() => {
+    const getUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      setCurrentUser(data.user);
+
+      if (organizationId) {
+        setOrgId(organizationId);
+      } else if (data.user) {
+        // Get the user's organization if not provided
+        const { data: orgData } = await supabase
+          .from("organization_roles")
+          .select("organization_id")
+          .eq("user_id", data.user.id)
+          .single();
+
+        if (orgData) {
+          setOrgId(orgData.organization_id);
+        }
+      }
+    };
+
+    getUser();
+  }, [organizationId]);
+
+  // Fetch saved mappings when organization ID is available
+  useEffect(() => {
+    if (orgId) {
+      fetchMappings(orgId, "schedule");
+    }
+  }, [orgId, fetchMappings]);
   const [previewData, setPreviewData] = useState<any[] | null>(null);
   const [headers, setHeaders] = useState<string[]>([]);
   const [formatType, setFormatType] = useState<
@@ -226,7 +247,7 @@ export const CSVConfiguration: React.FC<CSVConfigurationProps> = ({
     }
   }, [selectedMapping]);
 
-  const handleSaveMapping = () => {
+  const handleSaveMapping = async () => {
     if (!mappingName.trim()) {
       toast.error("Please enter a name for this mapping");
       return;
@@ -271,8 +292,23 @@ export const CSVConfiguration: React.FC<CSVConfigurationProps> = ({
       name: mappingName,
     };
 
+    // Save to database if organization ID is available
+    if (orgId) {
+      const success = await saveMapping(orgId, "schedule", null, finalMapping);
+      if (success) {
+        toast.success("Mapping saved to database");
+      }
+    }
+
+    // Also call the original onSaveMapping for backward compatibility
     onSaveMapping(finalMapping);
-    toast.success("Mapping saved successfully");
+  };
+
+  // Handle deleting a mapping
+  const handleDeleteMapping = async (mappingId: string) => {
+    if (confirm("Are you sure you want to delete this mapping?")) {
+      await deleteMapping(mappingId);
+    }
   };
 
   // Helper to determine if a field should be shown based on format
@@ -454,13 +490,38 @@ export const CSVConfiguration: React.FC<CSVConfigurationProps> = ({
         </div>
 
         {/* Saved Mappings */}
-        {savedMappings.length > 0 && (
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-400 mb-2">
-              Load Saved Mapping
-            </label>
-            <div className="flex gap-2 flex-wrap">
-              {savedMappings.map((savedMapping) => (
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-400 mb-2">
+            Load Saved Mapping
+          </label>
+          <div className="flex gap-2 flex-wrap">
+            {loading ? (
+              <div className="text-gray-400">Loading saved mappings...</div>
+            ) : mappings && mappings.length > 0 ? (
+              mappings.map((savedMapping) => {
+                const mapping =
+                  savedMapping.column_mapping as unknown as ColumnMapping;
+                return (
+                  <div key={savedMapping.id} className="flex items-center">
+                    <button
+                      onClick={() => setSelectedMapping(mapping)}
+                      className={`px-3 py-1.5 rounded-lg text-sm ${selectedMapping?.id === mapping.id ? "bg-primary-500/20 text-primary-400 border border-primary-500/50" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}
+                    >
+                      {mapping.name}
+                    </button>
+                    <button
+                      onClick={() => handleDeleteMapping(savedMapping.id)}
+                      className="ml-1 p-1 text-gray-400 hover:text-red-400 rounded-full hover:bg-gray-700"
+                      title="Delete mapping"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                );
+              })
+            ) : savedMappings.length > 0 ? (
+              // Fallback to prop-based mappings if no database mappings
+              savedMappings.map((savedMapping) => (
                 <button
                   key={savedMapping.id}
                   onClick={() => setSelectedMapping(savedMapping)}
@@ -468,10 +529,12 @@ export const CSVConfiguration: React.FC<CSVConfigurationProps> = ({
                 >
                   {savedMapping.name}
                 </button>
-              ))}
-            </div>
+              ))
+            ) : (
+              <div className="text-gray-400">No saved mappings found</div>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Field Mapping */}
         <div className="space-y-6">

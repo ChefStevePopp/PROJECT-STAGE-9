@@ -129,6 +129,8 @@ export const ScheduleManager: React.FC = () => {
     date.setDate(date.getDate() + 13); // 14 days total (today + 13)
     return date.toISOString().split("T")[0];
   });
+  // Track if we've already fetched the current schedule to prevent multiple refreshes
+  const [initialFetchDone, setInitialFetchDone] = useState(false);
 
   // Get the schedule functions and state from the store
   const {
@@ -467,22 +469,27 @@ export const ScheduleManager: React.FC = () => {
     }
   };
 
-  // Fetch current schedule when component mounts
+  // Fetch current schedule when component mounts - only once
   useEffect(() => {
-    const fetchCurrentScheduleData = async () => {
-      const result = await fetchCurrentSchedule();
-      // Get the latest currentSchedule from the store after fetching
-      const latestSchedule = useScheduleStore.getState().currentSchedule;
-      if (latestSchedule?.id) {
-        await fetchShifts(latestSchedule.id);
-      }
-    };
-    fetchCurrentScheduleData();
-  }, []);
+    if (!initialFetchDone) {
+      const fetchCurrentScheduleData = async () => {
+        const result = await fetchCurrentSchedule();
+        // Get the latest currentSchedule from the store after fetching
+        const latestSchedule = useScheduleStore.getState().currentSchedule;
+        if (latestSchedule?.id) {
+          await fetchShifts(latestSchedule.id);
+        }
+        setInitialFetchDone(true);
+      };
+      fetchCurrentScheduleData();
+    }
+  }, [initialFetchDone]);
 
   // Fetch data when tab changes
   useEffect(() => {
-    if (activeTab === "current") {
+    // Skip the initial fetch for the current tab since we already did it in the mount effect
+    if (activeTab === "current" && initialFetchDone) {
+      // Only fetch if we're switching back to this tab, not on initial load
       const fetchCurrentScheduleData = async () => {
         const result = await fetchCurrentSchedule();
         // Get the latest currentSchedule from the store after fetching
@@ -502,7 +509,7 @@ export const ScheduleManager: React.FC = () => {
       // Fetch mappings when the config tab is selected
       fetchMappings();
     }
-  }, [activeTab]);
+  }, [activeTab, initialFetchDone]);
 
   // Process shifts to organize them by day
   const days = useMemo(() => {
@@ -797,12 +804,12 @@ export const ScheduleManager: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-lg font-medium text-white">
-                    Week of {upcomingSchedule.startDate} -{" "}
-                    {upcomingSchedule.endDate}
+                    Week of {upcomingSchedule.start_date} -{" "}
+                    {upcomingSchedule.end_date}
                   </h3>
                   <p className="text-sm text-gray-400">
                     Uploaded:{" "}
-                    {new Date(upcomingSchedule.uploadedAt).toLocaleString()}
+                    {new Date(upcomingSchedule.created_at).toLocaleString()}
                   </p>
                 </div>
                 <div className="ml-auto">
@@ -820,9 +827,9 @@ export const ScheduleManager: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-300">
-                      File:{" "}
+                      Source:{" "}
                       <span className="text-blue-400">
-                        {upcomingSchedule.file}
+                        {upcomingSchedule.source || "CSV Upload"}
                       </span>
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
@@ -831,11 +838,36 @@ export const ScheduleManager: React.FC = () => {
                     </p>
                   </div>
                   <div className="flex gap-2">
-                    <button className="btn-ghost text-sm">
+                    <button
+                      onClick={() => exportScheduleToCSV(upcomingSchedule.id)}
+                      className="btn-ghost text-sm"
+                    >
                       <Download className="w-4 h-4 mr-1" />
                       Download
                     </button>
-                    <button className="btn-ghost text-sm text-rose-400 hover:text-rose-300">
+                    <button
+                      onClick={async () => {
+                        if (
+                          confirm(
+                            "Are you sure you want to delete this upcoming schedule?",
+                          )
+                        ) {
+                          const success = await useScheduleStore
+                            .getState()
+                            .deleteSchedule(upcomingSchedule.id);
+
+                          if (success) {
+                            toast.success(
+                              "Upcoming schedule deleted successfully",
+                            );
+                            fetchUpcomingSchedule();
+                          } else {
+                            toast.error("Failed to delete upcoming schedule");
+                          }
+                        }
+                      }}
+                      className="btn-ghost text-sm text-rose-400 hover:text-rose-300"
+                    >
                       <X className="w-4 h-4 mr-1" />
                       Delete
                     </button>
@@ -1456,22 +1488,22 @@ export const ScheduleManager: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-12 bg-gray-800/50 rounded-lg">
-                  <Calendar className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-white mb-2">
+                <div className="text-center py-12">
+                  <AlertTriangle className="w-12 h-12 text-amber-400 mx-auto mb-4" />
+                  <h4 className="text-lg font-medium text-white mb-2">
                     No Shifts Found
-                  </h3>
-                  <p className="text-gray-400 max-w-md mx-auto">
-                    This schedule doesn't have any shifts recorded.
+                  </h4>
+                  <p className="text-gray-400">
+                    There are no shifts associated with this schedule.
                   </p>
                 </div>
               )}
             </div>
 
-            <div className="p-6 border-t border-gray-800 flex justify-end">
+            <div className="p-4 border-t border-gray-800 flex justify-end">
               <button
-                className="btn-primary"
                 onClick={() => setIsViewModalOpen(false)}
+                className="btn-secondary"
               >
                 Close
               </button>
@@ -1480,59 +1512,10 @@ export const ScheduleManager: React.FC = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {isDeleteModalOpen && currentSchedule && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-gray-900 rounded-lg w-full max-w-md p-6">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-rose-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <AlertTriangle className="w-8 h-8 text-rose-400" />
-              </div>
-              <h3 className="text-xl font-medium text-white mb-2">
-                Delete Current Schedule?
-              </h3>
-              <p className="text-gray-400">
-                This action cannot be undone. All shifts in the current schedule
-                will be permanently deleted.
-              </p>
-            </div>
-
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setIsDeleteModalOpen(false)}
-                className="btn-ghost"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  if (!currentSchedule?.id) return;
-
-                  const success = await useScheduleStore
-                    .getState()
-                    .deleteSchedule(currentSchedule.id);
-
-                  if (success) {
-                    toast.success("Schedule deleted successfully");
-                    setIsDeleteModalOpen(false);
-                  } else {
-                    toast.error(scheduleError || "Failed to delete schedule");
-                  }
-                }}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg flex items-center"
-              >
-                <Trash className="w-4 h-4 mr-2" />
-                Delete Schedule
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Upload Modal */}
+      {/* Upload Schedule Modal */}
       {isUploadModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-gray-900 rounded-lg w-full max-w-4xl my-8 max-h-[90vh] flex flex-col">
+          <div className="bg-gray-900 rounded-lg w-full max-w-2xl">
             <div className="p-6 border-b border-gray-800 flex justify-between items-center">
               <h3 className="text-lg font-medium text-white">
                 Upload Schedule
@@ -1540,9 +1523,9 @@ export const ScheduleManager: React.FC = () => {
               <button
                 onClick={() => {
                   setIsUploadModalOpen(false);
+                  setShowCSVConfig(false);
                   setCsvFile(null);
                   setPreviewData(null);
-                  setShowCSVConfig(false);
                 }}
                 className="text-gray-400 hover:text-white"
               >
@@ -1550,263 +1533,163 @@ export const ScheduleManager: React.FC = () => {
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto">
-              {!csvFile ? (
-                <div
-                  className="border-2 border-dashed border-gray-700 rounded-lg p-8 text-center hover:border-primary-500/50 transition-colors"
-                  onDrop={handleDrop}
-                  onDragOver={handleDragOver}
-                >
-                  <FileSpreadsheet className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-                  <p className="text-gray-300 mb-2">
-                    Drag and drop your CSV file here
-                  </p>
-                  <p className="text-gray-500 mb-4">or</p>
-                  <label className="btn-primary cursor-pointer">
+            <div className="p-6">
+              {showCSVConfig ? (
+                <CSVConfiguration
+                  previewData={previewData}
+                  onSaveMapping={handleSaveMapping}
+                  onCancel={() => setShowCSVConfig(false)}
+                />
+              ) : (
+                <div className="space-y-6">
+                  {/* File Upload */}
+                  <div
+                    className="border-2 border-dashed border-gray-700 rounded-lg p-8 text-center cursor-pointer hover:border-primary-500 transition-colors"
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                    onClick={() => {
+                      const input = document.getElementById(
+                        "schedule-file-input",
+                      ) as HTMLInputElement;
+                      if (input) input.click();
+                    }}
+                  >
                     <input
                       type="file"
+                      id="schedule-file-input"
                       accept=".csv"
                       className="hidden"
                       onChange={handleFileChange}
                     />
-                    Browse Files
-                  </label>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="bg-gray-800/50 rounded-lg p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <FileSpreadsheet className="w-8 h-8 text-primary-400" />
+                    <FileSpreadsheet className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+                    {csvFile ? (
                       <div>
-                        <p className="text-white">{csvFile.name}</p>
-                        <p className="text-xs text-gray-500">
-                          {(csvFile.size / 1024).toFixed(2)} KB
+                        <p className="text-white font-medium">{csvFile.name}</p>
+                        <p className="text-sm text-gray-400 mt-1">
+                          {(csvFile.size / 1024).toFixed(1)} KB
+                        </p>
+                        <button
+                          className="text-primary-400 text-sm mt-2 hover:text-primary-300"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCsvFile(null);
+                            setPreviewData(null);
+                          }}
+                        >
+                          Remove file
+                        </button>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-white font-medium">
+                          Drag & drop your CSV file here
+                        </p>
+                        <p className="text-sm text-gray-400 mt-1">
+                          or click to browse files
                         </p>
                       </div>
-                    </div>
-                    <button
-                      className="text-gray-400 hover:text-gray-300"
-                      onClick={() => {
-                        setCsvFile(null);
-                        setPreviewData(null);
-                      }}
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
+                    )}
                   </div>
 
-                  {/* CSV Configuration */}
-                  {showCSVConfig ? (
-                    <CSVConfiguration
-                      csvFile={csvFile}
-                      onSaveMapping={handleSaveMapping}
-                      onClose={() => setShowCSVConfig(false)}
-                      savedMappings={mappings}
-                    />
-                  ) : (
-                    <>
-                      {/* Preview Section */}
-                      {previewData && previewData.length > 0 && (
-                        <div className="bg-gray-800/50 rounded-lg p-4">
-                          <h3 className="text-white font-medium mb-2">
-                            Schedule Preview
-                          </h3>
-                          <div className="max-h-[300px] overflow-y-auto">
-                            <table className="w-full">
-                              <thead className="bg-gray-700/50">
-                                <tr>
-                                  {/* Dynamically generate headers based on the first row */}
-                                  {Object.keys(previewData[0]).map((header) => (
-                                    <th
-                                      key={header}
-                                      className="px-4 py-2 text-left text-sm font-medium text-gray-400"
-                                    >
-                                      {header}
-                                    </th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-700">
-                                {previewData.slice(0, 10).map((row, index) => (
-                                  <tr
-                                    key={index}
-                                    className="hover:bg-gray-700/30"
-                                  >
-                                    {Object.entries(row)
-                                      .map(([key, value], cellIndex) => {
-                                        // Skip displaying first_name and last_name separately if they exist
-                                        if (
-                                          (key === "first_name" ||
-                                            key === "last_name") &&
-                                          row.employee_name
-                                        ) {
-                                          return null;
-                                        }
-                                        return (
-                                          <td
-                                            key={cellIndex}
-                                            className="px-4 py-2 text-sm text-gray-300"
-                                          >
-                                            {value as string}
-                                          </td>
-                                        );
-                                      })
-                                      .filter(Boolean)}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                            {previewData.length > 10 && (
-                              <div className="text-center text-sm text-gray-400 mt-2">
-                                Showing 10 of {previewData.length} rows
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* CSV Mapping Selection */}
-                      <div className="bg-gray-800/50 rounded-lg p-4">
-                        <h3 className="text-white font-medium mb-3">
-                          CSV Format
-                        </h3>
-
-                        {mappings.length > 0 ? (
-                          <div className="space-y-4">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-400 mb-2">
-                                Select a saved mapping
-                              </label>
-                              <div className="flex flex-wrap gap-2">
-                                {mappings.map((mapping) => (
-                                  <button
-                                    key={mapping.id}
-                                    onClick={() => setSelectedMapping(mapping)}
-                                    className={`px-3 py-1.5 rounded-lg text-sm ${selectedMapping?.id === mapping.id ? "bg-primary-500/20 text-primary-400 border border-primary-500/50" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}
-                                  >
-                                    {mapping.name}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-
-                            <div className="flex items-center justify-between">
-                              <button
-                                onClick={() => setShowCSVConfig(true)}
-                                className="text-sm text-primary-400 hover:text-primary-300"
-                              >
-                                Create new mapping
-                              </button>
-
-                              {selectedMapping && (
-                                <button
-                                  onClick={() => setShowCSVConfig(true)}
-                                  className="text-sm text-primary-400 hover:text-primary-300"
-                                >
-                                  Edit selected mapping
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="text-center py-4">
-                            <p className="text-gray-400 mb-3">
-                              You need to create a mapping to define how your
-                              CSV columns should be imported.
-                            </p>
-                            <button
-                              onClick={() => setShowCSVConfig(true)}
-                              className="btn-primary"
-                            >
-                              Configure CSV Mapping
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Date Range Selection */}
-                      <div className="bg-gray-800/50 rounded-lg p-4">
-                        <h3 className="text-white font-medium mb-3">
-                          Schedule Date Range
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-2">
-                              Start Date
-                            </label>
-                            <input
-                              type="date"
-                              className="input w-full"
-                              value={startDate}
-                              onChange={(e) => setStartDate(e.target.value)}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-2">
-                              End Date
-                            </label>
-                            <input
-                              type="date"
-                              className="input w-full"
-                              value={endDate}
-                              onChange={(e) => setEndDate(e.target.value)}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="flex items-center mb-4">
-                          <input
-                            type="checkbox"
-                            id="activateImmediately"
-                            checked={activateImmediately}
-                            onChange={(e) =>
-                              setActivateImmediately(e.target.checked)
-                            }
-                            className="mr-2"
-                          />
-                          <label
-                            htmlFor="activateImmediately"
-                            className="text-white"
+                  {/* Mapping Selection */}
+                  {csvFile && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-2">
+                          CSV Mapping
+                        </label>
+                        <div className="flex gap-2">
+                          <select
+                            className="input flex-1"
+                            value={selectedMapping?.id || ""}
+                            onChange={(e) => {
+                              const mappingId = e.target.value;
+                              const mapping = mappings.find(
+                                (m) => m.id === mappingId,
+                              );
+                              setSelectedMapping(mapping || null);
+                            }}
                           >
-                            Activate immediately as current schedule
-                          </label>
+                            <option value="">Select a mapping</option>
+                            {mappings.map((mapping) => (
+                              <option key={mapping.id} value={mapping.id}>
+                                {mapping.name}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={() => setShowCSVConfig(true)}
+                            className="btn-secondary whitespace-nowrap"
+                          >
+                            Configure New
+                          </button>
                         </div>
-                        <p className="text-sm text-gray-400">
-                          {activateImmediately
-                            ? "This schedule will replace the current schedule immediately."
-                            : "This schedule will be saved as an upcoming schedule that you can activate later."}
-                        </p>
                       </div>
-                    </>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-400 mb-2">
+                            Start Date
+                          </label>
+                          <input
+                            type="date"
+                            className="input w-full"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-400 mb-2">
+                            End Date
+                          </label>
+                          <input
+                            type="date"
+                            className="input w-full"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="activate-immediately"
+                          className="mr-2"
+                          checked={activateImmediately}
+                          onChange={(e) =>
+                            setActivateImmediately(e.target.checked)
+                          }
+                        />
+                        <label
+                          htmlFor="activate-immediately"
+                          className="text-gray-300"
+                        >
+                          Activate immediately (replace current schedule)
+                        </label>
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
             </div>
 
-            <div className="p-6 border-t border-gray-800 flex justify-end gap-3">
-              <button
-                className="btn-ghost"
-                onClick={() => {
-                  setIsUploadModalOpen(false);
-                  setCsvFile(null);
-                  setPreviewData(null);
-                  setShowCSVConfig(false);
-                }}
-              >
-                Cancel
-              </button>
-              {showCSVConfig ? (
+            {!showCSVConfig && (
+              <div className="p-4 border-t border-gray-800 flex justify-end gap-2">
                 <button
-                  className="btn-primary"
-                  onClick={() => setShowCSVConfig(false)}
+                  onClick={() => {
+                    setIsUploadModalOpen(false);
+                    setCsvFile(null);
+                    setPreviewData(null);
+                  }}
+                  className="btn-secondary"
                 >
-                  Back to Upload
+                  Cancel
                 </button>
-              ) : (
                 <button
-                  className="btn-primary"
                   onClick={handleUpload}
-                  disabled={isUploading || !csvFile || !selectedMapping}
+                  disabled={!csvFile || !selectedMapping || isUploading}
+                  className="btn-primary"
                 >
                   {isUploading ? (
                     <>
@@ -1814,10 +1697,69 @@ export const ScheduleManager: React.FC = () => {
                       Uploading...
                     </>
                   ) : (
-                    <>Upload Schedule</>
+                    "Upload Schedule"
                   )}
                 </button>
-              )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && currentSchedule && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-900 rounded-lg w-full max-w-md p-6">
+            <div className="text-center">
+              <div className="w-12 h-12 rounded-full bg-rose-500/20 flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle className="w-6 h-6 text-rose-400" />
+              </div>
+              <h3 className="text-lg font-medium text-white mb-2">
+                Delete Current Schedule
+              </h3>
+              <p className="text-gray-400 mb-6">
+                Are you sure you want to delete the current schedule? This
+                action cannot be undone.
+              </p>
+              <div className="flex justify-center gap-3">
+                <button
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  className="btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      setIsLoading(true);
+                      const success = await useScheduleStore
+                        .getState()
+                        .deleteSchedule(currentSchedule.id);
+                      if (success) {
+                        toast.success("Schedule deleted successfully");
+                        setIsDeleteModalOpen(false);
+                      } else {
+                        toast.error("Failed to delete schedule");
+                      }
+                    } catch (error) {
+                      console.error("Error deleting schedule:", error);
+                      toast.error("An error occurred while deleting schedule");
+                    } finally {
+                      setIsLoading(false);
+                    }
+                  }}
+                  className="btn-danger"
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                      Deleting...
+                    </>
+                  ) : (
+                    "Delete Schedule"
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

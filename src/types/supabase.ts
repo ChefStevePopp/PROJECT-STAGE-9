@@ -49,37 +49,88 @@ export type Database = {
       }
       csv_mappings: {
         Row: {
-          config: Json
+          break_duration_field: string | null
+          config: Json | null
           created_at: string | null
           created_by: string | null
+          date_field: string | null
+          employee_name_field: string | null
+          end_time_field: string | null
           format: string
+          format_type: string | null
+          friday_field: string | null
           id: string
           is_default: boolean | null
+          monday_field: string | null
           name: string
+          notes_field: string | null
           organization_id: string
+          role_field: string | null
+          role_pattern: string | null
+          saturday_field: string | null
+          start_time_field: string | null
+          sunday_field: string | null
+          thursday_field: string | null
+          time_format: string | null
+          tuesday_field: string | null
           updated_at: string | null
+          wednesday_field: string | null
         }
         Insert: {
-          config: Json
+          break_duration_field?: string | null
+          config?: Json | null
           created_at?: string | null
           created_by?: string | null
+          date_field?: string | null
+          employee_name_field?: string | null
+          end_time_field?: string | null
           format: string
+          format_type?: string | null
+          friday_field?: string | null
           id?: string
           is_default?: boolean | null
+          monday_field?: string | null
           name: string
+          notes_field?: string | null
           organization_id: string
+          role_field?: string | null
+          role_pattern?: string | null
+          saturday_field?: string | null
+          start_time_field?: string | null
+          sunday_field?: string | null
+          thursday_field?: string | null
+          time_format?: string | null
+          tuesday_field?: string | null
           updated_at?: string | null
+          wednesday_field?: string | null
         }
         Update: {
-          config?: Json
+          break_duration_field?: string | null
+          config?: Json | null
           created_at?: string | null
           created_by?: string | null
+          date_field?: string | null
+          employee_name_field?: string | null
+          end_time_field?: string | null
           format?: string
+          format_type?: string | null
+          friday_field?: string | null
           id?: string
           is_default?: boolean | null
+          monday_field?: string | null
           name?: string
+          notes_field?: string | null
           organization_id?: string
+          role_field?: string | null
+          role_pattern?: string | null
+          saturday_field?: string | null
+          start_time_field?: string | null
+          sunday_field?: string | null
+          thursday_field?: string | null
+          time_format?: string | null
+          tuesday_field?: string | null
           updated_at?: string | null
+          wednesday_field?: string | null
         }
         Relationships: [
           {
@@ -2110,6 +2161,7 @@ export type Database = {
           approved: boolean | null
           approved_at: string | null
           approved_by: string | null
+          change_percent: number | null
           created_at: string
           id: string
           ingredient_id: string
@@ -2129,6 +2181,7 @@ export type Database = {
           approved?: boolean | null
           approved_at?: string | null
           approved_by?: string | null
+          change_percent?: number | null
           created_at?: string
           id?: string
           ingredient_id: string
@@ -2148,6 +2201,7 @@ export type Database = {
           approved?: boolean | null
           approved_at?: string | null
           approved_by?: string | null
+          change_percent?: number | null
           created_at?: string
           id?: string
           ingredient_id?: string
@@ -2685,6 +2739,10 @@ export type Database = {
           base_code: string
         }
         Returns: string
+      }
+      update_vendor_price_changes_invoice_dates: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
     }
     Enums: {

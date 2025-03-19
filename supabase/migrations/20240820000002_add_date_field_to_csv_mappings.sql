@@ -1,0 +1,1 @@
+ALTER TABLE csv_mappings ADD COLUMN IF NOT EXISTS date_field TEXT;

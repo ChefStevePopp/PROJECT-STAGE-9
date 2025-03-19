@@ -1,68 +1,40 @@
 import { create } from "zustand";
 import { supabase } from "@/lib/supabase";
-import { ColumnMapping } from "@/features/admin/components/sections/ScheduleManager/components/CSVConfiguration";
+import { ColumnMapping } from "@/types/csv-mappings";
 import toast from "react-hot-toast";
 
 interface CSVMappingsStore {
-  mappings: ColumnMapping[];
-  isLoading: boolean;
+  mappings: any[];
+  loading: boolean;
   error: string | null;
-  fetchMappings: () => Promise<void>;
-  saveMapping: (mapping: ColumnMapping) => Promise<void>;
+  fetchMappings: (organizationId: string, format: string) => Promise<void>;
+  saveMapping: (
+    organizationId: string,
+    format: string,
+    typeId: string | null,
+    mapping: ColumnMapping,
+  ) => Promise<boolean>;
   deleteMapping: (id: string) => Promise<void>;
 }
 
 export const useCSVMappingsStore = create<CSVMappingsStore>((set, get) => ({
   mappings: [],
-  isLoading: false,
+  loading: false,
   error: null,
 
-  fetchMappings: async () => {
+  fetchMappings: async (organizationId: string, format: string) => {
     try {
-      set({ isLoading: true, error: null });
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user?.user_metadata?.organizationId) {
-        throw new Error("No organization ID found");
-      }
+      set({ loading: true, error: null });
 
       const { data, error } = await supabase
         .from("csv_mappings")
         .select("*")
-        .eq("organization_id", user.user_metadata.organizationId)
-        .eq("format", "schedule");
+        .eq("organization_id", organizationId)
+        .eq("format", format);
 
       if (error) throw error;
 
-      // Transform database records to ColumnMapping format
-      const mappings: ColumnMapping[] = data.map((record) => ({
-        id: record.id,
-        name: record.name,
-        format:
-          record.format === "schedule"
-            ? record.format_type || "standard"
-            : "standard",
-        employeeNameField: record.employee_name_field || "",
-        roleField: record.role_field || "",
-        dateField: record.date_field || "",
-        startTimeField: record.start_time_field || "",
-        endTimeField: record.end_time_field || "",
-        breakDurationField: record.break_duration_field || "",
-        notesField: record.notes_field || "",
-        mondayField: record.monday_field || "",
-        tuesdayField: record.tuesday_field || "",
-        wednesdayField: record.wednesday_field || "",
-        thursdayField: record.thursday_field || "",
-        fridayField: record.friday_field || "",
-        saturdayField: record.saturday_field || "",
-        sundayField: record.sunday_field || "",
-        timeFormat: record.time_format || "",
-        rolePattern: record.role_pattern || "",
-      }));
-
-      set({ mappings, isLoading: false });
+      set({ mappings: data || [], loading: false });
     } catch (error) {
       console.error("Error fetching CSV mappings:", error);
       set({
@@ -70,45 +42,48 @@ export const useCSVMappingsStore = create<CSVMappingsStore>((set, get) => ({
           error instanceof Error
             ? error.message
             : "Failed to load CSV mappings",
-        isLoading: false,
+        loading: false,
       });
     }
   },
 
-  saveMapping: async (mapping: ColumnMapping) => {
+  saveMapping: async (
+    organizationId: string,
+    format: string,
+    typeId: string | null,
+    mapping: ColumnMapping,
+  ) => {
     try {
-      set({ isLoading: true, error: null });
+      set({ loading: true, error: null });
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user?.user_metadata?.organizationId) {
-        throw new Error("No organization ID found");
-      }
-
-      // Prepare the record for database
+      // Prepare the record for database with explicit field mapping
       const record = {
         id: mapping.id,
         name: mapping.name,
-        organization_id: user.user_metadata.organizationId,
-        format: "schedule", // This is the format type in the database
-        format_type: mapping.format, // This is standard, weekly, or custom
-        employee_name_field: mapping.employeeNameField,
-        role_field: mapping.roleField,
-        date_field: mapping.dateField,
-        start_time_field: mapping.startTimeField,
-        end_time_field: mapping.endTimeField,
-        break_duration_field: mapping.breakDurationField,
-        notes_field: mapping.notesField,
-        monday_field: mapping.mondayField,
-        tuesday_field: mapping.tuesdayField,
-        wednesday_field: mapping.wednesdayField,
-        thursday_field: mapping.thursdayField,
-        friday_field: mapping.fridayField,
-        saturday_field: mapping.saturdayField,
-        sunday_field: mapping.sundayField,
-        time_format: mapping.timeFormat,
-        role_pattern: mapping.rolePattern,
+        organization_id: organizationId,
+        format: format,
+        format_type: typeId,
+        column_mapping: mapping,
+        config: {}, // Add empty object for config column to satisfy not-null constraint
+        // Explicitly map each field to ensure database compatibility
+        employee_name_field: mapping.employeeNameField || null,
+        role_field: mapping.roleField || null,
+        date_field: mapping.dateField || null,
+        start_time_field: mapping.startTimeField || null,
+        end_time_field: mapping.endTimeField || null,
+        break_duration_field: mapping.breakDurationField || null,
+        notes_field: mapping.notesField || null,
+        monday_field: mapping.mondayField || null,
+        tuesday_field: mapping.tuesdayField || null,
+        wednesday_field: mapping.wednesdayField || null,
+        thursday_field: mapping.thursdayField || null,
+        friday_field: mapping.fridayField || null,
+        saturday_field: mapping.saturdayField || null,
+        sunday_field: mapping.sundayField || null,
+        time_format: mapping.timeFormat || null,
+        role_pattern: mapping.rolePattern || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
 
       // Check if the mapping already exists
@@ -123,7 +98,29 @@ export const useCSVMappingsStore = create<CSVMappingsStore>((set, get) => ({
         // Update existing mapping
         result = await supabase
           .from("csv_mappings")
-          .update(record)
+          .update({
+            name: mapping.name,
+            column_mapping: mapping,
+            config: {}, // Add empty object for config column to satisfy not-null constraint
+            // Explicitly map each field with null fallbacks
+            employee_name_field: mapping.employeeNameField || null,
+            role_field: mapping.roleField || null,
+            date_field: mapping.dateField || null,
+            start_time_field: mapping.startTimeField || null,
+            end_time_field: mapping.endTimeField || null,
+            break_duration_field: mapping.breakDurationField || null,
+            notes_field: mapping.notesField || null,
+            monday_field: mapping.mondayField || null,
+            tuesday_field: mapping.tuesdayField || null,
+            wednesday_field: mapping.wednesdayField || null,
+            thursday_field: mapping.thursdayField || null,
+            friday_field: mapping.fridayField || null,
+            saturday_field: mapping.saturdayField || null,
+            sunday_field: mapping.sundayField || null,
+            time_format: mapping.timeFormat || null,
+            role_pattern: mapping.rolePattern || null,
+            updated_at: new Date().toISOString(),
+          })
           .eq("id", mapping.id);
       } else {
         // Insert new mapping
@@ -133,22 +130,23 @@ export const useCSVMappingsStore = create<CSVMappingsStore>((set, get) => ({
       if (result.error) throw result.error;
 
       // Refresh mappings
-      await get().fetchMappings();
-      set({ isLoading: false });
+      await get().fetchMappings(organizationId, format);
+      set({ loading: false });
+      return true;
     } catch (error) {
       console.error("Error saving CSV mapping:", error);
       set({
         error:
           error instanceof Error ? error.message : "Failed to save CSV mapping",
-        isLoading: false,
+        loading: false,
       });
-      throw error;
+      return false;
     }
   },
 
   deleteMapping: async (id: string) => {
     try {
-      set({ isLoading: true, error: null });
+      set({ loading: true, error: null });
 
       const { error } = await supabase
         .from("csv_mappings")
@@ -160,8 +158,9 @@ export const useCSVMappingsStore = create<CSVMappingsStore>((set, get) => ({
       // Update local state
       set((state) => ({
         mappings: state.mappings.filter((mapping) => mapping.id !== id),
-        isLoading: false,
+        loading: false,
       }));
+      toast.success("Mapping deleted successfully");
     } catch (error) {
       console.error("Error deleting CSV mapping:", error);
       set({
@@ -169,7 +168,7 @@ export const useCSVMappingsStore = create<CSVMappingsStore>((set, get) => ({
           error instanceof Error
             ? error.message
             : "Failed to delete CSV mapping",
-        isLoading: false,
+        loading: false,
       });
       throw error;
     }

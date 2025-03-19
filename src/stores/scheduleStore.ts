@@ -17,6 +17,7 @@ interface ScheduleState {
   isLoading: boolean;
   error: string | null;
   lastSync: string | null;
+  lastUpcomingCheck: string | null;
   accessToken: string;
   companyId: string;
   locationId: string;
@@ -37,6 +38,7 @@ interface ScheduleState {
   }) => void;
 
   // Schedule management
+  checkUpcomingSchedules: () => Promise<boolean>;
   fetchCurrentSchedule: () => Promise<Schedule | null>;
   fetchUpcomingSchedule: () => Promise<void>;
   fetchPreviousSchedules: () => Promise<void>;
@@ -54,6 +56,7 @@ interface ScheduleState {
   ) => Promise<void>;
   activateSchedule: (scheduleId: string) => Promise<void>;
   archiveSchedule: (scheduleId: string) => Promise<void>;
+  deleteSchedule: (scheduleId: string) => Promise<boolean>;
   sync7shiftsSchedule: (
     apiKey: string,
     locationId: string,
@@ -69,6 +72,7 @@ export const useScheduleStore = create<ScheduleState>()(
       isLoading: false,
       error: null,
       lastSync: null,
+      lastUpcomingCheck: null,
       accessToken:
         "39373134666131382d653765382d343134362d613331612d613034356638616666373232",
       companyId: "7140",
@@ -140,9 +144,122 @@ export const useScheduleStore = create<ScheduleState>()(
       },
 
       // Schedule management functions
+      checkUpcomingSchedules: async () => {
+        try {
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          const organizationId = user?.user_metadata?.organizationId;
+
+          if (!organizationId) {
+            throw new Error("No organization ID found");
+          }
+
+          // Get today's date in YYYY-MM-DD format
+          const today = new Date().toISOString().split("T")[0];
+
+          // Find any upcoming schedules that should now be current (start date <= today)
+          const { data: upcomingSchedules, error } = await supabase
+            .from("schedules")
+            .select("*")
+            .eq("organization_id", organizationId)
+            .eq("status", "upcoming")
+            .lte("start_date", today); // start_date <= today
+
+          if (error) throw error;
+
+          // If we found any schedules that should be activated
+          if (upcomingSchedules && upcomingSchedules.length > 0) {
+            console.log(
+              `Found ${upcomingSchedules.length} upcoming schedules that should be activated`,
+            );
+
+            // Get the current schedule if any
+            const { data: currentSchedule } = await supabase
+              .from("schedules")
+              .select("*")
+              .eq("organization_id", organizationId)
+              .eq("status", "current")
+              .single();
+
+            // If there's a current schedule, mark it as previous
+            if (currentSchedule) {
+              await supabase
+                .from("schedules")
+                .update({ status: "previous" })
+                .eq("id", currentSchedule.id);
+            }
+
+            // Activate the most recent upcoming schedule (sort by start date descending)
+            const scheduleToActivate = upcomingSchedules.sort(
+              (a, b) =>
+                new Date(b.start_date).getTime() -
+                new Date(a.start_date).getTime(),
+            )[0];
+
+            // Update its status to current
+            await supabase
+              .from("schedules")
+              .update({ status: "current" })
+              .eq("id", scheduleToActivate.id);
+
+            // Mark any other upcoming schedules as previous
+            if (upcomingSchedules.length > 1) {
+              const otherScheduleIds = upcomingSchedules
+                .filter((s) => s.id !== scheduleToActivate.id)
+                .map((s) => s.id);
+
+              await supabase
+                .from("schedules")
+                .update({ status: "previous" })
+                .in("id", otherScheduleIds);
+            }
+
+            // Update the store state
+            set({
+              currentSchedule: scheduleToActivate,
+              upcomingSchedule: null,
+              previousSchedules: currentSchedule
+                ? [
+                    currentSchedule,
+                    ...get().previousSchedules.filter(
+                      (s) => s.id !== currentSchedule.id,
+                    ),
+                  ]
+                : [...get().previousSchedules],
+            });
+
+            return true;
+          }
+
+          return false;
+        } catch (error) {
+          console.error("Error checking upcoming schedules:", error);
+          return false;
+        }
+      },
+
       fetchCurrentSchedule: async () => {
         try {
           set({ isLoading: true, error: null });
+
+          // Get the current state to check if we already have a schedule loaded
+          const currentState = get();
+
+          // Only check for upcoming schedules if we don't already have a current schedule
+          // or if it's been more than 5 minutes since the last check
+          const shouldCheckUpcoming =
+            !currentState.currentSchedule ||
+            !currentState.lastUpcomingCheck ||
+            Date.now() - new Date(currentState.lastUpcomingCheck).getTime() >
+              5 * 60 * 1000;
+
+          if (shouldCheckUpcoming) {
+            // Check for any upcoming schedules that should now be current
+            await get().checkUpcomingSchedules();
+            // Update the last check timestamp
+            set({ lastUpcomingCheck: new Date().toISOString() });
+          }
 
           const {
             data: { user },
@@ -220,6 +337,9 @@ export const useScheduleStore = create<ScheduleState>()(
       fetchUpcomingSchedule: async () => {
         try {
           set({ isLoading: true, error: null });
+
+          // First check if any upcoming schedules should be activated
+          await get().checkUpcomingSchedules();
 
           const {
             data: { user },
@@ -383,102 +503,72 @@ export const useScheduleStore = create<ScheduleState>()(
 
           // If activating immediately, update any current schedule to previous
           if (options.activateImmediately) {
-            const { error: updateError } = await supabase
+            // Get the current schedule if any
+            const { data: currentSchedule } = await supabase
               .from("schedules")
-              .update({ status: "previous" })
+              .select("*")
               .eq("organization_id", organizationId)
-              .eq("status", "current");
+              .eq("status", "current")
+              .single();
 
-            if (updateError) {
-              throw updateError;
-            }
-          } else {
-            // If not activating immediately, update any existing upcoming schedule
-            const { error: updateError } = await supabase
-              .from("schedules")
-              .update({ status: "previous" })
-              .eq("organization_id", organizationId)
-              .eq("status", "upcoming");
-
-            if (updateError) {
-              throw updateError;
+            // If there's a current schedule, mark it as previous
+            if (currentSchedule) {
+              await supabase
+                .from("schedules")
+                .update({ status: "previous" })
+                .eq("id", currentSchedule.id);
             }
           }
 
           // Insert the new schedule
-          console.log("Inserting schedule into supabase...");
-          const { data: schedule, error: insertError } = await supabase
+          const { data: newSchedule, error: insertError } = await supabase
             .from("schedules")
             .insert([scheduleData])
             .select()
             .single();
 
-          console.log("Insert result:", { schedule, error: insertError });
-
           if (insertError) {
             throw insertError;
           }
 
-          // Insert all shifts
-          // Process shifts and try to match with team members
-          const shiftsToInsert = await Promise.all(
-            shifts.map(async (shift) => {
-              // Try to match with team members using punch_id first, then fall back to name matching
-              let employeeData = {
-                employee_id: shift.employee_id || "",
-                first_name: shift.first_name || "",
-                last_name: shift.last_name || "",
-              };
+          console.log("New schedule created:", newSchedule);
 
-              // If we don't have employee data yet, try to match by punch_id or name
-              if (!employeeData.employee_id || !employeeData.first_name) {
-                employeeData = await matchEmployeeWithTeamMember(
-                  shift.employee_name,
-                  shift.punch_id, // Pass the punch_id for direct matching
-                );
-              }
+          // Now insert all the shifts
+          const shiftsToInsert = shifts.map((shift) => ({
+            schedule_id: newSchedule.id,
+            employee_name: shift.employee_name,
+            employee_id: shift.employee_id || null,
+            first_name: shift.first_name || null,
+            last_name: shift.last_name || null,
+            role: shift.role || null,
+            shift_date: shift.shift_date,
+            start_time: shift.start_time,
+            end_time: shift.end_time,
+            break_duration: shift.break_duration || null,
+            notes: shift.notes || null,
+          }));
 
-              return {
-                schedule_id: schedule.id,
-                employee_name: shift.employee_name, // Keep for backward compatibility
-                first_name: employeeData.first_name,
-                last_name: employeeData.last_name,
-                employee_id: employeeData.employee_id || shift.employee_id,
-                role: shift.role,
-                shift_date: shift.date,
-                start_time: shift.start_time,
-                end_time: shift.end_time,
-                break_duration: shift.break_duration,
-                notes: shift.notes,
-              };
-            }),
-          );
+          // Insert shifts in batches to avoid payload size limits
+          const batchSize = 100;
+          for (let i = 0; i < shiftsToInsert.length; i += batchSize) {
+            const batch = shiftsToInsert.slice(i, i + batchSize);
+            const { error: shiftsError } = await supabase
+              .from("schedule_shifts")
+              .insert(batch);
 
-          const { error: shiftsError } = await supabase
-            .from("schedule_shifts")
-            .insert(shiftsToInsert);
-
-          if (shiftsError) {
-            throw shiftsError;
+            if (shiftsError) {
+              throw shiftsError;
+            }
           }
 
           // Update the store state
           if (options.activateImmediately) {
-            const currentSchedule = get().currentSchedule;
-            if (currentSchedule) {
-              set({
-                currentSchedule: schedule,
-                previousSchedules: [
-                  currentSchedule,
-                  ...get().previousSchedules,
-                ],
-              });
-            } else {
-              set({ currentSchedule: schedule });
-            }
+            set({ currentSchedule: newSchedule });
           } else {
-            set({ upcomingSchedule: schedule });
+            set({ upcomingSchedule: newSchedule });
           }
+
+          return newSchedule;
         } catch (error) {
           console.error("Error uploading schedule:", error);
           set({
@@ -487,6 +577,7 @@ export const useScheduleStore = create<ScheduleState>()(
                 ? error.message
                 : "Failed to upload schedule",
           });
+          throw error;
         } finally {
           set({ isLoading: false });
         }
@@ -505,42 +596,68 @@ export const useScheduleStore = create<ScheduleState>()(
             throw new Error("No organization ID found");
           }
 
-          // Get the current schedule
-          const currentSchedule = get().currentSchedule;
+          // Get the schedule to activate
+          const { data: scheduleToActivate, error: scheduleError } =
+            await supabase
+              .from("schedules")
+              .select("*")
+              .eq("id", scheduleId)
+              .single();
 
-          // Update the current schedule to previous
-          if (currentSchedule) {
-            const { error: updateCurrentError } = await supabase
+          if (scheduleError) {
+            throw scheduleError;
+          }
+
+          if (!scheduleToActivate) {
+            throw new Error("Schedule not found");
+          }
+
+          // Get the current schedule if any
+          const { data: currentSchedule, error: currentError } = await supabase
+            .from("schedules")
+            .select("*")
+            .eq("organization_id", organizationId)
+            .eq("status", "current")
+            .single();
+
+          // If there's a current schedule, mark it as previous
+          if (currentSchedule && !currentError) {
+            await supabase
               .from("schedules")
               .update({ status: "previous" })
               .eq("id", currentSchedule.id);
-
-            if (updateCurrentError) {
-              throw updateCurrentError;
-            }
           }
 
-          // Update the upcoming schedule to current
-          const { data: activatedSchedule, error: updateUpcomingError } =
-            await supabase
-              .from("schedules")
-              .update({ status: "current" })
-              .eq("id", scheduleId)
-              .select()
-              .single();
+          // Update the schedule to activate
+          const { data: updatedSchedule, error: updateError } = await supabase
+            .from("schedules")
+            .update({ status: "current" })
+            .eq("id", scheduleId)
+            .select()
+            .single();
 
-          if (updateUpcomingError) {
-            throw updateUpcomingError;
+          if (updateError) {
+            throw updateError;
           }
 
           // Update the store state
           set({
-            currentSchedule: activatedSchedule,
-            upcomingSchedule: null,
+            currentSchedule: updatedSchedule,
+            upcomingSchedule:
+              get().upcomingSchedule?.id === scheduleId
+                ? null
+                : get().upcomingSchedule,
             previousSchedules: currentSchedule
-              ? [currentSchedule, ...get().previousSchedules]
-              : get().previousSchedules,
+              ? [
+                  currentSchedule,
+                  ...get().previousSchedules.filter(
+                    (s) => s.id !== currentSchedule.id,
+                  ),
+                ]
+              : [...get().previousSchedules],
           });
+
+          return updatedSchedule;
         } catch (error) {
           console.error("Error activating schedule:", error);
           set({
@@ -549,47 +666,7 @@ export const useScheduleStore = create<ScheduleState>()(
                 ? error.message
                 : "Failed to activate schedule",
           });
-        } finally {
-          set({ isLoading: false });
-        }
-      },
-
-      deleteSchedule: async (scheduleId: string) => {
-        try {
-          set({ isLoading: true, error: null });
-
-          // Delete all shifts associated with this schedule first
-          const { error: shiftsError } = await supabase
-            .from("schedule_shifts")
-            .delete()
-            .eq("schedule_id", scheduleId);
-
-          if (shiftsError) throw shiftsError;
-
-          // Then delete the schedule itself
-          const { error } = await supabase
-            .from("schedules")
-            .delete()
-            .eq("id", scheduleId);
-
-          if (error) throw error;
-
-          // Update the store state
-          set({
-            currentSchedule: null,
-            scheduleShifts: [],
-          });
-
-          return true;
-        } catch (error) {
-          console.error("Error deleting schedule:", error);
-          set({
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to delete schedule",
-          });
-          return false;
+          throw error;
         } finally {
           set({ isLoading: false });
         }
@@ -608,21 +685,15 @@ export const useScheduleStore = create<ScheduleState>()(
             throw error;
           }
 
-          // Update the store state based on which schedule was archived
-          const currentSchedule = get().currentSchedule;
-          const upcomingSchedule = get().upcomingSchedule;
-
-          if (currentSchedule?.id === scheduleId) {
-            set({
-              currentSchedule: null,
-              previousSchedules: [currentSchedule, ...get().previousSchedules],
-            });
-          } else if (upcomingSchedule?.id === scheduleId) {
-            set({
-              upcomingSchedule: null,
-              previousSchedules: [upcomingSchedule, ...get().previousSchedules],
-            });
+          // Update the store state
+          if (get().currentSchedule?.id === scheduleId) {
+            set({ currentSchedule: null });
+          } else if (get().upcomingSchedule?.id === scheduleId) {
+            set({ upcomingSchedule: null });
           }
+
+          // Refresh the previous schedules
+          await get().fetchPreviousSchedules();
         } catch (error) {
           console.error("Error archiving schedule:", error);
           set({
@@ -631,14 +702,86 @@ export const useScheduleStore = create<ScheduleState>()(
                 ? error.message
                 : "Failed to archive schedule",
           });
+          throw error;
         } finally {
           set({ isLoading: false });
         }
       },
 
-      sync7shiftsSchedule: async (apiKey, locationId, startDate, endDate) => {
+      deleteSchedule: async (scheduleId: string) => {
         try {
           set({ isLoading: true, error: null });
+
+          // First delete all shifts associated with this schedule
+          const { error: shiftsError } = await supabase
+            .from("schedule_shifts")
+            .delete()
+            .eq("schedule_id", scheduleId);
+
+          if (shiftsError) {
+            throw shiftsError;
+          }
+
+          // Then delete the schedule itself
+          const { error } = await supabase
+            .from("schedules")
+            .delete()
+            .eq("id", scheduleId);
+
+          if (error) {
+            throw error;
+          }
+
+          // Update the store state
+          if (get().currentSchedule?.id === scheduleId) {
+            set({ currentSchedule: null });
+          } else if (get().upcomingSchedule?.id === scheduleId) {
+            set({ upcomingSchedule: null });
+          } else {
+            set({
+              previousSchedules: get().previousSchedules.filter(
+                (s) => s.id !== scheduleId,
+              ),
+            });
+          }
+
+          return true;
+        } catch (error) {
+          console.error("Error deleting schedule:", error);
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to delete schedule",
+          });
+          return false;
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      sync7shiftsSchedule: async (
+        apiKey: string,
+        locationId: string,
+        startDate: string,
+        endDate: string,
+      ) => {
+        try {
+          set({ isLoading: true, error: null });
+
+          // Set the credentials
+          set({
+            accessToken: apiKey,
+            locationId: locationId,
+            companyId: "7140", // Default company ID for 7shifts
+          });
+
+          // Fetch shifts from 7shifts
+          const shifts = await get().syncSchedule(startDate, endDate);
+
+          if (shifts.length === 0) {
+            throw new Error("No shifts found for the selected date range");
+          }
 
           const {
             data: { user },
@@ -649,35 +792,20 @@ export const useScheduleStore = create<ScheduleState>()(
             throw new Error("No organization ID found");
           }
 
-          // Fetch schedule from 7shifts API
-          const scheduleData = await fetchSchedule(
-            { apiKey, locationId },
-            startDate,
-            endDate,
-          );
-
-          if (!scheduleData.shifts || scheduleData.shifts.length === 0) {
-            throw new Error("No shifts found in the specified date range");
-          }
-
           // Create a new schedule record
-          const scheduleRecord = {
+          const scheduleData = {
             organization_id: organizationId,
             start_date: startDate,
             end_date: endDate,
-            status: "upcoming", // Default to upcoming
+            status: "upcoming",
             created_by: user.id,
             source: "7shifts",
-            metadata: {
-              location_id: locationId,
-              total_shifts: scheduleData.shifts.length,
-            },
           };
 
           // Insert the new schedule
-          const { data: schedule, error: insertError } = await supabase
+          const { data: newSchedule, error: insertError } = await supabase
             .from("schedules")
-            .insert([scheduleRecord])
+            .insert([scheduleData])
             .select()
             .single();
 
@@ -685,62 +813,36 @@ export const useScheduleStore = create<ScheduleState>()(
             throw insertError;
           }
 
-          // Transform and insert shifts
-          const shiftsToInsert = scheduleData.shifts.map((shift) => {
-            // Extract first and last name from the user name if available
-            let firstName = "";
-            let lastName = "";
-            const fullName = shift.user?.name || "Unknown Employee";
+          // Transform 7shifts shifts to our format
+          const shiftsToInsert = shifts.map((shift) => ({
+            schedule_id: newSchedule.id,
+            employee_name: shift.employee.name,
+            employee_id: shift.employee.id.toString(),
+            role: shift.role.name,
+            shift_date: shift.date,
+            start_time: shift.start_time,
+            end_time: shift.end_time,
+            break_duration: shift.break_length || 0,
+            notes: shift.notes || "",
+          }));
 
-            if (fullName && fullName !== "Unknown Employee") {
-              const nameParts = fullName.split(" ");
-              if (nameParts.length > 1) {
-                lastName = nameParts.pop() || "";
-                firstName = nameParts.join(" ");
-              } else {
-                firstName = fullName;
-              }
+          // Insert shifts in batches to avoid payload size limits
+          const batchSize = 100;
+          for (let i = 0; i < shiftsToInsert.length; i += batchSize) {
+            const batch = shiftsToInsert.slice(i, i + batchSize);
+            const { error: shiftsError } = await supabase
+              .from("schedule_shifts")
+              .insert(batch);
+
+            if (shiftsError) {
+              throw shiftsError;
             }
-
-            // Format the date from ISO to YYYY-MM-DD
-            const shiftDate = shift.start
-              ? new Date(shift.start).toISOString().split("T")[0]
-              : "";
-
-            // Format times from ISO to HH:MM
-            const startTime = shift.start
-              ? new Date(shift.start).toTimeString().substring(0, 5)
-              : "";
-            const endTime = shift.end
-              ? new Date(shift.end).toTimeString().substring(0, 5)
-              : "";
-
-            return {
-              schedule_id: schedule.id,
-              employee_id: shift.user_id?.toString() || "",
-              employee_name: fullName,
-              first_name: firstName,
-              last_name: lastName,
-              role: shift.role?.name || "",
-              shift_date: shiftDate,
-              start_time: startTime,
-              end_time: endTime,
-              break_duration: shift.break_duration || 0,
-              notes: shift.notes || "",
-            };
-          });
-
-          const { error: shiftsError } = await supabase
-            .from("schedule_shifts")
-            .insert(shiftsToInsert);
-
-          if (shiftsError) {
-            throw shiftsError;
           }
 
           // Update the store state
-          set({ upcomingSchedule: schedule });
-          return schedule;
+          set({ upcomingSchedule: newSchedule });
+
+          return newSchedule;
         } catch (error) {
           console.error("Error syncing 7shifts schedule:", error);
           set({
@@ -756,7 +858,7 @@ export const useScheduleStore = create<ScheduleState>()(
       },
     }),
     {
-      name: "schedule-storage",
+      name: "schedule-store",
       partialize: (state) => ({
         accessToken: state.accessToken,
         companyId: state.companyId,
