@@ -70,15 +70,26 @@ export const useVendorPriceChangesStore = create<VendorPriceChangesStore>(
         );
 
         // Combine the price changes with master ingredient data
-        const enrichedPriceChanges = (priceChangesData || []).map((change) => ({
-          ...change,
-          master_ingredient: masterIngredientsMap[change.item_code],
-          // If product_name is not available in the price change, use the one from master ingredient
-          product_name:
-            change.product_name ||
-            masterIngredientsMap[change.item_code]?.product ||
-            "Unknown Product",
-        }));
+        const enrichedPriceChanges = (priceChangesData || []).map((change) => {
+          // Recalculate the change_percent to ensure it's correct
+          // Formula: ((new_price - old_price) / old_price) * 100
+          const oldPrice = change.old_price || 0;
+          const newPrice = change.new_price || 0;
+          const changePercent =
+            oldPrice > 0 ? ((newPrice - oldPrice) / oldPrice) * 100 : 0;
+
+          return {
+            ...change,
+            master_ingredient: masterIngredientsMap[change.item_code],
+            // If product_name is not available in the price change, use the one from master ingredient
+            product_name:
+              change.product_name ||
+              masterIngredientsMap[change.item_code]?.product ||
+              "Unknown Product",
+            // Override the change_percent with our recalculated value
+            change_percent: changePercent,
+          };
+        });
 
         set({
           priceChanges: enrichedPriceChanges,

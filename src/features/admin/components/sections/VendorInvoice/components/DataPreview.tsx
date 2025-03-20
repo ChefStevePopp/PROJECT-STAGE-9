@@ -340,7 +340,7 @@ export const DataPreview: React.FC<Props> = ({
 
       <div className="overflow-x-auto rounded-lg border border-gray-700">
         <table className="w-full">
-          <thead className="bg-gray-800/50">
+          <thead className="bg-slate-900">
             <tr>
               <th className="px-4 py-2 text-left text-sm font-medium text-gray-400">
                 Item Code

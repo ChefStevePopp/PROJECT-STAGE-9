@@ -1,5 +1,5 @@
 import React from "react";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Utensils, Database } from "lucide-react";
 import { CategoryStats } from "./CategoryStats";
 import { useMasterIngredientsStore } from "@/stores/masterIngredientsStore";
 import { useFoodRelationshipsStore } from "@/stores/foodRelationshipsStore";
@@ -91,10 +91,17 @@ export const MasterIngredientList = () => {
 
   return (
     <div className="space-y-4">
-      <CategoryStats ingredients={ingredients} />
-
-      <div className="flex justify-between items-center">
-        <h2 className="text-lg font-medium text-white">Master Ingredients</h2>
+      <div className="bg-[#1a1f2b] rounded-t-lg p-4 flex justify-between items-center border-b border-gray-700">
+        <div className="flex items-center gap-3">
+          <div className="bg-primary-600/20 p-2 rounded-lg">
+            <Database className="w-6 h-6 text-primary-500" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-white">
+              <span className="block">Master Ingredients Manager</span>
+            </h2>
+          </div>
+        </div>
         <button
           onClick={() =>
             setNewIngredient({
@@ -145,13 +152,33 @@ export const MasterIngredientList = () => {
               organization_id: organization?.id,
             } as MasterIngredient)
           }
-          className="btn-primary"
+          className="btn-ghost-blue"
         >
           <Plus className="w-4 h-4 mr-2" />
           Add Ingredient
         </button>
       </div>
-
+      <div className="bg-[#1a1f2b] p-4 rounded-lg mb-4 flex items-center justify-between">
+        <p className="text-sm text-gray-500">
+          The Master Ingredients Manager is a central hub for managing all the
+          ingredients used in your operation. It allows you to create, edit, and
+          organize your ingredients, assign them to categories, track pricing,
+          and manage allergen information. It provides a comprehensive overview
+          of your ingredients, helping you maintain accurate and up-to-date
+          information for your recipes and inventory.
+        </p>
+      </div>
+      <div className="bg-[#1a1f2b] rounded-b-lg p-4 mb-4">
+        <p className="text-sm text-gray-500">
+          The Master Ingredients Manager is a central hub for managing all the
+          ingredients used in your operation. It allows you to create, edit, and
+          organize your ingredients, assign them to categories, track pricing,
+          and manage allergen information. It provides a comprehensive overview
+          of your ingredients, helping you maintain accurate and up-to-date
+          information for your recipes and inventory.
+        </p>
+      </div>
+      <CategoryStats ingredients={ingredients} />
       <div className="relative mb-4">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
         <input
@@ -162,7 +189,6 @@ export const MasterIngredientList = () => {
           className="input w-full pl-10"
         />
       </div>
-
       <ExcelDataGrid
         data={isRefreshing ? [] : filteredIngredients}
         columns={masterIngredientColumns}
@@ -170,7 +196,6 @@ export const MasterIngredientList = () => {
         onRefresh={handleRefresh}
         isLoading={isRefreshing}
       />
-
       {(editingIngredient || newIngredient) && (
         <EditIngredientModal
           ingredient={editingIngredient || newIngredient}

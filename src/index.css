@@ -163,10 +163,10 @@ select::-ms-expand {
   .tab {
     @apply relative flex items-center gap-3 px-6 py-3 rounded-lg transition-colors text-sm font-medium;
     &:not(.active) {
-      @apply text-gray-400 hover:text-white hover:bg-gray-800/50;
+      @apply text-gray-400 hover:text-white hover:bg-gray-800/50 bg-slate-900/20 border border-gray-700/30 shadow-md;
     }
     &.active {
-      @apply bg-gray-800 text-white;
+      @apply bg-gray-800 border border-gray-700/50;
     }
     &::before {
       content: "";
@@ -178,6 +178,7 @@ select::-ms-expand {
     &.active::before {
       @apply opacity-100;
     }
+    /* Tab colors - active state */
     &.primary::before {
       @apply bg-primary-500;
     }
@@ -192,6 +193,60 @@ select::-ms-expand {
     }
     &.purple::before {
       @apply bg-purple-500;
+    }
+    &.lime::before {
+      @apply bg-lime-500;
+    }
+    &.red::before {
+      @apply bg-red-500;
+    }
+    /* Tab colors - inactive state */
+    &:not(.active).primary svg {
+      @apply text-primary-500/60;
+    }
+    &:not(.active).green svg {
+      @apply text-green-500/60;
+    }
+    &:not(.active).amber svg {
+      @apply text-amber-500/60;
+    }
+    &:not(.active).rose svg {
+      @apply text-rose-500/60;
+    }
+    &:not(.active).purple svg {
+      @apply text-purple-500/60;
+    }
+    &:not(.active).lime svg {
+      @apply text-lime-500/60;
+    }
+    &:not(.active).red svg {
+      @apply text-red-500/60;
+    }
+    /* Tab icon colors - active state */
+    &.active.primary svg {
+      @apply text-primary-500;
+    }
+    &.active.green svg {
+      @apply text-green-500;
+    }
+    &.active.amber svg {
+      @apply text-amber-500;
+    }
+    &.active.rose svg {
+      @apply text-rose-500;
+    }
+    &.active.purple svg {
+      @apply text-purple-500;
+    }
+    &.active.lime svg {
+      @apply text-lime-500;
+    }
+    &.active.red svg {
+      @apply text-red-500;
+    }
+    /* Tab text color - active state */
+    &.active {
+      @apply text-white;
     }
   }
 }

@@ -12,12 +12,12 @@ import {
   Umbrella,
   Boxes,
   Package,
+  CircleDollarSign,
 } from "lucide-react";
 import { CSVUploader } from "./components/CSVUploader";
 import { QuickStatCard } from "./components/QuickStatCard";
 import { ImportSettings } from "./components/ImportSettings";
 import { PriceHistory } from "./components/PriceHistory";
-import { AddInvoiceModal } from "./components/AddInvoiceModal";
 import { VendorSelector } from "./components/VendorSelector";
 import { PDFUploader } from "./components/PDFUploader";
 import { PhotoUploader } from "./components/PhotoUploader";
@@ -29,6 +29,7 @@ import { PriceHistoryView } from "./components/PriceHistoryView";
 import { VendorAnalytics } from "./components/VendorAnalytics";
 import { ImportHistory } from "./components/ImportHistory";
 import { useVendorTemplatesStore } from "@/stores/vendorTemplatesStore";
+import { ManualInvoiceForm } from "./components/ManualInvoiceForm";
 import toast from "react-hot-toast";
 
 const TABS = [
@@ -52,12 +53,11 @@ const TABS = [
     icon: FileSpreadsheet,
     color: "purple",
   },
-  { id: "history", label: "History", icon: History, color: "slate" },
+  { id: "history", label: "History", icon: History, color: "lime" },
   { id: "settings", label: "Settings", icon: Settings, color: "red" },
 ] as const;
 
 export const VendorInvoiceManager = () => {
-  const [showAddInvoice, setShowAddInvoice] = useState(false);
   const [activeTab, setActiveTab] =
     useState<(typeof TABS)[number]["id"]>("dashboard");
   const [isLoading, setIsLoading] = useState(false);
@@ -65,10 +65,13 @@ export const VendorInvoiceManager = () => {
   const [invoiceDate, setInvoiceDate] = useState<Date | null>(null);
   const [csvColumns, setCSVColumns] = useState<string[]>([]);
   const [selectedVendor, setSelectedVendor] = useState("");
+  const [manualVendorId, setManualVendorId] = useState("");
   const { templates, fetchTemplates } = useVendorTemplatesStore();
 
   // State for import type selection within the Import tab
-  const [importType, setImportType] = useState<"csv" | "pdf" | "photo">("csv");
+  const [importType, setImportType] = useState<
+    "csv" | "pdf" | "photo" | "manual"
+  >("csv");
 
   // Fetch templates whenever vendor changes
   React.useEffect(() => {
@@ -163,42 +166,62 @@ export const VendorInvoiceManager = () => {
     }
   };
 
+  const handleManualSubmit = (data: any[], date: Date) => {
+    setCSVData(data);
+    setInvoiceDate(date);
+    setManualVendorId(selectedVendor);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-bold text-white">
-              Vendor Invoice Manager
-            </h2>
-            <p className="text-gray-400">
-              Process vendor invoices and update prices
-            </p>
+        <div className="flex justify-between items-center p-4 rounded-lg bg-[#1a1f2b]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+              <CircleDollarSign className="w-5 h-5 text-green-400" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-white">
+                Vendor Invoice Manager
+              </h2>
+              <p className="text-gray-400">
+                Process vendor invoices and update prices
+              </p>
+            </div>
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => setShowAddInvoice(true)}
-              className="btn-primary"
+              onClick={() => {
+                setActiveTab("import");
+                // Set a small delay to ensure the tab has changed before setting the import type
+                setTimeout(() => setImportType("manual"), 50);
+              }}
+              className="btn-ghost text-primary-400 hover:text-primary-300 hover:bg-primary-500/10 focus:ring-primary-500/50 border border-primary-500/30"
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Invoice
             </button>
-            {showAddInvoice && (
-              <AddInvoiceModal
-                isOpen={showAddInvoice}
-                onClose={() => setShowAddInvoice(false)}
-                onSave={(data) => {
-                  console.log("Save invoice:", data);
-                  setShowAddInvoice(false);
-                }}
-              />
-            )}
+            <button
+              onClick={() => {
+                setActiveTab("import");
+                // Keep the current import type or default to csv
+                setTimeout(() => {
+                  if (importType === "manual") {
+                    setImportType("csv");
+                  }
+                }, 50);
+              }}
+              className="btn-ghost-green"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Import Invoice
+            </button>
           </div>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex flex-wrap gap-2 overflow-visible">
+        <div className="flex flex-wrap gap-1 overflow-visible">
           {TABS.map((tab) => (
             <button
               key={tab.id}
@@ -206,10 +229,10 @@ export const VendorInvoiceManager = () => {
               data-tab={tab.id}
               className={`tab ${tab.color} ${activeTab === tab.id ? "active" : ""}`}
             >
-              <tab.icon
-                className={`w-4 h-4 mr-2 flex-shrink-0 ${activeTab === tab.id ? `text-${tab.color}-400` : ""}`}
-              />
-              <span>{tab.label}</span>
+              <tab.icon className="w-4 h-4 mr-2 flex-shrink-0" />
+              <span className="whitespace-normal text-center leading-tight">
+                {tab.label}
+              </span>
             </button>
           ))}
         </div>
@@ -219,14 +242,17 @@ export const VendorInvoiceManager = () => {
       <div className="space-y-6">
         {/* Vendor Selection - Only visible for import tab */}
         {activeTab === "import" && (
-          <VendorSelector
-            selectedVendor={selectedVendor}
-            onVendorChange={setSelectedVendor}
-            fileType={importType}
-            onFileTypeChange={(type) =>
-              setImportType(type as "csv" | "pdf" | "photo")
-            }
-          />
+          <div className="space-y-4">
+            <VendorSelector
+              selectedVendor={selectedVendor}
+              onVendorChange={setSelectedVendor}
+              fileType={importType}
+              onFileTypeChange={(type) =>
+                setImportType(type as "csv" | "pdf" | "photo" | "manual")
+              }
+            />
+            {/* Import button moved to header */}
+          </div>
         )}
 
         {/* Tab Content */}
@@ -242,10 +268,10 @@ export const VendorInvoiceManager = () => {
               </div>
               <p className="text-gray-400 mt-4">Processing your file...</p>
             </div>
-          ) : csvData && activeTab === "import" && importType === "csv" ? (
+          ) : csvData ? (
             <DataPreview
               data={csvData}
-              vendorId={selectedVendor}
+              vendorId={manualVendorId || selectedVendor}
               invoiceDate={invoiceDate || new Date()}
               onDateChange={(date) => setInvoiceDate(date)}
               onConfirm={async () => {
@@ -289,6 +315,28 @@ export const VendorInvoiceManager = () => {
                   )}
                   {importType === "photo" && (
                     <PhotoUploader onUpload={handleUpload} />
+                  )}
+                  {importType === "manual" && (
+                    <div className="space-y-6">
+                      {selectedVendor ? (
+                        <ManualInvoiceForm
+                          onSubmit={handleManualSubmit}
+                          onCancel={() => {
+                            setSelectedVendor("");
+                            setImportType("csv");
+                          }}
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-700 rounded-lg bg-gray-800/50">
+                          <h3 className="text-lg font-medium text-white mb-2">
+                            Manual Invoice Entry
+                          </h3>
+                          <p className="text-gray-400 text-center mb-4">
+                            Please select a vendor first to begin manual entry
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </>
               )}

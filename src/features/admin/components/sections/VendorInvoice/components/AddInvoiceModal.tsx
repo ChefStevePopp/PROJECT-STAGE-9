@@ -1,17 +1,19 @@
 import React from "react";
-import { X, Plus } from "lucide-react";
+import { X, Plus, ArrowRight } from "lucide-react";
 import { useOperationsStore } from "@/stores/operationsStore";
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: any) => void;
+  onReview: (data: any[], invoiceDate: Date) => void;
 }
 
 export const AddInvoiceModal: React.FC<Props> = ({
   isOpen,
   onClose,
   onSave,
+  onReview,
 }) => {
   const { settings } = useOperationsStore();
   const [formData, setFormData] = React.useState({
@@ -61,6 +63,40 @@ export const AddInvoiceModal: React.FC<Props> = ({
         i === index ? { ...item, [field]: value } : item,
       ),
     }));
+  };
+
+  const handleReview = () => {
+    // Validate required fields
+    if (!formData.vendor) {
+      alert("Please select a vendor");
+      return;
+    }
+    if (!formData.invoiceDate) {
+      alert("Please enter an invoice date");
+      return;
+    }
+
+    // Transform the data to match the format expected by DataPreview
+    const transformedData = formData.items
+      .filter((item) => item.itemCode && item.productName && item.unitPrice) // Filter out empty items
+      .map((item) => ({
+        item_code: item.itemCode,
+        product_name: item.productName,
+        unit_price: parseFloat(item.unitPrice) || 0,
+        unit_of_measure: item.unitOfMeasure,
+        quantity: parseFloat(item.quantity) || 1,
+      }));
+
+    if (transformedData.length === 0) {
+      alert("Please add at least one item with code, name, and price");
+      return;
+    }
+
+    // Convert the invoice date string to a Date object
+    const invoiceDate = new Date(formData.invoiceDate);
+
+    // Pass the transformed data to the review handler
+    onReview(transformedData, invoiceDate);
   };
 
   return (
@@ -229,8 +265,9 @@ export const AddInvoiceModal: React.FC<Props> = ({
           <button onClick={onClose} className="btn-ghost">
             Cancel
           </button>
-          <button onClick={() => onSave(formData)} className="btn-primary">
-            Save Invoice
+          <button onClick={handleReview} className="btn-primary">
+            <ArrowRight className="w-4 h-4 mr-2" />
+            Review Items
           </button>
         </div>
       </div>

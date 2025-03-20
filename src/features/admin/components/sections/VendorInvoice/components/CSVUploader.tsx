@@ -333,7 +333,7 @@ export const CSVUploader: React.FC<Props> = ({
           ${error ? "border-rose-500" : ""}
         `}
       >
-        <input {...getInputProps()} />
+        <input id="csv-file-input" {...getInputProps()} />
         <FileSpreadsheet className="w-12 h-12 text-gray-400 mb-4" />
         <p className="text-lg font-medium text-white mb-2">
           Drop your vendor invoice CSV here
