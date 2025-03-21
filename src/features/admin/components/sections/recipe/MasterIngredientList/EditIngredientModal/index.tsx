@@ -100,6 +100,7 @@ export const EditIngredientModal: React.FC<EditIngredientModalProps> = ({
       unit_of_measure: initialIngredient.unit_of_measure || "",
       storage_area: initialIngredient.storage_area || "",
       image_url: initialIngredient.image_url || null,
+      archived: initialIngredient.archived || false,
       created_at: initialIngredient.created_at || new Date().toISOString(),
       updated_at: initialIngredient.updated_at || new Date().toISOString(),
       // Allergen fields with default false
@@ -399,21 +400,46 @@ export const EditIngredientModal: React.FC<EditIngredientModalProps> = ({
             </div>
           </div>
 
-          <div className="sticky bottom-0 bg-gray-900 p-6 border-t border-gray-800 flex justify-end gap-4">
-            <button type="button" onClick={onClose} className="btn-ghost">
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="btn-primary"
-            >
-              {isSubmitting
-                ? "Saving..."
-                : isNew
-                  ? "Create Ingredient"
-                  : "Save Changes"}
-            </button>
+          <div className="sticky bottom-0 bg-gray-900 p-6 border-t border-gray-800 flex justify-between gap-4">
+            <div className="flex items-center">
+              {!isNew && (
+                <div className="flex items-center gap-2">
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.archived}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          archived: e.target.checked,
+                        }))
+                      }
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-green-700/50 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-gray-300/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-700/50"></div>
+                  </label>
+                  <span className="text-sm text-gray-400">
+                    {formData.archived ? "Archived" : "Active"}
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-4">
+              <button type="button" onClick={onClose} className="btn-ghost">
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="btn-primary"
+              >
+                {isSubmitting
+                  ? "Saving..."
+                  : isNew
+                    ? "Create Ingredient"
+                    : "Save Changes"}
+              </button>
+            </div>
           </div>
         </form>
       </div>

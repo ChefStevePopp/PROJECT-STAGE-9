@@ -64,7 +64,7 @@ export const ResizableHeader: React.FC<ResizableHeaderProps> = ({
   return (
     <div
       ref={headerRef}
-      className="relative flex h-full cursor-pointer select-none justify-between items-center"
+      className="relative flex h-full cursor-pointer select-none justify-center items-center"
       style={{ width: `${column.width}px` }}
       draggable={true}
       onDragStart={onDragStart}
@@ -72,10 +72,12 @@ export const ResizableHeader: React.FC<ResizableHeaderProps> = ({
       onDragOver={onDragOver}
     >
       <div
-        className="flex-1 flex items-center justify-between px-4 py-2"
+        className="flex-1 flex items-center justify-center px-4 py-2 text-center"
         onClick={onSort}
       >
-        <span className="font-medium text-gray-300">{column.name}</span>
+        <span className="font-medium text-center text-gray-300">
+          {column.name}
+        </span>
         <div className="flex items-center">
           {sortDirection === "asc" && (
             <ArrowUp className="w-4 h-4 text-primary-400" />

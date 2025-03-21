@@ -12,8 +12,11 @@ import {
   Boxes,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   X,
   FileText,
+  Info,
 } from "lucide-react";
 import { useVendorCodesStore } from "@/stores/vendorCodesStore";
 import { useMasterIngredientsStore } from "@/stores/masterIngredientsStore";
@@ -54,6 +57,7 @@ export const ItemCodeGroupManager: React.FC = () => {
   >(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteText, setEditingNoteText] = useState("");
+  const [infoExpanded, setInfoExpanded] = useState(false);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -190,50 +194,66 @@ export const ItemCodeGroupManager: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-gray-800/50 p-4 rounded-lg">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-md bg-amber-500/20 text-amber-400">
-              <FileText className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-white">
-                Item Code Group Management
-              </h2>
-              <p className="text-gray-400">
-                Manage umbrella ingredients and their associated vendor codes
-              </p>
-            </div>
+      <div className="flex items-center justify-between mb-6 bg-[#262d3c] p-2 rounded-lg shadow-lg">
+        <div className="flex items-center gap-3 p-4 rounded-lg bg-[#262d3c]">
+          <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+            <Boxes className="w-5 h-5 text-amber-400" />
           </div>
-          <div className="flex gap-2">
-            <button onClick={() => fetchVendorCodes()} className="btn-ghost">
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Refresh
-            </button>
-            <button onClick={() => setIsAdding(true)} className="btn-primary">
-              <Plus className="w-4 h-4 mr-2" />
-              Create New Code Group
-            </button>
+          <div>
+            <h2 className="text-lg font-medium text-white">
+              Item Code Group Management
+            </h2>
+            <p className="text-sm text-gray-400">
+              Manage umbrella ingredients and their associated vendor codes
+            </p>
           </div>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={() => fetchVendorCodes()} className="btn-ghost">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </button>
+          <button
+            onClick={() => setIsAdding(true)}
+            className="btn-ghost text-primary-400 hover:text-primary-300 hover:bg-primary-500/10 focus:ring-primary-500/50 border border-primary-500/30"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Create New Code Group
+          </button>
         </div>
       </div>
-      {/* Collapsible Info Box */}
-      <details className="w-full rounded-lg">
-        <summary className="cursor-pointer font-medium text-amber-400 hover:text-amber-300 transition-colors">
-          What are Item Code Groups?
-        </summary>
-        <div className="mt-2 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-          <p className="text-sm text-gray-300">
-            Item Code Groups help you manage different vendor codes for the same
-            product. For example, "Beef Brisket" might have different item codes
-            for various grades and sizes like GFS #12345 (Choice Grade, 12-14
-            lbs), GFS #12346 (Prime Grade, 10-12 lbs), and GFS #12347 (Trimmed,
-            8-10 lbs). This feature lets you track all these codes in one place,
-            including market vs. contract pricing, making inventory and ordering
-            more efficient.
-          </p>
-        </div>
-      </details>
+      {/* Expandable Info Section */}
+      <div className="expandable-info-section mb-6">
+        <button
+          className="expandable-info-header w-full justify-between"
+          onClick={() => setInfoExpanded(!infoExpanded)}
+        >
+          <div className="flex items-center gap-2">
+            <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+            <h3 className="text-lg font-medium text-white">
+              What are Item Code Groups?
+            </h3>
+          </div>
+          {infoExpanded ? (
+            <ChevronUp className="w-5 h-5 text-gray-400" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-gray-400" />
+          )}
+        </button>
+        {infoExpanded && (
+          <div className="expandable-info-content">
+            <p className="text-sm text-gray-300 p-4">
+              Item Code Groups help you manage different vendor codes for the
+              same product. For example, "Beef Brisket" might have different
+              item codes for various grades and sizes like GFS #12345 (Choice
+              Grade, 12-14 lbs), GFS #12346 (Prime Grade, 10-12 lbs), and GFS
+              #12347 (Trimmed, 8-10 lbs). This feature lets you track all these
+              codes in one place, including market vs. contract pricing, making
+              inventory and ordering more efficient.
+            </p>
+          </div>
+        )}
+      </div>
       {/* Search Bar */}
       <div className="flex items-center gap-4">
         <div className="relative flex-1">
@@ -247,7 +267,6 @@ export const ItemCodeGroupManager: React.FC = () => {
           />
         </div>
       </div>
-
       {/* Create New Code Group Form - 4-line Layout with Explanations */}
       {isAdding && (
         <div className="card p-4 bg-gray-900 border border-gray-700">
@@ -451,7 +470,6 @@ export const ItemCodeGroupManager: React.FC = () => {
           </div>
         </div>
       )}
-
       {/* Item Code Groups List */}
       <div className="space-y-4">
         {isLoading ? (

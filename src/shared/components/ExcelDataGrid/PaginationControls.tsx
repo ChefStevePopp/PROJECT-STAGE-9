@@ -30,7 +30,7 @@ export const PaginationControls: React.FC<PaginationControlsProps> = ({
         <select
           value={itemsPerPage}
           onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
-          className="mx-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"
+          className="border border-gray-700 rounded text-white px-2.5 py-1 pl-3.5 ml-3 mr-1.5 my-[unset]"
         >
           {itemsPerPageOptions.map((option) => (
             <option key={option} value={option}>
@@ -42,7 +42,6 @@ export const PaginationControls: React.FC<PaginationControlsProps> = ({
           items per page, {startItem}-{endItem} of {totalItems} items
         </span>
       </div>
-
       <div className="flex items-center space-x-2">
         <button
           onClick={() => onPageChange(currentPage - 1)}

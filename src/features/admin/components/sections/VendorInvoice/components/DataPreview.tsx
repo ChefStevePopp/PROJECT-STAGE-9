@@ -544,39 +544,7 @@ export const DataPreview: React.FC<Props> = ({
                               <Plus className="w-4 h-4" />
                             </button>
 
-                            {/* Option 2: Add to Code Group */}
-                            <button
-                              onClick={() => {
-                                // Code to add to code group would go here
-                                toast.info(
-                                  `Adding ${row.product_name} to Code Group`,
-                                );
-                                // This would typically navigate to or open the Code Group manager
-                                // with this item pre-selected
-                              }}
-                              className="p-1 rounded-lg transition-colors hover:bg-amber-500/20 text-gray-400 hover:text-amber-400"
-                              title="Add to Code Group"
-                            >
-                              <Boxes className="w-4 h-4" />
-                            </button>
-
-                            {/* Option 3: Add to Umbrella Group */}
-                            <button
-                              onClick={() => {
-                                // Code to add to umbrella group would go here
-                                toast.info(
-                                  `Adding ${row.product_name} to Umbrella Group`,
-                                );
-                                // This would typically navigate to or open the Umbrella Group manager
-                                // with this item pre-selected
-                              }}
-                              className="p-1 rounded-lg transition-colors hover:bg-blue-500/20 text-gray-400 hover:text-blue-400"
-                              title="Add to Umbrella Group"
-                            >
-                              <Umbrella className="w-4 h-4" />
-                            </button>
-
-                            {/* Option 4: Discard */}
+                            {/* Option for Discard */}
                             <button
                               onClick={() => {
                                 // Add this item to the excluded items list
@@ -592,35 +560,6 @@ export const DataPreview: React.FC<Props> = ({
                               title="Discard Item"
                             >
                               <Trash2 className="w-4 h-4" />
-                            </button>
-
-                            {/* Link Existing button - keeping this functionality */}
-                            <button
-                              onClick={() => {
-                                // Mark the item as excluded temporarily
-                                setExcludedItems((prev) => [
-                                  ...prev,
-                                  row.item_code.toString(),
-                                ]);
-
-                                // Set up the linking ingredient state
-                                setLinkingIngredient({
-                                  row,
-                                  matches: masterIngredients
-                                    .filter((ingredient) =>
-                                      ingredient.product
-                                        .toLowerCase()
-                                        .includes(
-                                          row.product_name.toLowerCase(),
-                                        ),
-                                    )
-                                    .slice(0, 10),
-                                });
-                              }}
-                              className="p-1 rounded-lg transition-colors hover:bg-indigo-500/20 text-gray-400 hover:text-indigo-400"
-                              title="Link to Existing Ingredient"
-                            >
-                              <Link className="w-4 h-4" />
                             </button>
                           </div>
                         )}

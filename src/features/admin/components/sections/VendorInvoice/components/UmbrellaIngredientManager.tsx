@@ -14,6 +14,9 @@ import {
   Umbrella,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  Info,
 } from "lucide-react";
 import { useMasterIngredientsStore } from "@/stores/masterIngredientsStore";
 import { useFoodRelationshipsStore } from "@/stores/foodRelationshipsStore";
@@ -59,6 +62,7 @@ export const UmbrellaIngredientManager: React.FC = () => {
   const [isLinkingIngredient, setIsLinkingIngredient] = useState<string | null>(
     null,
   );
+  const [infoExpanded, setInfoExpanded] = useState(false);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -218,8 +222,8 @@ export const UmbrellaIngredientManager: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between mb-6 bg-[#1a1f2b] p-2 rounded-lg">
-        <div className="flex items-center gap-3 p-4 rounded-lg bg-[#1a1f2b]">
+      <div className="flex items-center justify-between mb-6 bg-[#262d3c] p-2 rounded-lg shadow-lg">
+        <div className="flex items-center gap-3 p-4 rounded-lg bg-[#262d3c]">
           <div className="w-10 h-10 rounded-lg bg-rose-500/20 flex items-center justify-center">
             <Umbrella className="w-5 h-5 text-rose-400" />
           </div>
@@ -240,28 +244,46 @@ export const UmbrellaIngredientManager: React.FC = () => {
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </button>
-          <button onClick={() => setIsCreating(true)} className="btn-primary">
+          <button
+            onClick={() => setIsCreating(true)}
+            className="btn-ghost text-primary-400 hover:text-primary-300 hover:bg-primary-500/10 focus:ring-primary-500/50 border border-primary-500/30"
+          >
             <Plus className="w-4 h-4 mr-2" />
             Create Umbrella Ingredient
           </button>
         </div>
       </div>
-      {/* Collapsible Info Box */}
-      <details className="w-full rounded-lg">
-        <summary className="cursor-pointer font-medium text-amber-400 hover:text-amber-300 transition-colors">
-          <AlertTriangle className="w-4 h-4 inline-block mr-2 text-blue-400" />
-          What are Umbrella Ingredients?
-        </summary>
-        <div className="mt-2 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-          <p className="text-sm text-gray-300">
-            Umbrella Ingredients let you group similar products that serve the
-            same purpose in your kitchen. For example, you might create an
-            "Olive Oil" umbrella that includes different brands, sizes, and
-            grades of olive oil. This helps with recipe costing, inventory
-            management, and makes it easier to substitute products when needed.
-          </p>
-        </div>
-      </details>
+      {/* Expandable Info Section */}
+      <div className="expandable-info-section mb-6">
+        <button
+          className="expandable-info-header w-full justify-between"
+          onClick={() => setInfoExpanded(!infoExpanded)}
+        >
+          <div className="flex items-center gap-2">
+            <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+            <h3 className="text-lg font-medium text-white">
+              What are Umbrella Ingredients?
+            </h3>
+          </div>
+          {infoExpanded ? (
+            <ChevronUp className="w-5 h-5 text-gray-400" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-gray-400" />
+          )}
+        </button>
+        {infoExpanded && (
+          <div className="expandable-info-content">
+            <p className="text-sm text-gray-300 p-4">
+              Umbrella Ingredients let you group similar products that serve the
+              same purpose in your kitchen. For example, you might create an
+              "Olive Oil" umbrella that includes different brands, sizes, and
+              grades of olive oil. This helps with recipe costing, inventory
+              management, and makes it easier to substitute products when
+              needed.
+            </p>
+          </div>
+        )}
+      </div>
       {/* Search Bar and Action Buttons */}
       <div className="flex items-center justify-between gap-4">
         <div className="relative flex-1">

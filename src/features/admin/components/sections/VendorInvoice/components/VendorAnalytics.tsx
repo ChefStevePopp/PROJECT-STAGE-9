@@ -187,10 +187,10 @@ export const VendorAnalytics: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between mb-6 bg-[#1a1f2b] p-2 rounded-lg">
-        <div className="flex items-center gap-3 p-4 rounded-lg bg-[#1a1f2b]">
-          <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
-            <BarChart3 className="w-5 h-5 text-blue-400" />
+      <div className="flex items-center justify-between mb-6 bg-[#262d3c] p-2 rounded-lg shadow-lg">
+        <div className="flex items-center gap-3 p-4 rounded-lg bg-[#262d3c]">
+          <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+            <TrendingUp className="w-5 h-5 text-green-400" />
           </div>
           <div>
             <h3 className="text-lg font-medium text-white">Vendor Analytics</h3>

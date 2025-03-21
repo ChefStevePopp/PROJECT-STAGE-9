@@ -431,9 +431,9 @@ export function ExcelDataGrid<T>({
       )}
       {/* Column Settings Panel */}
       {showColumnSettings && (
-        <div className="card p-4 bg-gray-800 rounded-lg p-4 mb-4">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-white font-medium">Column Settings</h3>
+        <div className="card p-4 bg-gray-800 rounded-lg p-4 mb-1">
+          <div className="flex justify-between items-center mb-0 px-2">
+            <h4 className="text-white font-medium">Column Settings</h4>
             <div className="flex gap-4">
               <button
                 onClick={() => {
@@ -478,21 +478,19 @@ export function ExcelDataGrid<T>({
                 onClick={() => setShowColumnSettings(false)}
                 className="text-sm text-gray-400 hover:text-white flex items-center gap-1"
               >
-                <X className="w-4 h-4" />
+                <X className="text-red-500 w-4 h-4" />
                 Close
               </button>
             </div>
           </div>
 
           <div className="flex flex-col space-y-4">
-            <div className="text-sm text-gray-400 mb-2">
-              <p>
-                Drag and drop column headers to reorder columns. Check/uncheck
-                to show/hide columns.
-              </p>
+            <div className="text-xs text-gray-500 mt-2 px-2">
+              Drag and drop column headers to reorder columns. Check/uncheck to
+              show/hide columns.
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 px-2">
               {columns.map((column) => (
                 <div key={column.key} className="flex flex-col space-y-2">
                   <div className="flex items-center justify-between">
@@ -533,7 +531,7 @@ export function ExcelDataGrid<T>({
               ))}
             </div>
 
-            <div className="mt-4 border-t border-gray-700 pt-4">
+            <div className="mt-4 border-t border-gray-700 pt-[4] pt-2">
               <h4 className="text-white font-medium mb-2">Column Order</h4>
               <div className="bg-gray-800 p-3 rounded-md">
                 <div className="flex flex-wrap gap-2">
@@ -593,7 +591,7 @@ export function ExcelDataGrid<T>({
       {/* Data Table */}
       <div className="overflow-x-auto rounded-lg border border-gray-700">
         <table className="w-full min-w-[800px]">
-          <thead className="bg-slate-900 text-gray-500 text-left">
+          <thead className="bg-slate-900 text-gray-500 text-center">
             <tr>
               {/* Use columnOrder to determine the order of columns */}
               {columnOrder
@@ -691,7 +689,7 @@ export function ExcelDataGrid<T>({
                       return (
                         <td
                           key={`${rowIndex}-${column.key}`}
-                          className="px-4 py-2 text-sm text-gray-300 text-left"
+                          className="px-4 py-2 text-sm text-gray-300 text-center"
                           style={{
                             minWidth: `${columnWidths[column.key] || column.width}px`,
                             maxWidth: `${(columnWidths[column.key] || column.width) * 1.5}px`,

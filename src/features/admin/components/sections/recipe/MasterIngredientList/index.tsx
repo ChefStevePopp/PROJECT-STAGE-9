@@ -19,13 +19,20 @@ export const MasterIngredientList = () => {
     React.useState<MasterIngredient | null>(null);
   const { fetchFoodRelationships } = useFoodRelationshipsStore();
   const [searchTerm, setSearchTerm] = React.useState("");
+  const [showArchived, setShowArchived] = React.useState(false);
 
   const { ingredients, fetchIngredients } = useMasterIngredientsStore();
   const [isRefreshing, setIsRefreshing] = React.useState(false);
 
   const filteredIngredients = React.useMemo(() => {
-    return ingredients.filter(
-      (ingredient) =>
+    return ingredients.filter((ingredient) => {
+      // First filter by archived status
+      if (!showArchived && ingredient.archived) {
+        return false;
+      }
+
+      // Then filter by search term
+      return (
         (ingredient.product || "")
           .toLowerCase()
           .includes(searchTerm.toLowerCase()) ||
@@ -43,9 +50,10 @@ export const MasterIngredientList = () => {
           .includes(searchTerm.toLowerCase()) ||
         (ingredient.item_code || "")
           .toLowerCase()
-          .includes(searchTerm.toLowerCase()),
-    );
-  }, [ingredients, searchTerm]);
+          .includes(searchTerm.toLowerCase())
+      );
+    });
+  }, [ingredients, searchTerm, showArchived]);
 
   React.useEffect(() => {
     if (organization?.id) {
@@ -153,6 +161,7 @@ export const MasterIngredientList = () => {
               allergen_custom3_active: false,
               allergen_notes: null,
               organization_id: organization?.id,
+              archived: false,
             } as MasterIngredient)
           }
           className="btn-ghost-blue"
@@ -172,15 +181,29 @@ export const MasterIngredientList = () => {
         </p>
       </div>
       <CategoryStats ingredients={ingredients} />
-      <div className="relative mb-4">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search ingredients..."
-          className="input w-full pl-10"
-        />
+      <div className="flex gap-4 mb-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search ingredients..."
+            className="input w-full pl-10"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showArchived}
+              onChange={(e) => setShowArchived(e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600/50"></div>
+          </label>
+          <span className="text-sm text-gray-400">Show Archived</span>
+        </div>
       </div>
       <ExcelDataGrid
         data={isRefreshing ? [] : filteredIngredients}

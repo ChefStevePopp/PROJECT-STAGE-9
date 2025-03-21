@@ -6,16 +6,17 @@ import {
   Camera,
   RefreshCw,
   Search,
-  ChevronLeft,
-  ChevronRight,
   Eye,
   Download,
   Trash2,
   AlertTriangle,
+  History,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import toast from "react-hot-toast";
+import { ExcelDataGrid } from "@/shared/components/ExcelDataGrid";
+import type { ExcelColumn } from "@/types/excel";
 
 interface ImportRecord {
   id: string;
@@ -37,9 +38,6 @@ export const ImportHistory: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
-  const [totalPages, setTotalPages] = useState(1);
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>(
     () => {
       const end = new Date();
@@ -165,27 +163,10 @@ export const ImportHistory: React.FC = () => {
           return importDate >= startDate && importDate <= endDate;
         });
 
-        // Filter by search term
-        const searchFilteredMocks = filteredMockImports.filter(
-          (importRecord) =>
-            !searchTerm ||
-            importRecord.vendor_id
-              .toLowerCase()
-              .includes(searchTerm.toLowerCase()) ||
-            importRecord.file_name
-              .toLowerCase()
-              .includes(searchTerm.toLowerCase()) ||
-            importRecord.import_type
-              .toLowerCase()
-              .includes(searchTerm.toLowerCase()),
-        );
-
-        setImports(searchFilteredMocks);
-        setTotalPages(Math.ceil(searchFilteredMocks.length / itemsPerPage));
+        setImports(filteredMockImports);
       } else {
         // Use real data from the database
         setImports(data as ImportRecord[]);
-        setTotalPages(Math.ceil(data.length / itemsPerPage));
       }
 
       setIsLoading(false);
@@ -200,13 +181,7 @@ export const ImportHistory: React.FC = () => {
 
   useEffect(() => {
     fetchImportHistory();
-  }, [searchTerm, dateRange]);
-
-  // Get paginated data
-  const paginatedImports = imports.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage,
-  );
+  }, [dateRange]);
 
   // Get icon for import type
   const getImportTypeIcon = (type: string) => {
@@ -234,12 +209,72 @@ export const ImportHistory: React.FC = () => {
     });
   };
 
+  // Define columns for ExcelDataGrid
+  const columns: ExcelColumn[] = [
+    {
+      key: "created_at",
+      name: "Date",
+      type: "date",
+      width: 180,
+      sortable: true,
+      filterable: true,
+    },
+    {
+      key: "vendor_id",
+      name: "Vendor",
+      type: "text",
+      width: 150,
+      sortable: true,
+      filterable: true,
+    },
+    {
+      key: "file_name",
+      name: "File",
+      type: "text",
+      width: 200,
+      sortable: true,
+      filterable: true,
+    },
+    {
+      key: "items_count",
+      name: "Items",
+      type: "number",
+      width: 100,
+      sortable: true,
+      filterable: true,
+    },
+    {
+      key: "price_changes",
+      name: "Price Changes",
+      type: "number",
+      width: 120,
+      sortable: true,
+      filterable: true,
+    },
+    {
+      key: "new_items",
+      name: "New Items",
+      type: "number",
+      width: 120,
+      sortable: true,
+      filterable: true,
+    },
+    {
+      key: "status",
+      name: "Status",
+      type: "text",
+      width: 120,
+      sortable: true,
+      filterable: true,
+    },
+  ];
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between mb-6 bg-[#1a1f2b] p-2 rounded-lg">
-        <div className="flex items-center gap-3 p-4 rounded-lg bg-[#1a1f2b]">
-          <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
-            <FileSpreadsheet className="w-5 h-5 text-green-400" />
+      <div className="flex items-center justify-between mb-6 bg-[#262d3c] p-2 rounded-lg shadow-lg">
+        <div className="flex items-center gap-3 p-4 rounded-lg bg-[#262d3c]">
+          <div className="w-10 h-10 rounded-lg bg-lime-500/20 flex items-center justify-center">
+            <History className="w-5 h-5 text-lime-400" />
           </div>
           <div>
             <h3 className="text-lg font-medium text-white">Import History</h3>
@@ -255,18 +290,7 @@ export const ImportHistory: React.FC = () => {
       </div>
 
       {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search by vendor, file name, or type..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="input pl-10 w-full"
-          />
-        </div>
-
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div>
           <label className="block text-sm font-medium text-gray-400 mb-2">
             Start Date
@@ -296,191 +320,73 @@ export const ImportHistory: React.FC = () => {
         </div>
       </div>
 
-      {/* Import History Table */}
-      <div className="overflow-x-auto rounded-lg border border-gray-700">
-        <table className="w-full">
-          <thead className="bg-gray-800/50">
-            <tr>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">
-                Date
-              </th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">
-                Vendor
-              </th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">
-                File
-              </th>
-              <th className="px-4 py-3 text-center text-sm font-medium text-gray-400">
-                Items
-              </th>
-              <th className="px-4 py-3 text-center text-sm font-medium text-gray-400">
-                Price Changes
-              </th>
-              <th className="px-4 py-3 text-center text-sm font-medium text-gray-400">
-                New Items
-              </th>
-              <th className="px-4 py-3 text-center text-sm font-medium text-gray-400">
-                Status
-              </th>
-              <th className="px-4 py-3 text-right text-sm font-medium text-gray-400">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-700">
-            {isLoading ? (
-              <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-gray-400">
-                  <div className="flex items-center justify-center">
-                    <div className="animate-spin h-5 w-5 border-2 border-primary-500 border-t-transparent rounded-full mr-2"></div>
-                    Loading import history...
-                  </div>
-                </td>
-              </tr>
-            ) : error ? (
-              <tr>
-                <td colSpan={8} className="px-4 py-8 text-center">
-                  <div className="flex items-center justify-center text-rose-400 gap-2">
-                    <AlertTriangle className="w-5 h-5" />
-                    {error}
-                  </div>
-                </td>
-              </tr>
-            ) : paginatedImports.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-gray-400">
-                  No import history found for the selected filters.
-                </td>
-              </tr>
-            ) : (
-              paginatedImports.map((importRecord) => (
-                <tr key={importRecord.id} className="hover:bg-gray-700/30">
-                  <td className="px-4 py-3 text-sm text-gray-300">
-                    {formatDate(importRecord.created_at)}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-300">
-                    {importRecord.vendor_id}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-300">
-                    <div className="flex items-center gap-2">
-                      {getImportTypeIcon(importRecord.import_type)}
-                      <span>{importRecord.file_name}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-center text-gray-300">
-                    {importRecord.items_count}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-center">
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-xs font-medium ${importRecord.price_changes > 0 ? "bg-amber-500/20 text-amber-400" : "bg-gray-500/20 text-gray-400"}`}
-                    >
-                      {importRecord.price_changes}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-center">
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-xs font-medium ${importRecord.new_items > 0 ? "bg-blue-500/20 text-blue-400" : "bg-gray-500/20 text-gray-400"}`}
-                    >
-                      {importRecord.new_items}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-center">
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                        importRecord.status === "completed"
-                          ? "bg-green-500/20 text-green-400"
-                          : importRecord.status === "failed"
-                            ? "bg-rose-500/20 text-rose-400"
-                            : "bg-amber-500/20 text-amber-400"
-                      }`}
-                    >
-                      {importRecord.status.charAt(0).toUpperCase() +
-                        importRecord.status.slice(1)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-right">
-                    <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => {
-                          // View details
-                          toast.info(
-                            `Viewing details for ${importRecord.file_name}`,
-                          );
-                        }}
-                        className="p-1 text-gray-400 hover:text-blue-400 transition-colors"
-                        title="View details"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          // Download original file
-                          toast.info(`Downloading ${importRecord.file_name}`);
-                        }}
-                        className="p-1 text-gray-400 hover:text-green-400 transition-colors"
-                        title="Download original file"
-                      >
-                        <Download className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          // Delete import record
-                          if (
-                            window.confirm(
-                              "Are you sure you want to delete this import record? This won't affect any data that was imported.",
-                            )
-                          ) {
-                            toast.success(
-                              `Deleted import record for ${importRecord.file_name}`,
-                            );
-                            // In a real implementation, this would delete the record from the database
-                            setImports((prev) =>
-                              prev.filter((i) => i.id !== importRecord.id),
-                            );
-                          }
-                        }}
-                        className="p-1 text-gray-400 hover:text-rose-400 transition-colors"
-                        title="Delete record"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      {imports.length > 0 && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-400">
-            Showing {paginatedImports.length} of {imports.length} imports
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-              className="p-2 rounded-lg bg-gray-800 text-gray-400 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <span className="text-sm text-gray-300">
-              Page {currentPage} of {totalPages}
-            </span>
-            <button
-              onClick={() =>
-                setCurrentPage(Math.min(totalPages, currentPage + 1))
-              }
-              disabled={currentPage === totalPages}
-              className="p-2 rounded-lg bg-gray-800 text-gray-400 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
+      {/* Import History Table using ExcelDataGrid */}
+      {isLoading ? (
+        <div className="flex items-center justify-center p-8 text-gray-400">
+          <div className="animate-spin h-5 w-5 border-2 border-primary-500 border-t-transparent rounded-full mr-2"></div>
+          Loading import history...
         </div>
+      ) : error ? (
+        <div className="flex items-center justify-center p-8 text-rose-400 gap-2">
+          <AlertTriangle className="w-5 h-5" />
+          {error}
+        </div>
+      ) : (
+        <ExcelDataGrid
+          columns={columns}
+          data={imports.map((importRecord) => ({
+            ...importRecord,
+            // Add custom actions to each row
+            actions: (
+              <div className="flex justify-center gap-2">
+                <button
+                  onClick={() => {
+                    // View details
+                    toast.info(`Viewing details for ${importRecord.file_name}`);
+                  }}
+                  className="p-1 text-gray-400 hover:text-blue-400 transition-colors"
+                  title="View details"
+                >
+                  <Eye className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    // Download original file
+                    toast.info(`Downloading ${importRecord.file_name}`);
+                  }}
+                  className="p-1 text-gray-400 hover:text-green-400 transition-colors"
+                  title="Download original file"
+                >
+                  <Download className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    // Delete import record
+                    if (
+                      window.confirm(
+                        "Are you sure you want to delete this import record? This won't affect any data that was imported.",
+                      )
+                    ) {
+                      toast.success(
+                        `Deleted import record for ${importRecord.file_name}`,
+                      );
+                      // In a real implementation, this would delete the record from the database
+                      setImports((prev) =>
+                        prev.filter((i) => i.id !== importRecord.id),
+                      );
+                    }
+                  }}
+                  className="p-1 text-gray-400 hover:text-rose-400 transition-colors"
+                  title="Delete record"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ),
+          }))}
+          onRefresh={fetchImportHistory}
+          type="import-history"
+        />
       )}
     </div>
   );

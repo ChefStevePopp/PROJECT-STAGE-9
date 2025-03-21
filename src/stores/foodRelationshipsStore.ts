@@ -6,6 +6,7 @@ interface FoodCategoryGroup {
   name: string;
   description: string;
   sort_order: number;
+  archived?: boolean;
 }
 
 interface FoodCategory {
@@ -14,6 +15,7 @@ interface FoodCategory {
   name: string;
   description: string;
   sort_order: number;
+  archived?: boolean;
 }
 
 interface FoodSubCategory {
@@ -22,22 +24,29 @@ interface FoodSubCategory {
   name: string;
   description: string;
   sort_order: number;
+  archived?: boolean;
 }
 
 interface FoodRelationshipsStore {
   majorGroups: Array<{
     id: string;
     name: string;
+    description?: string;
+    archived?: boolean;
   }>;
   categories: Array<{
     id: string;
     name: string;
     group_id: string;
+    description?: string;
+    archived?: boolean;
   }>;
   subCategories: Array<{
     id: string;
     name: string;
     category_id: string;
+    description?: string;
+    archived?: boolean;
   }>;
   isLoading: boolean;
   error: string | null;
@@ -50,13 +59,17 @@ interface FoodRelationshipsStore {
   updateItem: (
     type: "group" | "category" | "sub",
     id: string,
-    updates: { description: string },
+    updates: { description?: string; archived?: boolean },
   ) => Promise<void>;
   addItem: (
     type: "group" | "category" | "sub",
     data: Partial<FoodCategoryGroup | FoodCategory | FoodSubCategory>,
   ) => Promise<void>;
-  deleteItem: (type: "group" | "category" | "sub", id: string) => Promise<void>;
+  toggleArchiveItem: (
+    type: "group" | "category" | "sub",
+    id: string,
+    archived: boolean,
+  ) => Promise<void>;
 }
 
 export const useFoodRelationshipsStore = create<FoodRelationshipsStore>(
@@ -95,6 +108,8 @@ export const useFoodRelationshipsStore = create<FoodRelationshipsStore>(
           groupsResponse.data?.map((g) => ({
             id: g.id,
             name: g.name,
+            description: g.description,
+            archived: g.archived || false,
           })) || [];
 
         const categories =
@@ -102,6 +117,8 @@ export const useFoodRelationshipsStore = create<FoodRelationshipsStore>(
             id: c.id,
             name: c.name,
             group_id: c.group_id,
+            description: c.description,
+            archived: c.archived || false,
           })) || [];
 
         const subCategories =
@@ -109,6 +126,8 @@ export const useFoodRelationshipsStore = create<FoodRelationshipsStore>(
             id: s.id,
             name: s.name,
             category_id: s.category_id,
+            description: s.description,
+            archived: s.archived || false,
           })) || [];
 
         set({
@@ -165,12 +184,14 @@ export const useFoodRelationshipsStore = create<FoodRelationshipsStore>(
               ? "food_categories"
               : "food_sub_categories";
 
+        const updateData = {
+          updated_at: new Date().toISOString(),
+          ...updates,
+        };
+
         const { error } = await supabase
           .from(table)
-          .update({
-            description: updates.description,
-            updated_at: new Date().toISOString(),
-          })
+          .update(updateData)
           .eq("id", id);
 
         if (error) throw error;
@@ -212,7 +233,7 @@ export const useFoodRelationshipsStore = create<FoodRelationshipsStore>(
       }
     },
 
-    deleteItem: async (type, id) => {
+    toggleArchiveItem: async (type, id, archived) => {
       try {
         const table =
           type === "group"
@@ -221,14 +242,20 @@ export const useFoodRelationshipsStore = create<FoodRelationshipsStore>(
               ? "food_categories"
               : "food_sub_categories";
 
-        const { error } = await supabase.from(table).delete().eq("id", id);
+        const { error } = await supabase
+          .from(table)
+          .update({
+            archived: archived,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", id);
 
         if (error) throw error;
 
         // Refresh data
         get().fetchFoodRelationships();
       } catch (error) {
-        console.error("Error deleting item:", error);
+        console.error("Error archiving item:", error);
         throw error;
       }
     },
