@@ -30,6 +30,7 @@ export const FoodRelationshipsManager = () => {
   >(null);
   const [newItemName, setNewItemName] = React.useState("");
   const [newItemDescription, setNewItemDescription] = React.useState("");
+  const [infoExpanded, setInfoExpanded] = React.useState(false);
 
   React.useEffect(() => {
     fetchFoodRelationships();
@@ -105,36 +106,57 @@ export const FoodRelationshipsManager = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-white">Food Relationships</h2>
-          <p className="text-gray-400">
-            Manage food categories and relationships
-          </p>
+      <div className="flex justify-between items-center p-4 rounded-lg bg-[#1a1f2b]">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+            <FolderTree className="w-5 h-5 text-purple-400" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-white">
+              Food Relationships
+            </h2>
+            <p className="text-gray-400">
+              Manage food categories and relationships
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="bg-blue-500/10 rounded-lg p-4 flex items-start gap-3">
-        <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
-        <div className="text-sm text-gray-300">
-          <p className="font-medium text-blue-400 mb-1">
-            About Food Relationships
-          </p>
-          <p className="mb-2">
-            Food relationships help organize your ingredients into a logical
-            hierarchy:
-          </p>
-          <ul className="list-disc list-inside space-y-1 text-gray-400">
-            <li>
-              Major Groups - Top level categories (e.g., Proteins, Produce)
-            </li>
-            <li>Categories - Sub-divisions of groups (e.g., Beef, Poultry)</li>
-            <li>
-              Sub Categories - Specific types (e.g., Ground Beef, Chicken
-              Breast)
-            </li>
-          </ul>
-        </div>
+      <div className="expandable-info-section">
+        <button
+          onClick={() => setInfoExpanded(!infoExpanded)}
+          className="expandable-info-header"
+        >
+          <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 flex items-center justify-between">
+            <p className="font-medium text-white-400">
+              About Food Relationships
+            </p>
+            <ChevronRight
+              className={`w-4 h-4 transition-transform ${infoExpanded ? "rotate-90" : ""}`}
+            />
+          </div>
+        </button>
+        {infoExpanded && (
+          <div className="expandable-info-content">
+            <p className="mb-2 text-sm text-grey-300">
+              Food relationships help organize your ingredients into a logical
+              hierarchy:
+            </p>
+            <ul className="list-disc list-inside space-y-1 text-sm text-gray-400">
+              <li>
+                Major Groups - Top level categories (e.g., Proteins, Produce)
+              </li>
+              <li>
+                Categories - Sub-divisions of groups (e.g., Beef, Poultry)
+              </li>
+              <li>
+                Sub Categories - Specific types (e.g., Ground Beef, Chicken
+                Breast)
+              </li>
+            </ul>
+          </div>
+        )}
       </div>
 
       {showEmptyState ? (

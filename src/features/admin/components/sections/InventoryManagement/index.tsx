@@ -159,6 +159,11 @@ export const InventoryManagement: React.FC = () => {
   if ((!items || items.length === 0) && activeTab === "settings") {
     return (
       <div className="space-y-6">
+        <WelcomeScreen
+          onImport={() => setIsImportModalOpen(true)}
+          onDownloadTemplate={handleDownloadTemplate}
+        />
+
         {/* Tabs */}
         <div className="flex gap-2">
           <button
@@ -190,70 +195,30 @@ export const InventoryManagement: React.FC = () => {
             Settings
           </button>
         </div>
-
-        <WelcomeScreen
-          onImport={() => setIsImportModalOpen(true)}
-          onDownloadTemplate={handleDownloadTemplate}
-        />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Tabs */}
-      <div className="flex gap-2">
-        <button
-          onClick={() => setActiveTab("settings")}
-          className={`tab primary ${activeTab === "settings" ? "active" : ""}`}
-        >
-          <Package
-            className={`w-5 h-5 mr-2 ${activeTab === "settings" ? "text-primary-400" : "text-gray-400"}`}
-          />
-          Inventory
-        </button>
-        <button
-          onClick={() => setActiveTab("review")}
-          className={`tab green ${activeTab === "review" ? "active" : ""}`}
-        >
-          <FileSpreadsheet
-            className={`w-5 h-5 mr-2 ${activeTab === "review" ? "text-green-400" : ""}`}
-          />
-          Review Counts
-        </button>
-        <button
-          onClick={() => setActiveTab("history")}
-          className={`tab amber ${activeTab === "history" ? "active" : ""}`}
-        >
-          <Calendar
-            className={`w-5 h-5 mr-2 ${activeTab === "history" ? "text-amber-400" : ""}`}
-          />
-          Inventory History
-        </button>
-        <button
-          onClick={() => setActiveTab("config")}
-          className={`tab rose ${activeTab === "config" ? "active" : ""}`}
-        >
-          <Settings
-            className={`w-5 h-5 mr-2 ${activeTab === "config" ? "text-rose-400" : ""}`}
-          />
-          Settings
-        </button>
-      </div>
-
       {/* Content based on active tab */}
       {activeTab === "settings" && (
         <>
-          <header className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-white mb-2">
-                Food Inventory
-              </h1>
-              <p className="text-gray-400">
-                Track and manage your current inventory levels
-              </p>
+          <header className="flex justify-between items-center p-4 rounded-lg bg-[#1a1f2b]">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary-500/20 flex items-center justify-center">
+                <Package className="w-5 h-5 text-primary-400" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-white">
+                  Food Inventory
+                </h1>
+                <p className="text-gray-400">
+                  Track and manage your current inventory levels
+                </p>
+              </div>
             </div>
-            <div className="flex gap-4">
+            <div className="flex gap-2">
               <button
                 onClick={handleDownloadTemplate}
                 className="btn-ghost text-amber-400 hover:text-amber-300"
@@ -279,6 +244,46 @@ export const InventoryManagement: React.FC = () => {
             </div>
           </header>
 
+          {/* Tabs */}
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={() => setActiveTab("settings")}
+              className={`tab primary ${activeTab === "settings" ? "active" : ""}`}
+            >
+              <Package
+                className={`w-5 h-5 mr-2 ${activeTab === "settings" ? "text-primary-400" : "text-gray-400"}`}
+              />
+              Inventory
+            </button>
+            <button
+              onClick={() => setActiveTab("review")}
+              className={`tab green ${activeTab === "review" ? "active" : ""}`}
+            >
+              <FileSpreadsheet
+                className={`w-5 h-5 mr-2 ${activeTab === "review" ? "text-green-400" : ""}`}
+              />
+              Review Counts
+            </button>
+            <button
+              onClick={() => setActiveTab("history")}
+              className={`tab amber ${activeTab === "history" ? "active" : ""}`}
+            >
+              <Calendar
+                className={`w-5 h-5 mr-2 ${activeTab === "history" ? "text-amber-400" : ""}`}
+              />
+              Inventory History
+            </button>
+            <button
+              onClick={() => setActiveTab("config")}
+              className={`tab rose ${activeTab === "config" ? "active" : ""}`}
+            >
+              <Settings
+                className={`w-5 h-5 mr-2 ${activeTab === "config" ? "text-rose-400" : ""}`}
+              />
+              Settings
+            </button>
+          </div>
+
           <CategoryStats
             masterIngredients={masterIngredients}
             selectedCategories={[]}
@@ -298,34 +303,137 @@ export const InventoryManagement: React.FC = () => {
       )}
 
       {activeTab === "review" && (
-        <InventoryReview
-          onApprove={handleApproveInventory}
-          onReject={handleRejectInventory}
-        />
+        <>
+          <header className="flex justify-between items-center p-4 rounded-lg bg-[#1a1f2b]">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                <FileSpreadsheet className="w-5 h-5 text-green-400" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-white">
+                  Review Inventory Counts
+                </h1>
+                <p className="text-gray-400">
+                  Review and approve inventory counts before finalizing
+                </p>
+              </div>
+            </div>
+          </header>
+
+          {/* Tabs */}
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={() => setActiveTab("settings")}
+              className={`tab primary ${activeTab === "settings" ? "active" : ""}`}
+            >
+              <Package
+                className={`w-5 h-5 mr-2 ${activeTab === "settings" ? "text-primary-400" : "text-gray-400"}`}
+              />
+              Inventory
+            </button>
+            <button
+              onClick={() => setActiveTab("review")}
+              className={`tab green ${activeTab === "review" ? "active" : ""}`}
+            >
+              <FileSpreadsheet
+                className={`w-5 h-5 mr-2 ${activeTab === "review" ? "text-green-400" : ""}`}
+              />
+              Review Counts
+            </button>
+            <button
+              onClick={() => setActiveTab("history")}
+              className={`tab amber ${activeTab === "history" ? "active" : ""}`}
+            >
+              <Calendar
+                className={`w-5 h-5 mr-2 ${activeTab === "history" ? "text-amber-400" : ""}`}
+              />
+              Inventory History
+            </button>
+            <button
+              onClick={() => setActiveTab("config")}
+              className={`tab rose ${activeTab === "config" ? "active" : ""}`}
+            >
+              <Settings
+                className={`w-5 h-5 mr-2 ${activeTab === "config" ? "text-rose-400" : ""}`}
+              />
+              Settings
+            </button>
+          </div>
+
+          <InventoryReview
+            onApprove={handleApproveInventory}
+            onReject={handleRejectInventory}
+          />
+        </>
       )}
 
       {activeTab === "history" && (
         <div className="space-y-6">
-          <header className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-white mb-2">
-                Inventory History
-              </h1>
-              <p className="text-gray-400">
-                View past inventory counts and trends
-              </p>
+          <header className="flex justify-between items-center p-4 rounded-lg bg-[#1a1f2b]">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                <Calendar className="w-5 h-5 text-amber-400" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-white">
+                  Inventory History
+                </h1>
+                <p className="text-gray-400">
+                  View past inventory counts and trends
+                </p>
+              </div>
             </div>
             <div className="flex gap-4">
-              <button className="btn-ghost">
+              <button className="btn-ghost text-amber-400 hover:text-amber-300">
                 <Download className="w-5 h-5 mr-2" />
                 Export Data
               </button>
-              <button className="btn-primary">
+              <button className="btn-primary bg-primary-400 hover:bg-amber-600">
                 <Filter className="w-5 h-5 mr-2" />
                 Filter
               </button>
             </div>
           </header>
+
+          {/* Tabs */}
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={() => setActiveTab("settings")}
+              className={`tab primary ${activeTab === "settings" ? "active" : ""}`}
+            >
+              <Package
+                className={`w-5 h-5 mr-2 ${activeTab === "settings" ? "text-primary-400" : "text-gray-400"}`}
+              />
+              Inventory
+            </button>
+            <button
+              onClick={() => setActiveTab("review")}
+              className={`tab green ${activeTab === "review" ? "active" : ""}`}
+            >
+              <FileSpreadsheet
+                className={`w-5 h-5 mr-2 ${activeTab === "review" ? "text-green-400" : ""}`}
+              />
+              Review Counts
+            </button>
+            <button
+              onClick={() => setActiveTab("history")}
+              className={`tab amber ${activeTab === "history" ? "active" : ""}`}
+            >
+              <Calendar
+                className={`w-5 h-5 mr-2 ${activeTab === "history" ? "text-amber-400" : ""}`}
+              />
+              Inventory History
+            </button>
+            <button
+              onClick={() => setActiveTab("config")}
+              className={`tab rose ${activeTab === "config" ? "active" : ""}`}
+            >
+              <Settings
+                className={`w-5 h-5 mr-2 ${activeTab === "config" ? "text-rose-400" : ""}`}
+              />
+              Settings
+            </button>
+          </div>
 
           {/* History placeholder */}
           <div className="bg-gray-800/50 rounded-lg p-6 text-center">
@@ -343,16 +451,61 @@ export const InventoryManagement: React.FC = () => {
 
       {activeTab === "config" && (
         <div className="space-y-6">
-          <header className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-white mb-2">
-                Inventory Settings
-              </h1>
-              <p className="text-gray-400">
-                Configure inventory counting preferences
-              </p>
+          <header className="flex justify-between items-center p-4 rounded-lg bg-[#1a1f2b]">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-rose-500/20 flex items-center justify-center">
+                <Settings className="w-5 h-5 text-rose-400" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-white">
+                  Inventory Settings
+                </h1>
+                <p className="text-gray-400">
+                  Configure inventory counting preferences
+                </p>
+              </div>
             </div>
           </header>
+
+          {/* Tabs */}
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={() => setActiveTab("settings")}
+              className={`tab primary ${activeTab === "settings" ? "active" : ""}`}
+            >
+              <Package
+                className={`w-5 h-5 mr-2 ${activeTab === "settings" ? "text-primary-400" : "text-gray-400"}`}
+              />
+              Inventory
+            </button>
+            <button
+              onClick={() => setActiveTab("review")}
+              className={`tab green ${activeTab === "review" ? "active" : ""}`}
+            >
+              <FileSpreadsheet
+                className={`w-5 h-5 mr-2 ${activeTab === "review" ? "text-green-400" : ""}`}
+              />
+              Review Counts
+            </button>
+            <button
+              onClick={() => setActiveTab("history")}
+              className={`tab amber ${activeTab === "history" ? "active" : ""}`}
+            >
+              <Calendar
+                className={`w-5 h-5 mr-2 ${activeTab === "history" ? "text-amber-400" : ""}`}
+              />
+              Inventory History
+            </button>
+            <button
+              onClick={() => setActiveTab("config")}
+              className={`tab rose ${activeTab === "config" ? "active" : ""}`}
+            >
+              <Settings
+                className={`w-5 h-5 mr-2 ${activeTab === "config" ? "text-rose-400" : ""}`}
+              />
+              Settings
+            </button>
+          </div>
 
           {/* Inventory Configuration Panel */}
           <div className="card p-6 bg-gray-800/50">

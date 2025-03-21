@@ -100,6 +100,9 @@ export const MasterIngredientList = () => {
             <h2 className="text-2xl font-bold text-white">
               <span className="block">Master Ingredients Manager</span>
             </h2>
+            <p className="text-gray-400">
+              Manage all of your individual purchased items
+            </p>
           </div>
         </div>
         <button
@@ -159,16 +162,6 @@ export const MasterIngredientList = () => {
         </button>
       </div>
       <div className="bg-[#1a1f2b] p-4 rounded-lg mb-4 flex items-center justify-between">
-        <p className="text-sm text-gray-500">
-          The Master Ingredients Manager is a central hub for managing all the
-          ingredients used in your operation. It allows you to create, edit, and
-          organize your ingredients, assign them to categories, track pricing,
-          and manage allergen information. It provides a comprehensive overview
-          of your ingredients, helping you maintain accurate and up-to-date
-          information for your recipes and inventory.
-        </p>
-      </div>
-      <div className="bg-[#1a1f2b] rounded-b-lg p-4 mb-4">
         <p className="text-sm text-gray-500">
           The Master Ingredients Manager is a central hub for managing all the
           ingredients used in your operation. It allows you to create, edit, and

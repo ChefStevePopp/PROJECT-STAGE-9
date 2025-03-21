@@ -147,11 +147,22 @@ export const MultiCodeManager: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-white">
-          Multi-Code Product Management
-        </h2>
-        <div className="flex gap-2">
+      <div className="flex items-center justify-between mb-6 bg-[#1a1f2b] p-2 rounded-lg">
+        <div className="flex items-center gap-3 p-4 rounded-lg bg-[#1a1f2b]">
+          <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+            <FileText className="w-5 h-5 text-amber-400" />
+          </div>
+          <div>
+            <h3 className="text-lg font-medium text-white">
+              Multi-Code Product Management
+            </h3>
+            <p className="text-sm text-gray-400">
+              Manage multiple vendor codes for the same ingredient across
+              different suppliers
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2 mr-2">
           <button onClick={() => fetchVendorCodes()} className="btn-ghost">
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh

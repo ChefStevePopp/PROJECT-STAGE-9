@@ -64,7 +64,7 @@ export const ResizableHeader: React.FC<ResizableHeaderProps> = ({
   return (
     <div
       ref={headerRef}
-      className="relative flex items-center h-full cursor-pointer select-none"
+      className="relative flex h-full cursor-pointer select-none justify-between items-center"
       style={{ width: `${column.width}px` }}
       draggable={true}
       onDragStart={onDragStart}

@@ -218,17 +218,38 @@ export const UmbrellaIngredientManager: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-white">
-          Umbrella Ingredient Management
-        </h2>
-        <p className="text-gray-400">
-          Create and manage umbrella ingredients to group related products
-        </p>
+      <div className="flex items-center justify-between mb-6 bg-[#1a1f2b] p-2 rounded-lg">
+        <div className="flex items-center gap-3 p-4 rounded-lg bg-[#1a1f2b]">
+          <div className="w-10 h-10 rounded-lg bg-rose-500/20 flex items-center justify-center">
+            <Umbrella className="w-5 h-5 text-rose-400" />
+          </div>
+          <div>
+            <h3 className="text-lg font-medium text-white">
+              Umbrella Ingredient Management
+            </h3>
+            <p className="text-sm text-gray-400">
+              Create and manage umbrella ingredients to group related products
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2 mr-2">
+          <button
+            onClick={() => fetchUmbrellaIngredients()}
+            className="btn-ghost"
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </button>
+          <button onClick={() => setIsCreating(true)} className="btn-primary">
+            <Plus className="w-4 h-4 mr-2" />
+            Create Umbrella Ingredient
+          </button>
+        </div>
       </div>
       {/* Collapsible Info Box */}
       <details className="w-full rounded-lg">
         <summary className="cursor-pointer font-medium text-amber-400 hover:text-amber-300 transition-colors">
+          <AlertTriangle className="w-4 h-4 inline-block mr-2 text-blue-400" />
           What are Umbrella Ingredients?
         </summary>
         <div className="mt-2 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
@@ -252,19 +273,6 @@ export const UmbrellaIngredientManager: React.FC = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="input pl-10 w-full"
           />
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => fetchUmbrellaIngredients()}
-            className="btn-ghost"
-          >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </button>
-          <button onClick={() => setIsCreating(true)} className="btn-primary">
-            <Plus className="w-4 h-4 mr-2" />
-            Create Umbrella Ingredient
-          </button>
         </div>
       </div>
       {/* Create New Umbrella Ingredient Form */}

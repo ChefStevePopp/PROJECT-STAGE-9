@@ -116,7 +116,7 @@ export const PriceHistory = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 bg-[#1a1f2b] p-2 rounded-lg">
         <div className="flex items-center gap-3 p-4 rounded-lg bg-[#1a1f2b]">
           <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
             <LineChart className="w-5 h-5 text-blue-400" />
@@ -135,13 +135,12 @@ export const PriceHistory = () => {
             fetchPriceChanges(daysToShow);
             fetchPriceTrends();
           }}
-          className="btn-ghost"
+          className="btn-ghost mr-2"
         >
           <RefreshCw className="w-4 h-4 mr-2" />
           Refresh
         </button>
       </div>
-
       {/* Price Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="card p-4 bg-gray-800/50">
@@ -208,7 +207,6 @@ export const PriceHistory = () => {
           </div>
         </div>
       </div>
-
       {/* Recent Price Changes */}
       <div className="bg-gray-800/50 rounded-lg p-6">
         <div className="flex items-center justify-between mb-6">

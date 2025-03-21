@@ -236,9 +236,19 @@ export const ImportHistory: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-white">Import History</h2>
-        <button onClick={fetchImportHistory} className="btn-ghost">
+      <div className="flex items-center justify-between mb-6 bg-[#1a1f2b] p-2 rounded-lg">
+        <div className="flex items-center gap-3 p-4 rounded-lg bg-[#1a1f2b]">
+          <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+            <FileSpreadsheet className="w-5 h-5 text-green-400" />
+          </div>
+          <div>
+            <h3 className="text-lg font-medium text-white">Import History</h3>
+            <p className="text-sm text-gray-400">
+              View and manage your invoice import history across all vendors
+            </p>
+          </div>
+        </div>
+        <button onClick={fetchImportHistory} className="btn-ghost mr-2">
           <RefreshCw className="w-4 h-4 mr-2" />
           Refresh
         </button>

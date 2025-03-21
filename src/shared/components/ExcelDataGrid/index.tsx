@@ -387,7 +387,6 @@ export function ExcelDataGrid<T>({
           )}
         </div>
       </div>
-
       {/* Filter Panel */}
       {showFilterPanel && (
         <div className="card p-4 bg-gray-800 rounded-lg p-4 mb-4">
@@ -430,7 +429,6 @@ export function ExcelDataGrid<T>({
           </div>
         </div>
       )}
-
       {/* Column Settings Panel */}
       {showColumnSettings && (
         <div className="card p-4 bg-gray-800 rounded-lg p-4 mb-4">
@@ -592,11 +590,10 @@ export function ExcelDataGrid<T>({
           </div>
         </div>
       )}
-
       {/* Data Table */}
       <div className="overflow-x-auto rounded-lg border border-gray-700">
         <table className="w-full min-w-[800px]">
-          <thead className="bg-slate-900 text-gray-500">
+          <thead className="bg-slate-900 text-gray-500 text-left">
             <tr>
               {/* Use columnOrder to determine the order of columns */}
               {columnOrder
@@ -669,6 +666,7 @@ export function ExcelDataGrid<T>({
                         }}
                         onDragStart={() => setDraggingColumn(column.key)}
                         onDragEnd={() => setDraggingColumn(null)}
+                        className="flex"
                       />
                     </th>
                   );
@@ -693,7 +691,7 @@ export function ExcelDataGrid<T>({
                       return (
                         <td
                           key={`${rowIndex}-${column.key}`}
-                          className="px-4 py-2 text-sm text-gray-300"
+                          className="px-4 py-2 text-sm text-gray-300 text-left"
                           style={{
                             minWidth: `${columnWidths[column.key] || column.width}px`,
                             maxWidth: `${(columnWidths[column.key] || column.width) * 1.5}px`,
@@ -722,7 +720,6 @@ export function ExcelDataGrid<T>({
           </tbody>
         </table>
       </div>
-
       {/* Pagination */}
       <PaginationControls
         currentPage={currentPage}
@@ -733,7 +730,6 @@ export function ExcelDataGrid<T>({
         onItemsPerPageChange={setItemsPerPage}
         itemsPerPageOptions={[10, 25, 50, 100]}
       />
-
       {/* Data Summary */}
       <div className="mt-4 text-sm text-gray-500">
         Showing {paginatedData.length} of {filteredData.length} items

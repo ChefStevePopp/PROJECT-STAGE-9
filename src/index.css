@@ -249,6 +249,19 @@ select::-ms-expand {
       @apply text-white;
     }
   }
+
+  /* Expandable info section */
+  .expandable-info-section {
+    @apply bg-purple-800/10 rounded-lg overflow-hidden;
+  }
+
+  .expandable-info-header {
+    @apply w-full p-4 flex items-start gap-3 text-left focus:outline-none hover:bg-purple-800/20 transition-colors;
+  }
+
+  .expandable-info-content {
+    @apply px-4 pb-4 pt-0 ml-8;
+  }
 }
 
 @layer utilities {

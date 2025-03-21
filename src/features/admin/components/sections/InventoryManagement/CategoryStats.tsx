@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Package, PieChart, ChevronDown, ChevronUp } from "lucide-react";
+import { Package, PieChart, ChevronDown, ChevronUp, Info } from "lucide-react";
 import type { MasterIngredient } from "@/types/master-ingredient";
 
 interface CategoryStatsProps {
@@ -22,7 +22,7 @@ export const CategoryStats: React.FC<CategoryStatsProps> = ({
   selectedCategories,
   onToggleCategory,
 }) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   // Calculate category stats
   const categoryStats = React.useMemo(() => {
@@ -60,23 +60,25 @@ export const CategoryStats: React.FC<CategoryStatsProps> = ({
   }, [categoryStats, selectedCategories, masterIngredients]);
 
   return (
-    <div className="card p-4 mb-6">
-      <div
-        className="flex justify-between items-center mb-4 cursor-pointer"
+    <div className="expandable-info-section mb-6">
+      <button
+        className="expandable-info-header w-full justify-between"
         onClick={() => setIsCollapsed(!isCollapsed)}
       >
-        <h3 className="text-lg font-medium text-white">Category Statistics</h3>
-        <button className="text-gray-400 hover:text-white">
-          {isCollapsed ? (
-            <ChevronDown className="w-5 h-5" />
-          ) : (
-            <ChevronUp className="w-5 h-5" />
-          )}
-        </button>
-      </div>
-
+        <div className="flex items-center gap-2">
+          <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+          <h3 className="text-lg font-medium text-white">
+            Category Statistics
+          </h3>
+        </div>
+        {isCollapsed ? (
+          <ChevronDown className="w-5 h-5 text-gray-400" />
+        ) : (
+          <ChevronUp className="w-5 h-5 text-gray-400" />
+        )}
+      </button>
       {!isCollapsed && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="expandable-info-content grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {categoryStats.map(({ category, count, selected, bg, text }) => (
             <div
               key={category}

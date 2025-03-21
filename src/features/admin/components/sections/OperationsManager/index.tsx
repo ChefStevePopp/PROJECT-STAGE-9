@@ -10,6 +10,7 @@ import {
   Store,
   FolderPlus,
   Printer,
+  Settings,
 } from "lucide-react";
 import { useOperationsStore } from "@/stores/operationsStore";
 import { AddSubCategoryModal } from "./AddSubCategoryModal";
@@ -146,23 +147,22 @@ export const OperationsManager: React.FC = () => {
   const currentGroup = CATEGORY_GROUPS.find((g) => g.id === activeGroup);
 
   return (
-    <div className="space-y-6">
-      {/* Diagnostic Text */}
-      <div className="text-xs text-gray-500 font-mono">
-        src/features/admin/components/sections/OperationsManager/index.tsx
-      </div>
-
-      <header className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-2">
-            Operations Manager
-          </h1>
-          <p className="text-gray-400">
-            Configure system-wide lookup values and master lists
-          </p>
+    <div className="space-y-4">
+      <div className="flex justify-between items-center rounded-lg bg-[#1a1f2b] py-[4] py-[6] p-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-rose-500/20 flex items-center justify-center">
+            <Settings className="w-5 h-5 text-rose-400" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-white">
+              Operations Manager
+            </h1>
+            <p className="text-gray-400">
+              Configure system-wide lookup values and master lists
+            </p>
+          </div>
         </div>
-      </header>
-
+      </div>
       {/* Category Group Tabs */}
       <div className="flex gap-2">
         {CATEGORY_GROUPS.map((group) => {
@@ -188,7 +188,6 @@ export const OperationsManager: React.FC = () => {
           );
         })}
       </div>
-
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Categories Sidebar */}
@@ -235,7 +234,6 @@ export const OperationsManager: React.FC = () => {
           </div>
         </div>
       </div>
-
       {/* Add Sub-Category Modal */}
       <AddSubCategoryModal
         isOpen={isAddingSubCategory}

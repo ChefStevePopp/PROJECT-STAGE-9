@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  FileText,
 } from "lucide-react";
 import { useVendorCodesStore } from "@/stores/vendorCodesStore";
 import { useMasterIngredientsStore } from "@/stores/masterIngredientsStore";
@@ -189,13 +190,32 @@ export const ItemCodeGroupManager: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-white">
-          Item Code Group Management
-        </h2>
-        <p className="text-gray-400">
-          Manage umbrella ingredients and their associated vendor codes
-        </p>
+      <div className="bg-gray-800/50 p-4 rounded-lg">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-md bg-amber-500/20 text-amber-400">
+              <FileText className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white">
+                Item Code Group Management
+              </h2>
+              <p className="text-gray-400">
+                Manage umbrella ingredients and their associated vendor codes
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => fetchVendorCodes()} className="btn-ghost">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Refresh
+            </button>
+            <button onClick={() => setIsAdding(true)} className="btn-primary">
+              <Plus className="w-4 h-4 mr-2" />
+              Create New Code Group
+            </button>
+          </div>
+        </div>
       </div>
       {/* Collapsible Info Box */}
       <details className="w-full rounded-lg">
@@ -214,8 +234,8 @@ export const ItemCodeGroupManager: React.FC = () => {
           </p>
         </div>
       </details>
-      {/* Search Bar and Action Buttons */}
-      <div className="flex items-center justify-between gap-4">
+      {/* Search Bar */}
+      <div className="flex items-center gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
           <input
@@ -225,16 +245,6 @@ export const ItemCodeGroupManager: React.FC = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="input pl-10 w-full"
           />
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => fetchVendorCodes()} className="btn-ghost">
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </button>
-          <button onClick={() => setIsAdding(true)} className="btn-primary">
-            <Plus className="w-4 h-4 mr-2" />
-            Create New Code Group
-          </button>
         </div>
       </div>
 
