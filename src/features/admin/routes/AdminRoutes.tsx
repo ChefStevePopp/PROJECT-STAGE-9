@@ -15,6 +15,8 @@ import { OrganizationSettings } from "../components/settings/OrganizationSetting
 import { ActivityLogList } from "../components/ActivityLogList";
 import { ScheduleManager } from "../components/sections/ScheduleManager";
 import { TaskManager } from "../components/sections/TaskManager";
+import { HACCPManager } from "../components/sections/HACCPManager";
+import { ChecklistsManager } from "../components/sections/ChecklistsManager";
 
 export const AdminRoutes: React.FC = () => {
   return (
@@ -35,6 +37,8 @@ export const AdminRoutes: React.FC = () => {
         <Route path="account" element={<MyAccount />} />
         <Route path="account/*" element={<MyAccount />} />
         <Route path="tasks" element={<TaskManager />} />
+        <Route path="haccp" element={<HACCPManager />} />
+        <Route path="checklists" element={<ChecklistsManager />} />
       </Route>
     </Routes>
   );

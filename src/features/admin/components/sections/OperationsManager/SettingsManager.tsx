@@ -422,7 +422,7 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-3">
         <div>
           <h3 className="text-xl font-bold text-white">
             {activeCategory
@@ -430,58 +430,6 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
                   ?.label || group.name
               : group.name}
           </h3>
-          {isEditingDescription && isDev ? (
-            <div className="flex flex-col w-full mt-1">
-              <div className="flex items-start gap-2 w-full max-w-3xl">
-                <textarea
-                  defaultValue={
-                    settings?.category_descriptions?.[activeCategory] ||
-                    group.description
-                  }
-                  className="text-sm bg-gray-700 text-gray-300 px-2 py-1 rounded w-full min-h-[80px] resize-y"
-                  autoFocus
-                  onBlur={(e) => {
-                    if (activeCategory) {
-                      handleUpdateCategoryDescription(
-                        activeCategory,
-                        e.target.value,
-                      );
-                    }
-                  }}
-                />
-                <div className="flex flex-col gap-2">
-                  <button
-                    onClick={() => setIsEditingDescription(false)}
-                    className="text-gray-400 hover:text-gray-300"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      const textarea =
-                        e.currentTarget.parentElement?.parentElement?.querySelector(
-                          "textarea",
-                        );
-                      if (textarea && activeCategory) {
-                        handleUpdateCategoryDescription(
-                          activeCategory,
-                          textarea.value,
-                        );
-                      }
-                    }}
-                    className="text-green-400 hover:text-green-300"
-                  >
-                    <Save className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-gray-400 mt-1 w-full line-clamp-3">
-              {settings?.category_descriptions?.[activeCategory] ||
-                group.description}
-            </p>
-          )}
         </div>
         <div className="flex gap-2">
           {isDev && (
@@ -500,26 +448,81 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
               Add Item
             </button>
           )}
+          {activeCategory === "label_templates" && (
+            <button
+              onClick={() => {
+                setEditingTemplate({
+                  id: `template-${Date.now()}`,
+                  name: "New Template",
+                  fields: ["product_name", "date", "team_member"],
+                  printerConfig: {
+                    width: 62,
+                    height: 29,
+                    type: "brother_ql810w",
+                  },
+                });
+              }}
+              className="btn-primary"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              New Template
+            </button>
+          )}
         </div>
-        {activeCategory === "label_templates" && (
-          <button
-            onClick={() => {
-              setEditingTemplate({
-                id: `template-${Date.now()}`,
-                name: "New Template",
-                fields: ["product_name", "date", "team_member"],
-                printerConfig: {
-                  width: 62,
-                  height: 29,
-                  type: "brother_ql810w",
-                },
-              });
-            }}
-            className="btn-primary"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            New Template
-          </button>
+      </div>
+
+      <div className="w-full mb-4">
+        {isEditingDescription && isDev ? (
+          <div className="flex flex-col w-full">
+            <div className="flex items-start gap-2 w-full">
+              <textarea
+                defaultValue={
+                  settings?.category_descriptions?.[activeCategory] ||
+                  group.description
+                }
+                className="text-sm bg-gray-700 text-gray-300 px-2 py-1 rounded w-full min-h-[80px] resize-y"
+                autoFocus
+                onBlur={(e) => {
+                  if (activeCategory) {
+                    handleUpdateCategoryDescription(
+                      activeCategory,
+                      e.target.value,
+                    );
+                  }
+                }}
+              />
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => setIsEditingDescription(false)}
+                  className="text-gray-400 hover:text-gray-300"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    const textarea =
+                      e.currentTarget.parentElement?.parentElement?.querySelector(
+                        "textarea",
+                      );
+                    if (textarea && activeCategory) {
+                      handleUpdateCategoryDescription(
+                        activeCategory,
+                        textarea.value,
+                      );
+                    }
+                  }}
+                  className="text-green-400 hover:text-green-300"
+                >
+                  <Save className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400 w-full">
+            {settings?.category_descriptions?.[activeCategory] ||
+              group.description}
+          </p>
         )}
       </div>
 

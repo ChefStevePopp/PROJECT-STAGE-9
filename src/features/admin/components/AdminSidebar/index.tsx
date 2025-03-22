@@ -26,7 +26,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
 
   return (
     <div
-      className={`h-screen bg-gray-900 border-r border-gray-800 flex flex-col transition-all duration-300 relative`}
+      className={`h-screen bg-gray-900 border-r border-gray-800 flex flex-col transition-all duration-300 relative ${isCollapsed ? "w-20" : ""}`}
     >
       {/* Logo */}
       <div className="p-6 border-b border-gray-800">
@@ -56,7 +56,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       </button>
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-6">
-        <div className="space-y-8 px-6">
+        <div className={`space-y-8 ${isCollapsed ? "px-2" : "px-6"}`}>
           {items.map((section) => (
             <div key={section.id}>
               {section.label && !isCollapsed && (
@@ -69,14 +69,16 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                   <li key={item.path}>
                     <Link
                       to={item.path}
-                      className={`flex items-center ${isCollapsed ? "justify-center px-2" : "gap-3 px-4"} py-2 rounded-lg transition-colors ${
+                      className={`flex items-center ${isCollapsed ? "justify-center p-3" : "gap-3 px-4 py-2"} rounded-lg transition-colors ${
                         location.pathname === item.path
                           ? "bg-gray-800 text-white"
                           : "text-gray-400 hover:text-white hover:bg-gray-800"
                       }`}
                       title={isCollapsed ? item.label : ""}
                     >
-                      <item.icon className="w-5 h-5" />
+                      <item.icon
+                        className={isCollapsed ? "w-8 h-8" : "w-5 h-5"}
+                      />
                       {!isCollapsed && <span>{item.label}</span>}
                     </Link>
                   </li>

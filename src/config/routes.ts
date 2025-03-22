@@ -4,6 +4,8 @@ export const ROUTES = {
     INVENTORY: "/kitchen/inventory",
     RECIPES: "/kitchen/recipes",
     PRODUCTION: "/kitchen/production",
+    HACCP: "/admin/haccp",
+    CHECKLISTS: "/admin/checklists",
   },
   ADMIN: {
     DASHBOARD: "/admin",

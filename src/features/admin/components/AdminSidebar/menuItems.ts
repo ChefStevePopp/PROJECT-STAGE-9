@@ -18,6 +18,9 @@ import {
   Bell,
   Calendar,
   Home,
+  ThermometerSnowflake,
+  Thermometer,
+  ClipboardList,
 } from "lucide-react";
 
 export const menuItems = (isDev: boolean) => {
@@ -35,6 +38,16 @@ export const menuItems = (isDev: boolean) => {
       items: [
         { icon: ChefHat, label: "Recipe Manager", path: "/admin/recipes" },
         { icon: UtensilsCrossed, label: "Task Manager", path: "/admin/tasks" },
+        {
+          icon: ThermometerSnowflake,
+          label: "HACCP",
+          path: "/admin/haccp",
+        },
+        {
+          icon: ClipboardList,
+          label: "Checks & Specs",
+          path: "/admin/checklists",
+        },
       ],
     },
     {
