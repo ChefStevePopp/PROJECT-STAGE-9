@@ -144,6 +144,7 @@ export type Database = {
       }
       food_categories: {
         Row: {
+          archived: boolean | null
           created_at: string
           description: string | null
           group_id: string
@@ -154,6 +155,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived?: boolean | null
           created_at?: string
           description?: string | null
           group_id: string
@@ -164,6 +166,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived?: boolean | null
           created_at?: string
           description?: string | null
           group_id?: string
@@ -192,6 +195,7 @@ export type Database = {
       }
       food_category_groups: {
         Row: {
+          archived: boolean | null
           color: string
           created_at: string
           description: string | null
@@ -203,6 +207,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived?: boolean | null
           color: string
           created_at?: string
           description?: string | null
@@ -214,6 +219,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived?: boolean | null
           color?: string
           created_at?: string
           description?: string | null
@@ -236,6 +242,7 @@ export type Database = {
       }
       food_sub_categories: {
         Row: {
+          archived: boolean | null
           category_id: string
           created_at: string
           description: string | null
@@ -246,6 +253,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived?: boolean | null
           category_id: string
           created_at?: string
           description?: string | null
@@ -256,6 +264,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived?: boolean | null
           category_id?: string
           created_at?: string
           description?: string | null
@@ -547,6 +556,7 @@ export type Database = {
           allergen_sulphite: boolean
           allergen_treenut: boolean
           allergen_wheat: boolean
+          archive: boolean | null
           case_size: string | null
           category: string | null
           cost_per_recipe_unit: number
@@ -597,6 +607,7 @@ export type Database = {
           allergen_sulphite?: boolean
           allergen_treenut?: boolean
           allergen_wheat?: boolean
+          archive?: boolean | null
           case_size?: string | null
           category?: string | null
           cost_per_recipe_unit?: number
@@ -647,6 +658,7 @@ export type Database = {
           allergen_sulphite?: boolean
           allergen_treenut?: boolean
           allergen_wheat?: boolean
+          archive?: boolean | null
           case_size?: string | null
           category?: string | null
           cost_per_recipe_unit?: number
@@ -703,8 +715,11 @@ export type Database = {
         Row: {
           alcohol_measures: string[] | null
           batch_units: string[] | null
+          category_descriptions: Json | null
+          category_groups: Json | null
           container_types: string[] | null
           created_at: string
+          departments: string[] | null
           dry_goods_measures: string[] | null
           id: string
           ingredient_categories: string[] | null
@@ -730,8 +745,11 @@ export type Database = {
         Insert: {
           alcohol_measures?: string[] | null
           batch_units?: string[] | null
+          category_descriptions?: Json | null
+          category_groups?: Json | null
           container_types?: string[] | null
           created_at?: string
+          departments?: string[] | null
           dry_goods_measures?: string[] | null
           id?: string
           ingredient_categories?: string[] | null
@@ -757,8 +775,11 @@ export type Database = {
         Update: {
           alcohol_measures?: string[] | null
           batch_units?: string[] | null
+          category_descriptions?: Json | null
+          category_groups?: Json | null
           container_types?: string[] | null
           created_at?: string
+          departments?: string[] | null
           dry_goods_measures?: string[] | null
           id?: string
           ingredient_categories?: string[] | null

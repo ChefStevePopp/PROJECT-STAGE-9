@@ -11,6 +11,7 @@ import {
   Tag,
 } from "lucide-react";
 import { useOperationsStore } from "@/stores/operationsStore";
+import { useDevAccess } from "@/hooks/useDevAccess";
 import { LabelTemplateEditor } from "./LabelTemplateEditor";
 import { PrinterManager } from "./PrinterManager";
 import type { LabelTemplate } from "@/types/labels";
@@ -46,7 +47,9 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
   const [editingTemplate, setEditingTemplate] = useState<LabelTemplate | null>(
     null,
   );
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
   const { updateSettings } = useOperationsStore();
+  const { isDev } = useDevAccess();
 
   const isLabelCategory =
     activeCategory?.startsWith("label_") ||
@@ -129,6 +132,30 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
     } catch (error) {
       console.error("Error updating item:", error);
       toast.error("Failed to update item");
+    }
+  };
+
+  const handleUpdateCategoryDescription = async (
+    categoryId: string,
+    newDescription: string,
+  ) => {
+    try {
+      const updatedSettings = { ...settings };
+
+      // If category_descriptions doesn't exist, create it
+      if (!updatedSettings.category_descriptions) {
+        updatedSettings.category_descriptions = {};
+      }
+
+      // Store the description in the category_descriptions object
+      updatedSettings.category_descriptions[categoryId] = newDescription;
+
+      await updateSettings(updatedSettings);
+      setIsEditingDescription(false);
+      toast.success("Description updated successfully");
+    } catch (error) {
+      console.error("Error updating description:", error);
+      toast.error("Failed to update description");
     }
   };
 
@@ -379,19 +406,101 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
     }
   };
 
+  // If group is undefined, show a loading or error state
+  if (!group || !activeCategory) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertTriangle className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
+          <p className="text-gray-400">
+            No category group or category selected.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-xl font-bold text-white">{group.name}</h3>
-          <p className="text-gray-400 mt-1">{group.description}</p>
+          <h3 className="text-xl font-bold text-white">
+            {activeCategory
+              ? group.categories.find((cat) => cat.id === activeCategory)
+                  ?.label || group.name
+              : group.name}
+          </h3>
+          {isEditingDescription && isDev ? (
+            <div className="flex flex-col w-full mt-1">
+              <div className="flex items-start gap-2 w-full max-w-3xl">
+                <textarea
+                  defaultValue={
+                    settings?.category_descriptions?.[activeCategory] ||
+                    group.description
+                  }
+                  className="text-sm bg-gray-700 text-gray-300 px-2 py-1 rounded w-full min-h-[80px] resize-y"
+                  autoFocus
+                  onBlur={(e) => {
+                    if (activeCategory) {
+                      handleUpdateCategoryDescription(
+                        activeCategory,
+                        e.target.value,
+                      );
+                    }
+                  }}
+                />
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={() => setIsEditingDescription(false)}
+                    className="text-gray-400 hover:text-gray-300"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      const textarea =
+                        e.currentTarget.parentElement?.parentElement?.querySelector(
+                          "textarea",
+                        );
+                      if (textarea && activeCategory) {
+                        handleUpdateCategoryDescription(
+                          activeCategory,
+                          textarea.value,
+                        );
+                      }
+                    }}
+                    className="text-green-400 hover:text-green-300"
+                  >
+                    <Save className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400 mt-1 w-full line-clamp-3">
+              {settings?.category_descriptions?.[activeCategory] ||
+                group.description}
+            </p>
+          )}
         </div>
-        {(!isLabelCategory || activeCategory === "required_label_fields") && (
-          <button onClick={() => setIsAddingItem(true)} className="btn-ghost">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Item
-          </button>
-        )}
+        <div className="flex gap-2">
+          {isDev && (
+            <button
+              onClick={() => setIsEditingDescription(true)}
+              className="btn-ghost"
+              disabled={isEditingDescription}
+            >
+              <Edit2 className="w-4 h-4 mr-2" />
+              Edit Description
+            </button>
+          )}
+          {(!isLabelCategory || activeCategory === "required_label_fields") && (
+            <button onClick={() => setIsAddingItem(true)} className="btn-ghost">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Item
+            </button>
+          )}
+        </div>
         {activeCategory === "label_templates" && (
           <button
             onClick={() => {
@@ -449,6 +558,7 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
       {renderLabelContent()}
 
       {(!settings?.[activeCategory || ""] ||
+        !Array.isArray(settings[activeCategory || ""]) ||
         settings[activeCategory || ""].length === 0) &&
         !isLabelCategory && (
           <div className="text-center py-8">

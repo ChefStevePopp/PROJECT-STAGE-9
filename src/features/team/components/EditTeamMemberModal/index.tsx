@@ -3,7 +3,7 @@ import {
   X,
   User,
   Shield,
-  Building2,
+  Award,
   Bell,
   UserCircle,
   Briefcase,
@@ -11,7 +11,7 @@ import {
 import { useTeamStore } from "@/stores/teamStore";
 import { BasicInfoTab } from "./tabs/BasicInfoTab";
 import { RolesTab } from "./tabs/RolesTab";
-import { DepartmentsTab } from "./tabs/DepartmentsTab";
+import { CertificationsTab } from "./tabs/CertificationsTab";
 import { NotificationsTab } from "./tabs/NotificationsTab";
 import { AvatarTab } from "./tabs/AvatarTab";
 import { PermissionsTab } from "./tabs/PermissionsTab";
@@ -27,17 +27,17 @@ type TabId =
   | "basic"
   | "roles"
   | "permissions"
-  | "departments"
+  | "certifications"
   | "notifications"
   | "avatar";
 
 const TABS = [
   { id: "basic", label: "Basic Info", icon: User, color: "primary" },
   { id: "roles", label: "Roles", icon: Briefcase, color: "green" },
-  { id: "permissions", label: "Permissions", icon: Shield, color: "purple" },
-  { id: "departments", label: "Departments", icon: Building2, color: "amber" },
-  { id: "notifications", label: "Notifications", icon: Bell, color: "rose" },
-  { id: "avatar", label: "Avatar", icon: UserCircle, color: "blue" },
+  { id: "permissions", label: "Permissions", icon: Shield, color: "amber" },
+  { id: "certifications", label: "Certifications", icon: Award, color: "rose" },
+  { id: "notifications", label: "Notifications", icon: Bell, color: "purple" },
+  { id: "avatar", label: "Avatar", icon: UserCircle, color: "lime" },
 ] as const;
 
 export const EditTeamMemberModal: React.FC<EditTeamMemberModalProps> = ({
@@ -85,25 +85,48 @@ export const EditTeamMemberModal: React.FC<EditTeamMemberModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 sm:p-6">
-      <div className="bg-gray-800 rounded-xl w-full max-w-4xl">
+      <div className="bg-gray-800 rounded-xl w-full max-w-5xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <div className="p-6">
           {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-2xl font-semibold text-white">
-                {formData.first_name} {formData.last_name}
-              </h2>
-              <p className="text-gray-400">
-                {formData.kitchen_role || "No role assigned"}
-              </p>
+          <div className="flex items-center justify-between mb-6 bg-[#1a1f2b] shadow-lg rounded-lg py-[2] p-4">
+            <div className="flex items-center gap-4">
+              {formData.avatar_url ? (
+                <div className="h-12 w-12 rounded-full overflow-hidden border-2 border-gray-600">
+                  <img
+                    src={formData.avatar_url}
+                    alt="Avatar"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="h-12 w-12 rounded-full bg-gray-700 flex items-center justify-center border-2 border-gray-600">
+                  <User className="w-6 h-6 text-primary" />
+                </div>
+              )}
+              <div>
+                <h2 className="text-xl font-semibold text-white">
+                  {formData.first_name} {formData.last_name}
+                </h2>
+              </div>
             </div>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-white p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
-              disabled={isSubmitting}
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center bg-gray-700/50 px-3 py-1 rounded-lg">
+                <Shield className="w-4 h-4 text-amber-500 mr-2" />
+                <span className="text-gray-200 text-sm font-medium">
+                  Role:{" "}
+                </span>
+                <span className="text-gray-300 text-sm ml-1">
+                  {formData.kitchen_role || "No role assigned"}
+                </span>
+              </div>
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-white p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
+                disabled={isSubmitting}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           {/* Tabs */}
@@ -112,20 +135,10 @@ export const EditTeamMemberModal: React.FC<EditTeamMemberModalProps> = ({
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`relative flex items-center gap-2 px-4 py-2 rounded-lg transition-all text-sm font-medium
-                  ${
-                    activeTab === tab.id
-                      ? `bg-gray-800 text-${tab.color}-400`
-                      : "text-gray-400 hover:text-white hover:bg-gray-800/50"
-                  }`}
+                className={`tab ${tab.color} ${activeTab === tab.id ? "active" : ""}`}
               >
                 <tab.icon className="w-4 h-4" />
                 {tab.label}
-                {activeTab === tab.id && (
-                  <div
-                    className={`absolute -top-px left-0 right-0 h-0.5 rounded-full bg-${tab.color}-500`}
-                  />
-                )}
               </button>
             ))}
           </div>
@@ -142,8 +155,11 @@ export const EditTeamMemberModal: React.FC<EditTeamMemberModalProps> = ({
               {activeTab === "permissions" && (
                 <PermissionsTab formData={formData} setFormData={setFormData} />
               )}
-              {activeTab === "departments" && (
-                <DepartmentsTab formData={formData} setFormData={setFormData} />
+              {activeTab === "certifications" && (
+                <CertificationsTab
+                  formData={formData}
+                  setFormData={setFormData}
+                />
               )}
               {activeTab === "notifications" && (
                 <NotificationsTab

@@ -24,8 +24,10 @@ export const AvatarTab: React.FC<AvatarTabProps> = ({
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2 mb-4">
-        <UserCircle className="w-4 h-4 text-purple-400" />
-        <h3 className="text-sm font-medium text-gray-300">Profile Picture</h3>
+        <UserCircle className="w-4 h-4 text-lime-400" />
+        <h3 className="text-medium font-medium text-gray-300">
+          Avatar Picture
+        </h3>
       </div>
 
       <div className="flex flex-col items-center justify-center py-8">

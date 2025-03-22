@@ -1,3 +1,16 @@
+export interface CategoryGroup {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  description: string;
+  order: number;
+  categories: {
+    id: string;
+    label: string;
+  }[];
+}
+
 export interface OperationsSettings {
   id: string;
   organization_id: string;
@@ -10,4 +23,6 @@ export interface OperationsSettings {
   kitchen_stations: string[];
   label_templates: string[];
   printer_settings: any;
+  category_groups?: CategoryGroup[];
+  [key: string]: any; // Allow for dynamic category keys
 }
