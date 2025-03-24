@@ -232,7 +232,7 @@ const SortableIngredientRow = ({
           onChange={(e) =>
             handleIngredientChange(index, "commonMeasure", e.target.value)
           }
-          className="input w-full bg-gray-800/50"
+          className="input w-full bg-slate-800/20 text-white-400/80 text-right font-mono text-lg border border-blue-400/60 focus:ring-2 focus:ring-gray-400 focus:border-transparent transition-all duration-200"
           placeholder="e.g., 2 cups"
         />
       </div>
@@ -253,7 +253,7 @@ const SortableIngredientRow = ({
           onChange={(e) =>
             handleIngredientChange(index, "quantity", e.target.value)
           }
-          className="input w-full text-right bg-gray-800/50"
+          className="input w-full bg-slate-800/20 text-white-400/80 text-right font-mono text-lg border border-blue-400/60 focus:ring-2 focus:ring-gray-400 focus:border-transparent transition-all duration-200"
           placeholder="0"
           required
         />
@@ -562,24 +562,24 @@ export const IngredientsInput: React.FC<{
 
   return (
     <div className="space-y-4">
-      <div className="sticky top-0 bg-gray-800 z-20 pr-[6] pb-[4] pb-[4] px-[6] py-[6] py-[6] p-6">
-        <div className="flex items-center justify-between">
+      <div className="sticky top-0 bg-gray-800 z-20 pr-[6] pb-[4] pb-[4] px-[6] py-[6] py-[6] py-[6] pr-[4] p-4 shadow-md rounded-lg">
+        <div className="flex items-center justify-between rounded-lg bg-[#1a1f2b] shadow-lg py-[4] pt-[3] px-[3] py-[2] p-4">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
-              <UtensilsCrossed className="w-4 h-4 text-amber-400" />
+            <div className="rounded-lg bg-amber-500/20 flex items-center justify-center w-10 h-10">
+              <UtensilsCrossed className="text-amber-400 w-5 h-5" />
             </div>
             <h3 className="text-lg font-medium text-white">
               Recipe Ingredients
             </h3>
           </div>
-          <button onClick={addIngredient} className="btn-ghost text-sm">
+          <button onClick={addIngredient} className="btn-ghost-blue text-sm">
             <Plus className="w-4 h-4 mr-2" />
             Add Ingredient
           </button>
         </div>
 
         {/* Table Header */}
-        <div className="grid grid-cols-7 gap-4 px-4 py-2 bg-gray-800/50 rounded-lg text-sm font-medium text-gray-400 mt-4">
+        <div className="grid grid-cols-7 gap-4 px-4 py-2 bg-[#1a1f2b] text-center rounded-lg font-medium mt-4 text-gray-300 text-sm">
           <div className="col-span-2">Ingredient</div>
           <div>Common Measure</div>
           <div>R/U Type</div>

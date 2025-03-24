@@ -243,7 +243,7 @@ export const VersionHistory: React.FC<VersionHistoryProps> = ({
                     Recipe is finalized and approved for kitchen production.
                   </li>
                   <li>
-                    <span className="text-gray-400 font-medium">Archived:</span>{" "}
+                    <span className="text-rose-400 font-medium">Archived:</span>{" "}
                     Recipe is no longer in active use but kept for reference.
                   </li>
                 </ul>

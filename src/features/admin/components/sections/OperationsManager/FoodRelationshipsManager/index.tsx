@@ -1,12 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Plus, Trash2, Edit2, Save, X, AlertTriangle,
-  ArrowUpCircle, ArrowDownCircle,
-  Box, Tags, Package, Info
-} from 'lucide-react';
-import { useFoodRelationshipsStore } from '@/stores/foodRelationshipsStore';
-import { ImportExportButtons } from './ImportExportButtons';
-import toast from 'react-hot-toast';
+import React, { useState, useEffect } from "react";
+import {
+  Plus,
+  Trash2,
+  Edit2,
+  Save,
+  X,
+  AlertTriangle,
+  ArrowUpCircle,
+  ArrowDownCircle,
+  Box,
+  Tags,
+  Package,
+  Info,
+} from "lucide-react";
+import { useFoodRelationshipsStore } from "@/stores/foodRelationshipsStore";
+import { ImportExportButtons } from "./ImportExportButtons";
+import toast from "react-hot-toast";
 
 // Rest of the component remains the same...
 // Add ImportExportButtons to the header section:
@@ -19,12 +28,16 @@ return (
     </div>
 
     <header className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-4">Operations Manager</h1>
-          <p className="text-gray-400">Configure system-wide lookup values and master lists</p>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold text-white mb-4">
+          Operations Manager
+        </h1>
+        <p className="text-gray-400">
+          Configure system-wide lookup values and master lists
+        </p>
+      </div>
       <ImportExportButtons />
-    </div>
+    </header>
 
     {/* Rest of the component remains the same... */}
   </div>

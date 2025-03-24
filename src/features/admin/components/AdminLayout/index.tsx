@@ -39,8 +39,8 @@ export const AdminLayout: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
-      <div className="flex">
+    <div className="h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 overflow-hidden">
+      <div className="flex h-full">
         <div
           className={`${isCollapsed ? "w-20" : "w-64"} transition-all duration-300 flex-shrink-0`}
         >
@@ -48,7 +48,7 @@ export const AdminLayout: React.FC = () => {
             onToggleCollapse={(collapsed) => setIsCollapsed(collapsed)}
           />
         </div>
-        <div className="flex-1 min-h-screen overflow-hidden w-full">
+        <div className="flex-1 h-full overflow-hidden w-full flex flex-col">
           <div className="sticky top-0 z-40 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 p-3">
             <div className="flex justify-between items-center">
               <button
@@ -63,7 +63,7 @@ export const AdminLayout: React.FC = () => {
           </div>
           <div
             ref={contentRef}
-            className="p-4 md:p-6 lg:p-8 w-full overflow-auto"
+            className="p-4 md:p-6 lg:p-8 w-full overflow-auto flex-1"
             style={{ maxHeight: "calc(100vh - 57px)" }} // 57px is the height of the header
           >
             <Outlet />

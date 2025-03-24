@@ -41,19 +41,50 @@ export const logActivity = async ({
       }
     }
 
-    const { error } = await supabase.from("activity_logs").insert([
-      {
-        organization_id,
-        user_id,
-        activity_type,
-        details,
-        metadata,
-      },
-    ]);
+    // Insert the activity log and get the ID
+    const { data: logData, error } = await supabase
+      .from("activity_logs")
+      .insert([
+        {
+          organization_id,
+          user_id,
+          activity_type,
+          details,
+          metadata,
+        },
+      ])
+      .select("id")
+      .single();
 
     if (error) {
       console.error("Error inserting activity log:", error);
       throw error;
+    }
+
+    // If there are diffs in the metadata, record them in activity_stream_diffs
+    if (metadata.diffs && logData?.id) {
+      const { table_name, record_id, old_values, new_values, diff } =
+        metadata.diffs;
+
+      if (table_name && record_id) {
+        const { error: diffError } = await supabase
+          .from("activity_stream_diffs")
+          .insert([
+            {
+              activity_log_id: logData.id,
+              organization_id,
+              table_name,
+              record_id,
+              old_values: old_values || {},
+              new_values: new_values || {},
+              diff: diff || {},
+            },
+          ]);
+
+        if (diffError) {
+          console.error("Error inserting activity stream diff:", diffError);
+        }
+      }
     }
   } catch (err) {
     console.error("Error logging activity:", err);

@@ -50,13 +50,15 @@ export const FullPageViewer: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-900">
-      <ViewerHeader
-        recipe={recipe}
-        onPrint={() => window.print()}
-        onBookView={() => navigate("/kitchen/recipes")}
-      />
+      <div className="sticky top-0 z-50">
+        <ViewerHeader
+          recipe={recipe}
+          onPrint={() => window.print()}
+          onBookView={() => navigate("/kitchen/recipes")}
+        />
+      </div>
 
-      <div className="flex">
+      <div className="flex h-[calc(100vh-64px)]">
         <ViewerSidebar activeTab={activeTab} onTabChange={setActiveTab} />
 
         {/* Main Content */}

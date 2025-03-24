@@ -8,6 +8,30 @@ interface AllergensProps {
 }
 
 export const Allergens: React.FC<AllergensProps> = ({ recipe }) => {
+  // Check for allergens in the allergenInfo field (case sensitive)
+  const allergenData = recipe.allergenInfo || {};
+
+  // Log the recipe data to help with debugging
+  console.log("Recipe data in Allergens component:", recipe);
+  console.log("Allergen data being used:", allergenData);
+
+  // Extract allergen arrays with fallbacks
+  const containsAllergens = Array.isArray(allergenData.contains)
+    ? allergenData.contains
+    : [];
+  const mayContainAllergens = Array.isArray(allergenData.mayContain)
+    ? allergenData.mayContain
+    : [];
+  const crossContactAllergens = Array.isArray(allergenData.crossContactRisk)
+    ? allergenData.crossContactRisk
+    : [];
+
+  // Check if we have any allergen data at all
+  const hasAllergenData =
+    containsAllergens.length > 0 ||
+    mayContainAllergens.length > 0 ||
+    crossContactAllergens.length > 0;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 mb-4">
@@ -25,11 +49,11 @@ export const Allergens: React.FC<AllergensProps> = ({ recipe }) => {
       </div>
 
       {/* Contains Allergens */}
-      {recipe.allergens?.contains?.length > 0 && (
+      {containsAllergens.length > 0 && (
         <div className="bg-rose-500/10 rounded-lg p-4">
           <h3 className="text-sm font-medium text-rose-400 mb-4">Contains</h3>
           <div className="flex flex-wrap gap-2">
-            {recipe.allergens.contains.map((allergen) => (
+            {containsAllergens.map((allergen) => (
               <AllergenBadge key={allergen} type={allergen} showLabel />
             ))}
           </div>
@@ -37,13 +61,13 @@ export const Allergens: React.FC<AllergensProps> = ({ recipe }) => {
       )}
 
       {/* May Contain */}
-      {recipe.allergens?.mayContain?.length > 0 && (
+      {mayContainAllergens.length > 0 && (
         <div className="bg-amber-500/10 rounded-lg p-4 mt-4">
           <h3 className="text-sm font-medium text-amber-400 mb-4">
             May Contain
           </h3>
           <div className="flex flex-wrap gap-2">
-            {recipe.allergens.mayContain.map((allergen) => (
+            {mayContainAllergens.map((allergen) => (
               <AllergenBadge key={allergen} type={allergen} showLabel />
             ))}
           </div>
@@ -51,26 +75,25 @@ export const Allergens: React.FC<AllergensProps> = ({ recipe }) => {
       )}
 
       {/* Cross Contact Risk */}
-      {recipe.allergens?.crossContactRisk?.length > 0 && (
+      {crossContactAllergens.length > 0 && (
         <div className="bg-gray-800/50 rounded-lg p-4 mt-4">
           <h3 className="text-sm font-medium text-gray-300 mb-4">
             Cross-Contact Risk
           </h3>
           <div className="flex flex-wrap gap-2">
-            {recipe.allergens.crossContactRisk.map((allergen) => (
+            {crossContactAllergens.map((allergen) => (
               <AllergenBadge key={allergen} type={allergen} showLabel />
             ))}
           </div>
         </div>
       )}
 
-      {!recipe.allergens?.contains?.length &&
-        !recipe.allergens?.mayContain?.length &&
-        !recipe.allergens?.crossContactRisk?.length && (
-          <div className="text-center py-8 text-gray-400">
-            No allergen information has been specified for this recipe.
-          </div>
-        )}
+      {/* No allergen information message */}
+      {!hasAllergenData && (
+        <div className="text-center py-8 text-gray-400">
+          No allergen information has been specified for this recipe.
+        </div>
+      )}
     </div>
   );
 };

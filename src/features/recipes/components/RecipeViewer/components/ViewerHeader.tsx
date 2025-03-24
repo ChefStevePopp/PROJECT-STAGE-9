@@ -17,7 +17,7 @@ export const ViewerHeader: React.FC<ViewerHeaderProps> = ({
   const navigate = useNavigate();
 
   return (
-    <header className="sticky top-0 z-40 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 px-6 py-4">
+    <header className="sticky top-0 left-0 z-40 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 px-6 py-4">
       <div className="flex items-center justify-between max-w-[1600px] mx-auto">
         <div className="flex items-center gap-4">
           <button

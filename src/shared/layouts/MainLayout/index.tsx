@@ -9,13 +9,13 @@ export const MainLayout: React.FC = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+    <div className="relative h-screen overflow-hidden">
       <Header className="sticky top-0 z-40 border-b border-gray-800" />
-      <div className="min-h-[calc(100vh-73px)]">
+      <div className="h-[calc(100vh-73px)] overflow-hidden">
         <Sidebar className="fixed left-0 top-[73px] bottom-0 w-20 z-30 border-r border-gray-800" />
 
         {/* Main Content Area */}
-        <main className="ml-20 mr-[2.15rem]">
+        <main className="ml-20 mr-[2.15rem] h-full overflow-y-auto">
           <div className="mx-auto p-4 max-w-full">
             <Outlet />
           </div>

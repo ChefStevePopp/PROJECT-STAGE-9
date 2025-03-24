@@ -429,7 +429,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
             e.stopPropagation(); // Prevent double triggering
             onClick();
           }}
-          className="w-full hidden md:flex justify-center px-4 py-2 bg-gray-700/70 hover:bg-primary-500/80 text-gray-300 hover:text-white rounded-lg transition-colors text-sm font-medium items-center gap-2 relative z-40"
+          className="w-full hidden md:flex justify-center px-4 py-2 bg-gray-700/70 hover:bg-primary-800/80 text-gray-300 hover:text-white rounded-lg transition-colors text-sm font-medium items-center gap-2 relative z-40"
         >
           <Info className="w-4 h-4" />
           View Recipe
