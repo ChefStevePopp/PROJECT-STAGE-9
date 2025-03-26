@@ -151,9 +151,14 @@ export const EmployeeMatchingModal: React.FC<EmployeeMatchingModalProps> = ({
     onClose();
   };
 
-  // Calculate match percentage
+  // Get unique employee names to calculate accurate match percentage
+  const uniqueEmployeeNames = [
+    ...new Set(scheduleEmployees.map((emp) => emp.employee_name)),
+  ].length;
+
+  // Calculate match percentage based on unique employees
   const matchPercentage = Math.round(
-    (Object.keys(matches).length / scheduleEmployees.length) * 100,
+    (Object.keys(matches).length / uniqueEmployeeNames) * 100,
   );
 
   if (!isOpen) return null;
@@ -359,7 +364,7 @@ export const EmployeeMatchingModal: React.FC<EmployeeMatchingModalProps> = ({
                 <div className="flex items-center text-amber-400 gap-2">
                   <AlertTriangle className="w-4 h-4" />
                   <span className="text-sm">
-                    {scheduleEmployees.length - Object.keys(matches).length}{" "}
+                    {uniqueEmployeeNames - Object.keys(matches).length}{" "}
                     employees are not matched
                   </span>
                 </div>

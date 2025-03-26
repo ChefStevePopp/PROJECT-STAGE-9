@@ -19,6 +19,7 @@ export interface ScheduleShift {
   last_name?: string;
   role?: string;
   date: string;
+  shift_date: string; // Explicitly add shift_date to match database schema
   start_time: string;
   end_time: string;
   break_duration: number;
@@ -116,7 +117,6 @@ const parseStandardFormat = (
       // Skip rows with empty required fields
       if (
         !row[mapping.employeeNameField] ||
-        !row[mapping.dateField] ||
         !row[mapping.startTimeField] ||
         !row[mapping.endTimeField]
       ) {
@@ -136,6 +136,17 @@ const parseStandardFormat = (
       // Get employee ID from standard fields if available
       const employeeId = row["employee_id"] || row["Employee ID"] || "";
 
+      // Format the date and ensure it's not null
+      const formattedDate = row[mapping.dateField]
+        ? formatDateString(row[mapping.dateField])
+        : new Date().toISOString().split("T")[0];
+
+      // Log the date processing for debugging
+      console.log(`Processing date for ${fullName}:`, {
+        originalDate: row[mapping.dateField],
+        formattedDate: formattedDate,
+      });
+
       return {
         employee_id: employeeId,
         punch_id: employeeId, // Store as punch_id as well for matching
@@ -143,7 +154,8 @@ const parseStandardFormat = (
         first_name: firstName,
         last_name: lastName,
         role: mapping.roleField ? row[mapping.roleField] : "",
-        date: formatDateString(row[mapping.dateField]),
+        date: formattedDate, // Use the safely formatted date
+        shift_date: formattedDate, // Ensure shift_date is set to match the date field
         start_time: formatTimeString(row[mapping.startTimeField]),
         end_time: formatTimeString(row[mapping.endTimeField]),
         break_duration: mapping.breakDurationField
@@ -249,6 +261,7 @@ const parseWeeklyFormat = (
           punch_id: employeeId, // Store as punch_id as well for matching
           role: role || "",
           date: dateStr,
+          shift_date: dateStr, // Ensure shift_date is set to match the date field
           start_time: startTime,
           end_time: endTime,
           break_duration: 0, // Default to 0 for weekly format
@@ -318,6 +331,15 @@ const parseShiftText = (
  */
 export const formatDateString = (dateStr: string): string => {
   try {
+    // If dateStr is null, undefined or empty, use today's date
+    if (!dateStr) {
+      console.warn("Empty date string provided, using current date");
+      return new Date().toISOString().split("T")[0];
+    }
+
+    // Log the input for debugging
+    console.log("Formatting date string:", dateStr);
+
     // Try various date formats
     let date: Date | null = null;
 
@@ -344,13 +366,17 @@ export const formatDateString = (dateStr: string): string => {
     }
 
     if (isNaN(date.getTime())) {
-      throw new Error(`Invalid date: ${dateStr}`);
+      console.warn(`Invalid date: ${dateStr}, using current date`);
+      return new Date().toISOString().split("T")[0];
     }
 
-    return date.toISOString().split("T")[0]; // YYYY-MM-DD
+    const result = date.toISOString().split("T")[0]; // YYYY-MM-DD
+    console.log(`Formatted date result: ${result}`);
+    return result;
   } catch (error) {
     console.error("Error formatting date:", error);
-    return dateStr; // Return original if parsing fails
+    console.warn("Using current date as fallback");
+    return new Date().toISOString().split("T")[0]; // Use current date as fallback
   }
 };
 

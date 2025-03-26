@@ -248,6 +248,20 @@ export const ScheduleManager: React.FC = () => {
 
       console.log(`Found ${shifts.length} shifts in the uploaded file`);
 
+      // Validate that all shifts have a date
+      const shiftsWithoutDate = shifts.filter((shift) => !shift.date);
+      if (shiftsWithoutDate.length > 0) {
+        console.warn(
+          `Found ${shiftsWithoutDate.length} shifts without dates, adding today's date`,
+        );
+        // Fix shifts without dates by adding today's date
+        const today = new Date().toISOString().split("T")[0];
+        shifts = shifts.map((shift) => ({
+          ...shift,
+          date: shift.date || today,
+        }));
+      }
+
       // Close the upload modal first, then show the employee matching modal
       setIsUploadModalOpen(false);
       setParsedShifts(shifts);

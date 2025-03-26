@@ -541,7 +541,10 @@ export const useScheduleStore = create<ScheduleState>()(
             first_name: shift.first_name || null,
             last_name: shift.last_name || null,
             role: shift.role || null,
-            shift_date: shift.shift_date,
+            shift_date:
+              shift.shift_date ||
+              shift.date ||
+              new Date().toISOString().split("T")[0], // Ensure shift_date is never null
             start_time: shift.start_time,
             end_time: shift.end_time,
             break_duration: shift.break_duration || null,
