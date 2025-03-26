@@ -746,7 +746,7 @@ export const ScheduleManager: React.FC = () => {
                               return (
                                 <div
                                   key={shift.id}
-                                  className="text-xs bg-gray-600/50 p-2 rounded text-left flex items-center gap-2"
+                                  className="text-xs bg-slate-600/50 p-2 rounded text-center flex items-center gap-2"
                                 >
                                   <div className="flex-1 min-w-0">
                                     <div className="font-medium text-white truncate">
@@ -759,7 +759,7 @@ export const ScheduleManager: React.FC = () => {
                                         {shift.role}
                                       </div>
                                     )}
-                                    <div className="text-gray-300 mt-1">
+                                    <div className="text-[8px] text-gray-300 mt-1">
                                       {formatTime(shift.start_time, timeFormat)}{" "}
                                       - {formatTime(shift.end_time, timeFormat)}
                                     </div>
