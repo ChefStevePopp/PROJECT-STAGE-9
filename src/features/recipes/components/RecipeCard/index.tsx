@@ -17,6 +17,7 @@ import {
   ImageOff,
   RefreshCw, // Added for UPDATED badge
   Utensils,
+  ChevronDown,
 } from "lucide-react";
 import { AllergenBadge } from "@/features/allergens/components/AllergenBadge";
 import type { Recipe } from "../../types/recipe";
@@ -37,6 +38,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
   className = "",
 }) => {
   const [imageError, setImageError] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Calculate if the recipe is new (less than 1 month old)
   const isNew = useMemo(() => {
@@ -162,11 +164,20 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
     </span>
   );
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Only toggle expansion if we're clicking on the card itself or the image section
+    // and not on the View Recipe button
+    if (!(e.target as HTMLElement).closest("button")) {
+      setIsExpanded(!isExpanded);
+    }
+  };
+
   return (
     <div
-      onClick={onClick}
-      className={`w-full text-left bg-gray-800/50 rounded-xl transition-all duration-200 
-                 shadow-lg relative group overflow-hidden border border-gray-700/50 ${className} cursor-pointer`}
+      onClick={handleCardClick}
+      className={`w-full text-left bg-gray-800/50 rounded-xl transition-all duration-300 
+                 shadow-lg relative group overflow-hidden border border-gray-700/50 ${className} cursor-pointer
+                 ${isExpanded ? "z-40" : ""}`}
       aria-label={`Recipe card for ${recipe.name}`}
       role="button"
       tabIndex={0}
@@ -286,179 +297,194 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
             </span>
           </div>
         </div>
+
+        {/* Expand indicator */}
+        <div className="absolute bottom-2 right-4 z-20">
+          <div
+            className={`p-1 rounded-full bg-gray-800/80 border border-gray-700 transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`}
+          >
+            <ChevronDown className="w-4 h-4 text-gray-400" />
+          </div>
+        </div>
       </div>
 
-      {/* Content Section */}
-      <div className="p-4 space-y-2">
-        {/* Classification - Split into two columns */}
-        <div className="grid grid-cols-2 gap-4">
-          {/* Duty Station */}
-          <div>
-            <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500 flex items-center gap-2">
-              <ChefHat className="w-4 h-4 text-primary-400/80" /> DUTY STATION
+      {/* Content Section - Only visible when expanded */}
+      <div
+        className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"}`}
+      >
+        <div className="p-4 space-y-2">
+          {/* Classification - Split into two columns */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Duty Station */}
+            <div>
+              <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500 flex items-center gap-2">
+                <ChefHat className="w-4 h-4 text-primary-400/80" /> DUTY STATION
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-sm text-gray-300">
+                  {recipe.station_name || "Unassigned"}
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-sm text-gray-300">
-                {recipe.station_name || "Unassigned"}
-              </span>
+
+            {/* Recipe Class */}
+            <div>
+              <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500 flex items-center gap-2">
+                <BookUser className="w-4 h-4 text-primary-400/80" /> RECIPE
+                CLASS
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-sm text-gray-300">
+                  {recipe.sub_category_name || "Uncategorized"}
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Recipe Class */}
-          <div>
-            <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500 flex items-center gap-2">
-              <BookUser className="w-4 h-4 text-primary-400/80" /> RECIPE CLASS
+          {/* Storage Info - Split into two columns */}
+          <div className="grid grid-cols-2 gap-4 mt-4">
+            {/* Storage Area */}
+            <div>
+              <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500 flex items-center gap-2">
+                <Warehouse className="w-4 h-4 text-green-400/60" /> STORAGE AREA
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-sm text-gray-300">
+                  {recipe.storage?.primary_area || "Walk-in Cooler"}
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-sm text-gray-300">
-                {recipe.sub_category_name || "Uncategorized"}
-              </span>
+
+            {/* Storage Container */}
+            <div>
+              <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500 flex items-center gap-2">
+                <Archive className="w-4 h-4 text-green-400/60" /> STORAGE
+                CONTAINER
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-sm text-gray-300">
+                  {recipe.storage?.container || "Cambro"}{" "}
+                  {recipe.storage?.container_type
+                    ? `(${recipe.storage.container_type})`
+                    : "(22 Qt)"}
+                </span>
+              </div>
             </div>
           </div>
+
+          {/* Recipe Units & Cost - Split into two columns */}
+          <div className="grid grid-cols-2 gap-4 mt-4">
+            {/* Recipe Units */}
+            <div>
+              <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500 flex items-center gap-2">
+                <BookKey className="w-4 h-4 text-amber-500/80" /> RECIPE UNITS
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-sm text-gray-300">
+                  {recipe.recipe_unit_ratio || "1"}{" "}
+                  <span className="text-xs text-gray-400">by</span>{" "}
+                  {recipe.unit_type || "unit"}
+                </span>
+              </div>
+            </div>
+
+            {/* Cost */}
+            <div>
+              <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500 flex items-center gap-2">
+                <CircleDollarSign className="w-4 h-4 text-amber-500/80" /> COST
+                PER RU
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-sm text-gray-300">
+                  {formatCurrency(recipe.cost_per_unit || 0)}
+                  <span className="text-xs text-gray-400"> per </span>
+                  {recipe.unit_type || "unit"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Time & Labor - Split into two columns */}
+          <div className="grid grid-cols-2 gap-4 mt-4">
+            {/* Prep Time */}
+            <div>
+              <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-rose-500/80" /> PREP TIME
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-sm text-gray-200">{totalTime} mins</span>
+              </div>
+            </div>
+
+            {/* Labor Cost */}
+            <div>
+              <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500 flex items-center gap-2">
+                <CircleUser className="w-4 h-4 text-rose-500/80" /> LABOUR COST
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-sm text-gray-200">
+                  {formatCurrency(laborCost)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Allergens */}
+          {recipe.allergenInfo?.contains?.length > 0 && (
+            <div className="pt-3 border-t border-gray-700/50">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs font-bold font-display text-gray-500 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-lime-400" /> DECLARED
+                  ALLERGENS
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {recipe.allergenInfo.contains.map((allergen) => {
+                  // Extract allergen key without prefix if needed
+                  const allergenKey = allergen.startsWith("allergen_")
+                    ? allergen.substring(9)
+                    : allergen;
+
+                  // Format the label - replace underscores with spaces and capitalize
+                  const formattedLabel = allergenKey
+                    .replace(/_/g, " ")
+                    .split(" ")
+                    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                    .join(" ");
+
+                  return (
+                    <div
+                      key={allergen}
+                      className="inline-flex items-center mr-2 mb-1"
+                    >
+                      <span className="text-xs text-slate-400 px-2 py-1 bg-slate-500/10 rounded-lg border border-slate-500/30">
+                        {formattedLabel}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Storage Info - Split into two columns */}
-        <div className="grid grid-cols-2 gap-4 mt-4">
-          {/* Storage Area */}
-          <div>
-            <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500 flex items-center gap-2">
-              <Warehouse className="w-4 h-4 text-green-400/60" /> STORAGE AREA
-            </div>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-sm text-gray-300">
-                {recipe.storage?.primary_area || "Walk-in Cooler"}
-              </span>
-            </div>
-          </div>
-
-          {/* Storage Container */}
-          <div>
-            <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500 flex items-center gap-2">
-              <Archive className="w-4 h-4 text-green-400/60" /> STORAGE
-              CONTAINER
-            </div>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-sm text-gray-300">
-                {recipe.storage?.container || "Cambro"}{" "}
-                {recipe.storage?.container_type
-                  ? `(${recipe.storage.container_type})`
-                  : "(22 Qt)"}
-              </span>
-            </div>
-          </div>
+        {/* View Recipe Button - Only visible when expanded */}
+        <div className="p-4 pt-0">
+          <button
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent double triggering
+              onClick();
+            }}
+            className="w-full flex justify-center px-4 py-2 bg-gray-700/70 hover:bg-primary-800/80 text-gray-300 hover:text-white rounded-lg transition-colors text-sm font-medium items-center gap-2 relative z-40"
+          >
+            <Info className="w-4 h-4" />
+            View Full Recipe
+          </button>
         </div>
-
-        {/* Recipe Units & Cost - Split into two columns */}
-        <div className="grid grid-cols-2 gap-4 mt-4">
-          {/* Recipe Units */}
-          <div>
-            <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500 flex items-center gap-2">
-              <BookKey className="w-4 h-4 text-amber-500/80" /> RECIPE UNITS
-            </div>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-sm text-gray-300">
-                {recipe.recipe_unit_ratio || "1"}{" "}
-                <span className="text-xs text-gray-400">by</span>{" "}
-                {recipe.unit_type || "unit"}
-              </span>
-            </div>
-          </div>
-
-          {/* Cost */}
-          <div>
-            <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500 flex items-center gap-2">
-              <CircleDollarSign className="w-4 h-4 text-amber-500/80" /> COST
-              PER RU
-            </div>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-sm text-gray-300">
-                {formatCurrency(recipe.cost_per_unit || 0)}
-                <span className="text-xs text-gray-400"> per </span>
-                {recipe.unit_type || "unit"}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Time & Labor - Split into two columns */}
-        <div className="grid grid-cols-2 gap-4 mt-4">
-          {/* Prep Time */}
-          <div>
-            <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-rose-500/80" /> PREP TIME
-            </div>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-sm text-gray-200">{totalTime} mins</span>
-            </div>
-          </div>
-
-          {/* Labor Cost */}
-          <div>
-            <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500 flex items-center gap-2">
-              <CircleUser className="w-4 h-4 text-rose-500/80" /> LABOUR COST
-            </div>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-sm text-gray-200">
-                {formatCurrency(laborCost)}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Allergens */}
-        {recipe.allergenInfo?.contains?.length > 0 && (
-          <div className="pt-3 border-t border-gray-700/50">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-bold font-display text-gray-500 flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-lime-400" /> DECLARED
-                ALLERGENS
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-1">
-              {recipe.allergenInfo.contains.map((allergen) => {
-                // Extract allergen key without prefix if needed
-                const allergenKey = allergen.startsWith("allergen_")
-                  ? allergen.substring(9)
-                  : allergen;
-
-                // Format the label - replace underscores with spaces and capitalize
-                const formattedLabel = allergenKey
-                  .replace(/_/g, " ")
-                  .split(" ")
-                  .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                  .join(" ");
-
-                return (
-                  <div
-                    key={allergen}
-                    className="inline-flex items-center mr-2 mb-1"
-                  >
-                    <span className="text-xs text-slate-400 px-2 py-1 bg-slate-500/10 rounded-lg border border-slate-500/30">
-                      {formattedLabel}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Hover border effect */}
       <div className="absolute inset-0 rounded-xl border-2 border-primary-500/50 opacity-0 hover:opacity-100 transition-opacity" />
-      {/* View Button - Hidden on mobile, full width on larger screens */}
-      <div className="p-4 pt-0">
-        <button
-          onClick={(e) => {
-            e.stopPropagation(); // Prevent double triggering
-            onClick();
-          }}
-          className="w-full hidden md:flex justify-center px-4 py-2 bg-gray-700/70 hover:bg-primary-800/80 text-gray-300 hover:text-white rounded-lg transition-colors text-sm font-medium items-center gap-2 relative z-40"
-        >
-          <Info className="w-4 h-4" />
-          View Recipe
-        </button>
-      </div>
     </div>
   );
 };
