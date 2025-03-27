@@ -322,9 +322,30 @@ select::-ms-expand {
     }
   }
 
+  /* Safe area padding for mobile devices */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 1rem);
+  }
+
+  /* Mobile navigation animations */
+  .mobile-nav-appear {
+    animation: slideInUp 0.3s ease-out forwards;
+  }
+
   /* Diagnostic file paths */
   body:not(.show-diagnostics) .text-xs.text-gray-500.font-mono {
     display: none;
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
   }
 }
 
@@ -335,6 +356,20 @@ select::-ms-expand {
   }
   to {
     transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Mobile menu overlay animations */
+.mobile-menu-overlay {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
     opacity: 1;
   }
 }

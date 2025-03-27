@@ -172,68 +172,70 @@ export const StaffSchedule: React.FC<StaffScheduleProps> = ({ team }) => {
           <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
         </div>
       ) : (
-        <div className="max-h-[400px] overflow-y-auto pr-1 relative">
-          {/* Fade effect at bottom */}
-          <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-gray-900 to-transparent pointer-events-none"></div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {todayShifts.length > 0 ? (
-              todayShifts.map((shift) => (
-                <div
-                  key={shift.id}
-                  className="flex items-center gap-2 p-2 bg-gray-800/50 rounded-lg hover:bg-gray-800 transition-colors"
-                >
-                  {/* Avatar - smaller size */}
-                  <div className="relative flex-shrink-0">
-                    <img
-                      src={getAvatarUrl(shift)}
-                      alt={shift.employee_name || "Team member"}
-                      className="w-8 h-8 rounded-full bg-gray-700 object-cover"
-                      onError={(e) => {
-                        const seed =
-                          shift.employee_id ||
-                          shift.employee_name?.replace(/\s+/g, "") ||
-                          "default";
-                        (e.target as HTMLImageElement).src =
-                          `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
-                        e.onerror = null;
-                      }}
-                    />
-                    <span className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 border border-gray-800 rounded-full" />
-                  </div>
-
-                  {/* Member Info - more compact */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1">
-                      <h3 className="font-medium text-white text-sm truncate">
-                        {formatEmployeeName(shift)}
-                      </h3>
-                      <span className="px-1.5 py-0.5 bg-primary-500/20 text-primary-400 rounded text-xs font-medium">
-                        {shift.role || "Staff"}
-                      </span>
+        <div className="max-h-[280px] md:max-h-[400px] overflow-y-auto pr-1">
+          {/* Container with relative positioning for the content */}
+          <div className="relative">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {todayShifts.length > 0 ? (
+                todayShifts.map((shift) => (
+                  <div
+                    key={shift.id}
+                    className="flex items-center gap-2 p-2 bg-gray-800/50 rounded-lg hover:bg-gray-800 transition-colors"
+                  >
+                    {/* Avatar - smaller size */}
+                    <div className="relative flex-shrink-0">
+                      <img
+                        src={getAvatarUrl(shift)}
+                        alt={shift.employee_name || "Team member"}
+                        className="w-8 h-8 rounded-full bg-gray-700 object-cover"
+                        onError={(e) => {
+                          const seed =
+                            shift.employee_id ||
+                            shift.employee_name?.replace(/\s+/g, "") ||
+                            "default";
+                          (e.target as HTMLImageElement).src =
+                            `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
+                          e.onerror = null;
+                        }}
+                      />
+                      <span className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 border border-gray-800 rounded-full" />
                     </div>
 
-                    <div className="flex items-center text-xs text-gray-400">
-                      <Clock className="w-3 h-3 mr-1" />
-                      <span>
-                        {formatTime(shift.start_time)} -{" "}
-                        {formatTime(shift.end_time)}
-                      </span>
+                    {/* Member Info - more compact */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1">
+                        <h3 className="font-medium text-white text-sm truncate">
+                          {formatEmployeeName(shift)}
+                        </h3>
+                        <span className="px-1.5 py-0.5 bg-primary-500/20 text-primary-400 rounded text-xs font-medium">
+                          {shift.role || "Staff"}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center text-xs text-gray-400">
+                        <Clock className="w-3 h-3 mr-1" />
+                        <span>
+                          {formatTime(shift.start_time)} -{" "}
+                          {formatTime(shift.end_time)}
+                        </span>
+                      </div>
                     </div>
                   </div>
+                ))
+              ) : (
+                <div className="text-center py-8 col-span-2">
+                  <div className="w-12 h-12 mx-auto bg-gray-800/50 rounded-full flex items-center justify-center mb-3">
+                    <span className="text-2xl">🌞</span>
+                  </div>
+                  <h3 className="text-lg font-medium text-white mb-1">
+                    No Team Members Scheduled Today
+                  </h3>
+                  <p className="text-gray-400 text-sm">Enjoy your day! ✨</p>
                 </div>
-              ))
-            ) : (
-              <div className="text-center py-8 col-span-2">
-                <div className="w-12 h-12 mx-auto bg-gray-800/50 rounded-full flex items-center justify-center mb-3">
-                  <span className="text-2xl">🌞</span>
-                </div>
-                <h3 className="text-lg font-medium text-white mb-1">
-                  No Team Members Scheduled Today
-                </h3>
-                <p className="text-gray-400 text-sm">Enjoy your day! ✨</p>
-              </div>
-            )}
+              )}
+            </div>
+            {/* Fade effect at bottom - positioned relative to the scrollable container */}
+            <div className="sticky bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-gray-900 to-transparent pointer-events-none z-10 -mt-12"></div>
           </div>
         </div>
       )}

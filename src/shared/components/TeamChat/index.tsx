@@ -1,41 +1,54 @@
-import React, { useState } from 'react';
-import { Send } from 'lucide-react';
-import type { Message, TeamMember } from '@/shared/types';
+import React, { useState } from "react";
+import { Send, X } from "lucide-react";
+import type { Message, TeamMember } from "@/shared/types";
 
 interface TeamChatProps {
   className?: string;
   messages?: Message[];
   members?: TeamMember[];
   onSendMessage?: (content: string) => void;
+  onClose?: () => void;
 }
 
-export const TeamChat: React.FC<TeamChatProps> = ({ 
-  className = '',
-  messages = [], 
-  members = [], 
-  onSendMessage 
+export const TeamChat: React.FC<TeamChatProps> = ({
+  className = "",
+  messages = [],
+  members = [],
+  onSendMessage,
+  onClose,
 }) => {
-  const [newMessage, setNewMessage] = useState('');
+  const [newMessage, setNewMessage] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (newMessage.trim() && onSendMessage) {
       onSendMessage(newMessage);
-      setNewMessage('');
+      setNewMessage("");
     }
   };
 
   return (
-    <div className={`flex flex-col bg-gray-800 border-l border-gray-700 rounded-xl shadow-2xl animate-slide-in-right ${className}`}>
+    <div
+      className={`flex flex-col bg-gray-800 border-l border-gray-700 rounded-xl shadow-2xl animate-slide-in-right ${className}`}
+    >
       {/* Chat Header */}
-      <div className="p-4 border-b border-gray-700 bg-gray-900/50 backdrop-blur-sm rounded-t-xl">
+      <div className="p-4 border-b border-gray-700 bg-gray-900/50 backdrop-blur-sm rounded-t-xl flex justify-between items-center">
         <h2 className="text-lg font-semibold text-white">Team Chat</h2>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white transition-colors"
+            aria-label="Close chat"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-y-auto p-4">
         {messages.map((message) => {
-          const sender = members.find(m => m.id === message.userId);
+          const sender = members.find((m) => m.id === message.userId);
           return (
             <div key={message.id} className="flex items-start gap-3 mb-4">
               <img
@@ -46,7 +59,9 @@ export const TeamChat: React.FC<TeamChatProps> = ({
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-white">{sender?.name}</span>
-                  <span className="text-xs text-gray-400">{message.timestamp}</span>
+                  <span className="text-xs text-gray-400">
+                    {message.timestamp}
+                  </span>
                 </div>
                 <p className="text-gray-300 mt-1">{message.content}</p>
               </div>
@@ -56,7 +71,10 @@ export const TeamChat: React.FC<TeamChatProps> = ({
       </div>
 
       {/* Chat Input */}
-      <form onSubmit={handleSubmit} className="p-4 border-t border-gray-700 bg-gray-900/50 backdrop-blur-sm rounded-b-xl">
+      <form
+        onSubmit={handleSubmit}
+        className="p-4 border-t border-gray-700 bg-gray-900/50 backdrop-blur-sm rounded-b-xl"
+      >
         <div className="flex gap-2">
           <input
             type="text"
