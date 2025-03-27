@@ -289,22 +289,27 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
       </div>
 
       {/* Content Section */}
-      <div className="p-4 space-y-2 grid grid-cols-2 gap-2">
-        {/* Classification */}
-        <div className="space-y-2">
-          <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500">
-            DUTY STATION <span className="text-xs text-gray-600"> and </span>{" "}
-            RECIPE CLASS
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2">
-              <ChefHat className="w-5 h-5 text-orange-400" />
+      <div className="p-4 space-y-2">
+        {/* Classification - Split into two columns */}
+        <div className="grid grid-cols-2 gap-4">
+          {/* Duty Station */}
+          <div>
+            <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500 flex items-center gap-2">
+              <ChefHat className="w-4 h-4 text-primary-400/80" /> DUTY STATION
+            </div>
+            <div className="flex items-center gap-2 mt-2">
               <span className="text-sm text-gray-300">
                 {recipe.station_name || "Unassigned"}
               </span>
             </div>
-            <div className="flex items-center gap-2">
-              <BookUser className="w-5 h-5 text-orange-400" />
+          </div>
+
+          {/* Recipe Class */}
+          <div>
+            <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500 flex items-center gap-2">
+              <BookUser className="w-4 h-4 text-primary-400/80" /> RECIPE CLASS
+            </div>
+            <div className="flex items-center gap-2 mt-2">
               <span className="text-sm text-gray-300">
                 {recipe.sub_category_name || "Uncategorized"}
               </span>
@@ -312,82 +317,101 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
           </div>
         </div>
 
-        {/* Storage Info */}
-        <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500">
-          STORAGE AREA <span className="text-xs text-gray-600"> and </span>{" "}
-          STORAGE CONTAINER
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="flex items-center gap-2">
-            <Warehouse className="w-5 h-5 text-orange-400" />
-            <span className="text-sm text-gray-300">
-              {recipe.storage?.primary_area || "Walk-in Cooler"}
-            </span>
+        {/* Storage Info - Split into two columns */}
+        <div className="grid grid-cols-2 gap-4 mt-4">
+          {/* Storage Area */}
+          <div>
+            <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500 flex items-center gap-2">
+              <Warehouse className="w-4 h-4 text-green-400/60" /> STORAGE AREA
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-sm text-gray-300">
+                {recipe.storage?.primary_area || "Walk-in Cooler"}
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Archive className="w-5 h-5 text-orange-400" />
-            <span className="text-sm text-gray-300">
-              {recipe.storage?.container || "Cambro"}{" "}
-              {recipe.storage?.container_type
-                ? `(${recipe.storage.container_type})`
-                : "(22 Qt)"}
-            </span>
+
+          {/* Storage Container */}
+          <div>
+            <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500 flex items-center gap-2">
+              <Archive className="w-4 h-4 text-green-400/60" /> STORAGE
+              CONTAINER
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-sm text-gray-300">
+                {recipe.storage?.container || "Cambro"}{" "}
+                {recipe.storage?.container_type
+                  ? `(${recipe.storage.container_type})`
+                  : "(22 Qt)"}
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Recipe Units & Cost */}
-        <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500">
-          RECIPE UNITS
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="flex items-center gap-2">
-            <BookKey className="w-5 h-5 text-orange-400" />
-            <span className="text-sm text-gray-300">
-              {recipe.recipe_unit_ratio || "1"}{" "}
-              <span className="text-xs text-gray-400">by</span>{" "}
-              {recipe.unit_type || "unit"}
-            </span>
+        {/* Recipe Units & Cost - Split into two columns */}
+        <div className="grid grid-cols-2 gap-4 mt-4">
+          {/* Recipe Units */}
+          <div>
+            <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500 flex items-center gap-2">
+              <BookKey className="w-4 h-4 text-amber-500/80" /> RECIPE UNITS
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-sm text-gray-300">
+                {recipe.recipe_unit_ratio || "1"}{" "}
+                <span className="text-xs text-gray-400">by</span>{" "}
+                {recipe.unit_type || "unit"}
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <CircleDollarSign className="w-5 h-5 text-orange-400" />
-            <span className="text-sm text-gray-300">
-              {formatCurrency(recipe.cost_per_unit || 0)}
-              <span className="text-xs text-gray-400"> per </span>
-              {recipe.unit_type || "unit"}
-            </span>
+
+          {/* Cost */}
+          <div>
+            <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500 flex items-center gap-2">
+              <CircleDollarSign className="w-4 h-4 text-amber-500/80" /> COST
+              PER RU
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-sm text-gray-300">
+                {formatCurrency(recipe.cost_per_unit || 0)}
+                <span className="text-xs text-gray-400"> per </span>
+                {recipe.unit_type || "unit"}
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Time & Labor */}
-        <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500">
-          TIME and LABOR
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="flex items-center gap-2">
-            <Clock className="w-5 h-5 text-orange-400" />
-            <span className="text-sm text-gray-400">Prep Time:</span>
-            <span className="text-sm text-bold text-gray-200">
-              {" "}
-              {totalTime} mins
-            </span>
+        {/* Time & Labor - Split into two columns */}
+        <div className="grid grid-cols-2 gap-4 mt-4">
+          {/* Prep Time */}
+          <div>
+            <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-rose-500/80" /> PREP TIME
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-sm text-gray-200">{totalTime} mins</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <CircleUser className="w-5 h-5 text-orange-400" />
-            <span className="text-sm text-gray-400">Labor Cost:</span>
-            <span className="text-sm text-bold text-gray-200">
-              {" "}
-              {formatCurrency(laborCost)}
-            </span>
+
+          {/* Labor Cost */}
+          <div>
+            <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500 flex items-center gap-2">
+              <CircleUser className="w-4 h-4 text-rose-500/80" /> LABOUR COST
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-sm text-gray-200">
+                {formatCurrency(laborCost)}
+              </span>
+            </div>
           </div>
         </div>
 
         {/* Allergens */}
         {recipe.allergenInfo?.contains?.length > 0 && (
           <div className="pt-3 border-t border-gray-700/50">
-            <div className="flex items-center gap-2 text-orange-400 mb-2">
-              <AlertTriangle className="w-5 h-5" />
-              <span className="text-xs font-bold font-display text-gray-500">
-                DECLARED ALLERGENS
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs font-bold font-display text-gray-500 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-lime-400" /> DECLARED
+                ALLERGENS
               </span>
             </div>
             <div className="flex flex-wrap gap-1">
@@ -409,7 +433,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
                     key={allergen}
                     className="inline-flex items-center mr-2 mb-1"
                   >
-                    <span className="text-sm text-orange-400 px-2 py-1 bg-orange-500/10 rounded-md border border-orange-500/30">
+                    <span className="text-xs text-slate-400 px-2 py-1 bg-slate-500/10 rounded-lg border border-slate-500/30">
                       {formattedLabel}
                     </span>
                   </div>
