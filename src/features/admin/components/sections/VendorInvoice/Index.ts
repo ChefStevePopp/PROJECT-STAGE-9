@@ -1,2 +1,0 @@
-
-export { VendorInvoiceManager } from './VendorInvoiceManager';

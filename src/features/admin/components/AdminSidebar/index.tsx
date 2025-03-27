@@ -77,7 +77,11 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                       title={isCollapsed ? item.label : ""}
                     >
                       <item.icon
-                        className={isCollapsed ? "w-8 h-8" : "w-5 h-5"}
+                        className={
+                          isCollapsed
+                            ? "w-6 h-6 text-primary-400/30"
+                            : "w-5 h-5"
+                        }
                       />
                       {!isCollapsed && <span>{item.label}</span>}
                     </Link>

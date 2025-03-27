@@ -1,13 +1,14 @@
 // Path: src/features/recipes/api/recipeApi.ts
 
-import { supabase } from '@/lib/supabase';
-import type { Recipe, RecipeInput } from '../types/recipe';
+import { supabase } from "@/lib/supabase";
+import type { Recipe, RecipeInput } from "../types/recipe";
 
 export const recipeApi = {
   async fetchRecipes(organizationId: string) {
     const { data, error } = await supabase
-      .from('recipes')
-      .select(`
+      .from("recipes")
+      .select(
+        `
         *,
         recipe_ingredients (
           id, type, master_ingredient_id, prepared_recipe_id, 
@@ -40,8 +41,9 @@ export const recipeApi = {
         recipe_allergens (
           id, allergen_type, severity, notes
         )
-      `)
-      .eq('organization_id', organizationId);
+      `,
+      )
+      .eq("organization_id", organizationId);
 
     if (error) throw error;
     return data;
@@ -49,7 +51,7 @@ export const recipeApi = {
 
   async createRecipe(recipe: RecipeInput) {
     const { data, error } = await supabase
-      .from('recipes')
+      .from("recipes")
       .insert([recipe])
       .select()
       .single();
@@ -60,9 +62,9 @@ export const recipeApi = {
 
   async updateRecipe(id: string, recipe: RecipeInput) {
     const { data, error } = await supabase
-      .from('recipes')
+      .from("recipes")
       .update(recipe)
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -70,55 +72,90 @@ export const recipeApi = {
     return data;
   },
 
-  async updateRecipeRelations(recipeId: string, relations: {
-    ingredients?: RecipeInput['ingredients'];
-    steps?: RecipeInput['steps'];
-    media?: RecipeInput['media'];
-    qualityStandards?: RecipeInput['qualityStandards'];
-    training?: RecipeInput['training'];
-    allergens?: RecipeInput['allergenInfo'];
-  }) {
+  async updateRecipeRelations(
+    recipeId: string,
+    relations: {
+      ingredients?: RecipeInput["ingredients"];
+      steps?: RecipeInput["steps"];
+      media?: RecipeInput["media"];
+      qualityStandards?: RecipeInput["qualityStandards"];
+      training?: RecipeInput["training"];
+      allergenInfo?: RecipeInput["allergenInfo"];
+    },
+  ) {
     const updates = [];
 
     if (relations.ingredients) {
       updates.push(
-        supabase
-          .from('recipe_ingredients')
-          .upsert(
-            relations.ingredients.map((ing, index) => ({
-              recipe_id: recipeId,
-              ...ing,
-              sort_order: index,
-            }))
-          )
+        supabase.from("recipe_ingredients").upsert(
+          relations.ingredients.map((ing, index) => ({
+            recipe_id: recipeId,
+            ...ing,
+            sort_order: index,
+          })),
+        ),
       );
     }
 
     if (relations.steps) {
       updates.push(
-        supabase
-          .from('recipe_steps')
-          .upsert(
-            relations.steps.map((step, index) => ({
-              recipe_id: recipeId,
-              ...step,
-              sort_order: index,
-            }))
-          )
+        supabase.from("recipe_steps").upsert(
+          relations.steps.map((step, index) => ({
+            recipe_id: recipeId,
+            ...step,
+            sort_order: index,
+          })),
+        ),
       );
     }
 
-    // Similar updates for other relations...
+    if (relations.media) {
+      updates.push(
+        supabase.from("recipe_media").upsert(
+          relations.media.map((item, index) => ({
+            recipe_id: recipeId,
+            ...item,
+            sort_order: index,
+          })),
+        ),
+      );
+    }
+
+    if (relations.qualityStandards) {
+      updates.push(
+        supabase.from("recipe_quality_standards").upsert({
+          recipe_id: recipeId,
+          ...relations.qualityStandards,
+        }),
+      );
+    }
+
+    if (relations.training) {
+      updates.push(
+        supabase.from("recipe_training").upsert({
+          recipe_id: recipeId,
+          ...relations.training,
+        }),
+      );
+    }
+
+    if (relations.allergenInfo) {
+      updates.push(
+        supabase.from("recipe_allergens").upsert(
+          relations.allergenInfo.map((allergen) => ({
+            recipe_id: recipeId,
+            ...allergen,
+          })),
+        ),
+      );
+    }
 
     await Promise.all(updates);
   },
 
   async deleteRecipe(id: string) {
-    const { error } = await supabase
-      .from('recipes')
-      .delete()
-      .eq('id', id);
+    const { error } = await supabase.from("recipes").delete().eq("id", id);
 
     if (error) throw error;
-  }
+  },
 };

@@ -192,6 +192,7 @@ const SortableIngredientRow = ({
   index,
   handleIngredientChange,
   removeIngredient,
+  addIngredientAfter,
   rawIngredients,
   preparedItems,
 }) => {
@@ -277,12 +278,22 @@ const SortableIngredientRow = ({
           className="input w-full bg-gray-800/50 text-right"
           disabled
         />
-        <button
-          onClick={() => removeIngredient(index)}
-          className="text-gray-400 hover:text-rose-400"
-        >
-          <Trash2 className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => addIngredientAfter(index)}
+            className="text-gray-400 hover:text-emerald-400"
+            title="Add ingredient after this row"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => removeIngredient(index)}
+            className="text-gray-400 hover:text-rose-400"
+            title="Remove this ingredient"
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -508,6 +519,23 @@ export const IngredientsInput: React.FC<{
     onChange({ ingredients: [...recipe.ingredients, newIngredient] });
   };
 
+  const addIngredientAfter = (index: number) => {
+    const newIngredient = {
+      id: `ing-${Date.now()}`,
+      type: "raw", // Default to raw, will be updated when ingredient is selected
+      name: "",
+      quantity: "",
+      unit: "",
+      notes: "",
+      cost: 0,
+      commonMeasure: "",
+    };
+
+    const newIngredients = [...recipe.ingredients];
+    newIngredients.splice(index + 1, 0, newIngredient);
+    onChange({ ingredients: newIngredients });
+  };
+
   const removeIngredient = (index: number) => {
     const newIngredients = recipe.ingredients.filter((_, i) => i !== index);
 
@@ -606,6 +634,7 @@ export const IngredientsInput: React.FC<{
                 index={index}
                 handleIngredientChange={handleIngredientChange}
                 removeIngredient={removeIngredient}
+                addIngredientAfter={addIngredientAfter}
                 rawIngredients={masterIngredients}
                 preparedItems={preparedItems}
               />

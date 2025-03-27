@@ -171,13 +171,18 @@ export const PrimaryInfo: React.FC<PrimaryInfoProps> = ({
           <label className="block text-sm font-medium text-gray-400 mb-1">
             Station
           </label>
-          <input
-            type="text"
+          <select
             value={recipe.station || ""}
             onChange={(e) => onChange({ station: e.target.value })}
             className="input w-full bg-gray-800/50"
-            placeholder="e.g., Grill, Prep"
-          />
+          >
+            <option value="">Select Station</option>
+            {settings.kitchen_stations?.map((station) => (
+              <option key={station} value={station}>
+                {station}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 

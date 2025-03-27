@@ -98,7 +98,6 @@ export const useRecipeStore = create<RecipeStore>((set, get) => ({
         steps: recipeInput.steps || [],
         equipment: recipeInput.equipment || [],
         quality_standards: recipeInput.quality_standards || {},
-        allergens: recipeInput.allergens || [],
         allergenInfo: recipeInput.allergenInfo || {
           contains: [],
           mayContain: [],

@@ -227,7 +227,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
         {/* NEW Badge - Positioned below Recipe Type Badge */}
         {isNew && (
           <div className="absolute top-14 left-4 z-20">
-            <div className="px-3 py-1.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-700 flex items-center gap-2">
+            <div className="px-3 py-1.5 rounded-full bg-red-500/40 text-grey-300 border border-red-700 flex items-center gap-2">
               <Clock className="w-3.5 h-3.5" />
               <span className="text-xs font-medium">NEW</span>
             </div>
@@ -289,14 +289,14 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
       </div>
 
       {/* Content Section */}
-      <div className="p-4 space-y-2">
+      <div className="p-4 space-y-2 grid grid-cols-2 gap-2">
         {/* Classification */}
         <div className="space-y-2">
           <div className="text-xs font-display font-bold border-t border-gray-700/50 pt-3 text-gray-500">
             DUTY STATION <span className="text-xs text-gray-600"> and </span>{" "}
             RECIPE CLASS
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="flex items-center gap-2">
             <div className="flex items-center gap-2">
               <ChefHat className="w-5 h-5 text-orange-400" />
               <span className="text-sm text-gray-300">

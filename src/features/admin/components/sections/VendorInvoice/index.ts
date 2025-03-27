@@ -1,2 +1,1 @@
-export * from "./VendorInvoiceManager";
-export * from "./components";
+export { VendorInvoiceManager } from "./VendorInvoiceManager";
