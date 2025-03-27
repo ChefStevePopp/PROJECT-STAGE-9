@@ -342,8 +342,36 @@ export function ExcelDataGrid<T>({
       return <AllergenCell ingredient={row} />;
     }
 
-    if (column.type === "percent" && column.key === "change_percent") {
+    // Apply PriceChangeCell to any percent type column or numeric columns that might indicate changes
+    if (
+      column.type === "percent" ||
+      column.key.includes("change") ||
+      column.key.includes("_percent")
+    ) {
       return <PriceChangeCell value={getNestedValue(row, column.key)} />;
+    }
+
+    // Apply color coding to numeric columns like price_changes, new_items, etc.
+    if (
+      (column.type === "number" || column.type === "currency") &&
+      (column.key.includes("price") ||
+        column.key.includes("changes") ||
+        column.key === "new_items")
+    ) {
+      const value = getNestedValue(row, column.key);
+      if (value > 0) {
+        return (
+          <span className="text-emerald-400">
+            {renderCellContent(row, column)}
+          </span>
+        );
+      } else if (value < 0) {
+        return (
+          <span className="text-rose-400">
+            {renderCellContent(row, column)}
+          </span>
+        );
+      }
     }
 
     return renderCellContent(row, column);

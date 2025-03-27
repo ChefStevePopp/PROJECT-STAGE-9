@@ -216,7 +216,18 @@ export const DataPreview: React.FC<Props> = ({
           created_by: user?.id,
         };
 
-        await supabase.from("vendor_imports").insert([importRecord]);
+        console.log("Inserting import record:", importRecord);
+        const { data: insertedRecord, error: insertError } = await supabase
+          .from("vendor_imports")
+          .insert([importRecord])
+          .select();
+
+        if (insertError) {
+          console.error("Error inserting import record:", insertError);
+          throw insertError;
+        }
+
+        console.log("Successfully inserted import record:", insertedRecord);
       } catch (importError) {
         console.error("Error recording import:", importError);
         // Don't fail the whole operation if just the import record fails

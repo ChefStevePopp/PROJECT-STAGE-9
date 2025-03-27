@@ -67,6 +67,7 @@ export const VendorInvoiceManager = () => {
   const [selectedVendor, setSelectedVendor] = useState("");
   const [manualVendorId, setManualVendorId] = useState("");
   const { templates, fetchTemplates } = useVendorTemplatesStore();
+  // No need for history refresh key
 
   // State for import type selection within the Import tab
   const [importType, setImportType] = useState<
@@ -171,6 +172,8 @@ export const VendorInvoiceManager = () => {
     setInvoiceDate(date);
     setManualVendorId(selectedVendor);
   };
+
+  // No need for refresh function
 
   return (
     <div className="space-y-6">
@@ -284,6 +287,19 @@ export const VendorInvoiceManager = () => {
                   );
                   setCSVData(null);
                   setSelectedVendor("");
+
+                  // Switch to the history tab and ensure it's refreshed
+                  setActiveTab("history");
+                  // Small delay to ensure the tab has changed before refreshing
+                  setTimeout(() => {
+                    // Find and click the refresh button in the ImportHistory component
+                    const refreshButton = document.querySelector(
+                      ".ImportHistory button.btn-ghost",
+                    );
+                    if (refreshButton) {
+                      (refreshButton as HTMLButtonElement).click();
+                    }
+                  }, 100);
                 } catch (error) {
                   console.error("Error in import confirmation:", error);
                   toast.error("There was an error completing the import");

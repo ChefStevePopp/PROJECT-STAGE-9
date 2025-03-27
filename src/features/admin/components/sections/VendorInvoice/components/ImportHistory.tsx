@@ -11,6 +11,7 @@ import {
   Trash2,
   AlertTriangle,
   History,
+  ChevronDown,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
@@ -32,12 +33,22 @@ interface ImportRecord {
   created_by_name?: string;
 }
 
+type DateRangeOption =
+  | "all"
+  | "today"
+  | "yesterday"
+  | "last7days"
+  | "last30days"
+  | "custom";
+
 export const ImportHistory: React.FC = () => {
   const { user } = useAuth();
   const [imports, setImports] = useState<ImportRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [dateRangeOption, setDateRangeOption] =
+    useState<DateRangeOption>("all");
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>(
     () => {
       const end = new Date();
@@ -49,6 +60,46 @@ export const ImportHistory: React.FC = () => {
       };
     },
   );
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // Update date range based on selected option
+  useEffect(() => {
+    const today = new Date();
+    const end = new Date(today);
+    let start = new Date(today);
+
+    switch (dateRangeOption) {
+      case "today":
+        // Start and end are both today
+        break;
+      case "yesterday":
+        start.setDate(today.getDate() - 1);
+        end.setDate(today.getDate() - 1);
+        break;
+      case "last7days":
+        start.setDate(today.getDate() - 6); // Last 7 days including today
+        break;
+      case "last30days":
+        start.setDate(today.getDate() - 29); // Last 30 days including today
+        break;
+      case "custom":
+        // Don't change the dates, just show the date picker
+        setShowDatePicker(true);
+        return;
+      case "all":
+        // Don't set any date range for "all"
+        setShowDatePicker(false);
+        return;
+    }
+
+    if (dateRangeOption !== "all" && dateRangeOption !== "custom") {
+      setDateRange({
+        start: start.toISOString().split("T")[0],
+        end: end.toISOString().split("T")[0],
+      });
+      setShowDatePicker(false);
+    }
+  }, [dateRangeOption]);
 
   // Fetch import history
   const fetchImportHistory = async () => {
@@ -62,19 +113,34 @@ export const ImportHistory: React.FC = () => {
         throw new Error("Organization ID not found");
       }
 
-      // Format dates for query
-      const startDate = new Date(dateRange.start);
-      const endDate = new Date(dateRange.end);
-      endDate.setHours(23, 59, 59); // Include the entire end day
-
       // Query the vendor_imports table
       let query = supabase
         .from("vendor_imports")
         .select("*")
         .eq("organization_id", organizationId)
-        .gte("created_at", startDate.toISOString())
-        .lte("created_at", endDate.toISOString())
         .order("created_at", { ascending: false });
+
+      // Apply date range filter if not showing all
+      if (dateRangeOption !== "all") {
+        // Format dates for query
+        const startDate = new Date(dateRange.start);
+        const endDate = new Date(dateRange.end);
+        // Ensure we include the entire end day by setting to 23:59:59
+        endDate.setHours(23, 59, 59, 999);
+
+        query = query
+          .gte("created_at", startDate.toISOString())
+          .lte("created_at", endDate.toISOString());
+
+        console.log("Date range used:", {
+          start: startDate.toISOString(),
+          end: endDate.toISOString(),
+        });
+      } else {
+        // If showing all, limit to the last 25 records
+        query = query.limit(25);
+        console.log("Fetching last 25 records without date filter");
+      }
 
       // Apply search filter if provided
       if (searchTerm) {
@@ -87,87 +153,9 @@ export const ImportHistory: React.FC = () => {
 
       if (fetchError) throw fetchError;
 
-      // If no real data yet, use mock data for demonstration
-      if (!data || data.length === 0) {
-        const mockImports: ImportRecord[] = [
-          {
-            id: "1",
-            created_at: new Date().toISOString(),
-            vendor_id: "Sysco",
-            import_type: "csv",
-            file_name: "sysco_invoice_june_2024.csv",
-            items_count: 42,
-            price_changes: 8,
-            new_items: 3,
-            status: "completed",
-            created_by: user?.id || "",
-            created_by_name: user?.user_metadata?.name || "Admin User",
-          },
-          {
-            id: "2",
-            created_at: new Date(Date.now() - 86400000).toISOString(), // Yesterday
-            vendor_id: "US Foods",
-            import_type: "pdf",
-            file_name: "usfoods_invoice_123456.pdf",
-            items_count: 28,
-            price_changes: 5,
-            new_items: 0,
-            status: "completed",
-            created_by: user?.id || "",
-            created_by_name: user?.user_metadata?.name || "Admin User",
-          },
-          {
-            id: "3",
-            created_at: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
-            vendor_id: "Gordon Food Service",
-            import_type: "csv",
-            file_name: "gfs_weekly_order.csv",
-            items_count: 35,
-            price_changes: 12,
-            new_items: 2,
-            status: "completed",
-            created_by: user?.id || "",
-            created_by_name: user?.user_metadata?.name || "Admin User",
-          },
-          {
-            id: "4",
-            created_at: new Date(Date.now() - 259200000).toISOString(), // 3 days ago
-            vendor_id: "Sysco",
-            import_type: "photo",
-            file_name: "invoice_photo_123.jpg",
-            items_count: 15,
-            price_changes: 3,
-            new_items: 1,
-            status: "completed",
-            created_by: user?.id || "",
-            created_by_name: user?.user_metadata?.name || "Admin User",
-          },
-          {
-            id: "5",
-            created_at: new Date(Date.now() - 345600000).toISOString(), // 4 days ago
-            vendor_id: "US Foods",
-            import_type: "csv",
-            file_name: "usfoods_monthly_order.csv",
-            items_count: 52,
-            price_changes: 15,
-            new_items: 4,
-            status: "completed",
-            created_by: user?.id || "",
-            created_by_name: user?.user_metadata?.name || "Admin User",
-          },
-        ];
-
-        // Filter mock data by date range
-        const filteredMockImports = mockImports.filter((importRecord) => {
-          const importDate = new Date(importRecord.created_at);
-          return importDate >= startDate && importDate <= endDate;
-        });
-
-        setImports(filteredMockImports);
-      } else {
-        // Use real data from the database
-        setImports(data as ImportRecord[]);
-      }
+      // Always use real data from the database
+      console.log("Fetched import records:", data);
+      setImports(data as ImportRecord[]);
 
       setIsLoading(false);
     } catch (err) {
@@ -179,9 +167,19 @@ export const ImportHistory: React.FC = () => {
     }
   };
 
+  // Fetch data when component mounts or date range changes
   useEffect(() => {
+    console.log("Fetching import history with date option:", dateRangeOption);
     fetchImportHistory();
-  }, [dateRange]);
+  }, [dateRange, dateRangeOption]);
+
+  // Add a manual refresh button click handler
+  const handleRefresh = () => {
+    console.log("Manual refresh requested");
+    fetchImportHistory();
+  };
+
+  // No automatic refresh interval - only fetch when explicitly requested
 
   // Get icon for import type
   const getImportTypeIcon = (type: string) => {
@@ -270,7 +268,7 @@ export const ImportHistory: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 ImportHistory">
       <div className="flex items-center justify-between mb-6 bg-[#262d3c] p-2 rounded-lg shadow-lg">
         <div className="flex items-center gap-3 p-4 rounded-lg bg-[#262d3c]">
           <div className="w-10 h-10 rounded-lg bg-lime-500/20 flex items-center justify-center">
@@ -283,42 +281,77 @@ export const ImportHistory: React.FC = () => {
             </p>
           </div>
         </div>
-        <button onClick={fetchImportHistory} className="btn-ghost mr-2">
+        <button onClick={handleRefresh} className="btn-ghost mr-2">
           <RefreshCw className="w-4 h-4 mr-2" />
           Refresh
         </button>
       </div>
 
       {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div>
           <label className="block text-sm font-medium text-gray-400 mb-2">
-            Start Date
+            Date Range
           </label>
-          <input
-            type="date"
-            value={dateRange.start}
-            onChange={(e) =>
-              setDateRange((prev) => ({ ...prev, start: e.target.value }))
-            }
-            className="input w-full"
-          />
+          <div className="relative">
+            <select
+              value={dateRangeOption}
+              onChange={(e) =>
+                setDateRangeOption(e.target.value as DateRangeOption)
+              }
+              className="input w-full appearance-none pr-10"
+            >
+              <option value="all">All Records (Last 25)</option>
+              <option value="today">Today</option>
+              <option value="yesterday">Yesterday</option>
+              <option value="last7days">Last 7 Days</option>
+              <option value="last30days">Last 30 Days</option>
+              <option value="custom">Custom Range</option>
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-400 mb-2">
-            End Date
-          </label>
-          <input
-            type="date"
-            value={dateRange.end}
-            onChange={(e) =>
-              setDateRange((prev) => ({ ...prev, end: e.target.value }))
-            }
-            className="input w-full"
-          />
+        <div className="flex items-end">
+          <button onClick={fetchImportHistory} className="btn-ghost-green h-10">
+            <Search className="w-4 h-4 mr-2" />
+            Apply Filters
+          </button>
         </div>
       </div>
+
+      {/* Custom Date Range Picker - Only shown when custom is selected */}
+      {showDatePicker && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 p-4 border border-gray-700 rounded-lg bg-gray-800/50">
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-2">
+              Start Date
+            </label>
+            <input
+              type="date"
+              value={dateRange.start}
+              onChange={(e) =>
+                setDateRange((prev) => ({ ...prev, start: e.target.value }))
+              }
+              className="input w-full"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-2">
+              End Date
+            </label>
+            <input
+              type="date"
+              value={dateRange.end}
+              onChange={(e) =>
+                setDateRange((prev) => ({ ...prev, end: e.target.value }))
+              }
+              className="input w-full"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Import History Table using ExcelDataGrid */}
       {isLoading ? (

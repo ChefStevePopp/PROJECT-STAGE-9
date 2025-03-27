@@ -1,1 +1,1 @@
-export * from '/src/components/ErrorBoundary/index.tsx';
+export * from "./index.tsx";

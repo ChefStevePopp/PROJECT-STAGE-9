@@ -8,6 +8,10 @@ interface PriceChangeCellProps {
 export const PriceChangeCell: React.FC<PriceChangeCellProps> = ({ value }) => {
   if (value === 0) return <span className="text-gray-400">0%</span>;
 
+  // Handle non-percentage values
+  const isPercent = typeof value === "number" && !isNaN(value);
+  const displayValue = isPercent ? `${Math.abs(value).toFixed(1)}%` : value;
+
   return (
     <span
       className={`inline-flex items-center gap-1 ${value > 0 ? "text-rose-400" : "text-emerald-400"}`}
@@ -17,7 +21,7 @@ export const PriceChangeCell: React.FC<PriceChangeCellProps> = ({ value }) => {
       ) : (
         <ArrowDownRight className="w-4 h-4" />
       )}
-      {Math.abs(value).toFixed(1)}%
+      {displayValue}
     </span>
   );
 };
