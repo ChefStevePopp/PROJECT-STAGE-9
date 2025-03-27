@@ -23,7 +23,7 @@ export const MainLayout: React.FC = () => {
         )}
         {/* Main Content Area - adjusted margins for mobile */}
         <main
-          className={`${isMobile ? "ml-0" : "ml-20"} ${isMobile ? "mb-16" : "mr-[2.15rem]"} h-full overflow-y-auto`}
+          className={`${isMobile ? "ml-0" : "ml-20"} ${isMobile ? "mb-16 pb-16" : "mr-[2.15rem]"} h-full overflow-y-auto`}
         >
           <div className="mx-auto p-4 max-w-full">
             <Outlet />

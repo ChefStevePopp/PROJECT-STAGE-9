@@ -84,7 +84,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onChatClick }) => {
       {/* Scrollable container */}
       <div
         ref={scrollContainerRef}
-        className="flex overflow-x-auto scrollbar-thin py-3 px-4 items-stretch"
+        className="flex overflow-x-auto scrollbar-thin items-stretch justify-between px-5 py-3"
       >
         {menuItems.map((item) => (
           <Link
