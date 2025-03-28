@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { supabase } from "@/lib/supabase";
 import type { Recipe, RecipeInput } from "../types/recipe";
+import { logActivity } from "@/lib/activity-logger";
 
 interface RecipeStore {
   recipes: Recipe[];
@@ -121,6 +122,23 @@ export const useRecipeStore = create<RecipeStore>((set, get) => ({
 
       if (error) throw error;
 
+      // Log the activity
+      await logActivity({
+        organization_id: user.user_metadata.organizationId,
+        user_id: user.id,
+        activity_type: "recipe_created",
+        details: {
+          recipe_id: recipe.id,
+          recipe_name: recipe.name,
+          recipe_type: recipe.type,
+          user_name: user.user_metadata.name || user.email,
+        },
+        metadata: {
+          category: "recipes",
+          severity: "info",
+        },
+      });
+
       // Update local state
       await get().fetchRecipes();
 
@@ -155,6 +173,28 @@ export const useRecipeStore = create<RecipeStore>((set, get) => ({
         .eq("id", id);
 
       if (error) throw error;
+
+      // Log the activity
+      await logActivity({
+        organization_id: user.user_metadata.organizationId,
+        user_id: user.id,
+        activity_type: "recipe_updated",
+        details: {
+          recipe_id: id,
+          recipe_name: updates.name,
+          update_type: Object.keys(updates).join(", "),
+          user_name: user.user_metadata.name || user.email,
+        },
+        metadata: {
+          category: "recipes",
+          severity: "info",
+          diffs: {
+            table_name: "recipes",
+            record_id: id,
+            new_values: updates,
+          },
+        },
+      });
 
       // Refresh recipes
       await get().fetchRecipes();
@@ -191,6 +231,22 @@ export const useRecipeStore = create<RecipeStore>((set, get) => ({
 
       if (error) throw error;
 
+      // Log the activity
+      await logActivity({
+        organization_id: user.user_metadata.organizationId,
+        user_id: user.id,
+        activity_type: "recipe_status_changed",
+        details: {
+          recipe_id: id,
+          new_status: status,
+          user_name: user.user_metadata.name || user.email,
+        },
+        metadata: {
+          category: "recipes",
+          severity: status === "archived" ? "warning" : "info",
+        },
+      });
+
       // Update local state
       set((state) => ({
         recipes: state.recipes.map((recipe) =>
@@ -213,6 +269,13 @@ export const useRecipeStore = create<RecipeStore>((set, get) => ({
 
       if (error) throw error;
 
+      // Get recipe name before deletion for logging
+      const { data: recipeData } = await supabase
+        .from("recipes")
+        .select("name, organization_id")
+        .eq("id", id)
+        .single();
+
       // Update store state
       set((state) => ({
         recipes: state.recipes.filter((r) => r.id !== id),
@@ -220,6 +283,27 @@ export const useRecipeStore = create<RecipeStore>((set, get) => ({
           state.currentRecipe?.id === id ? null : state.currentRecipe,
         error: null,
       }));
+
+      // Log the activity
+      if (recipeData) {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        await logActivity({
+          organization_id: recipeData.organization_id,
+          user_id: user.id,
+          activity_type: "recipe_deleted",
+          details: {
+            recipe_id: id,
+            recipe_name: recipeData.name,
+            user_name: user.user_metadata.name || user.email,
+          },
+          metadata: {
+            category: "recipes",
+            severity: "warning",
+          },
+        });
+      }
     } catch (error) {
       console.error("Error deleting recipe:", error);
       set({ error: (error as Error).message });

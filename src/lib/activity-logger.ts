@@ -9,6 +9,7 @@ type ActivityType =
   | "recipe_created"
   | "recipe_updated"
   | "recipe_deleted"
+  | "recipe_status_changed"
   | "inventory_updated"
   | "settings_changed";
 
