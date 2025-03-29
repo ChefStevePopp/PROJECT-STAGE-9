@@ -20,6 +20,67 @@ export const ALLOWED_LABEL_FILE_TYPES = [
 export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 export const mediaService = {
+  async uploadStepMedia(
+    file: File,
+    recipeId: string,
+    stepId: string,
+  ): Promise<string> {
+    try {
+      if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+        throw new Error("Only images and videos are allowed for recipe steps.");
+      }
+
+      if (file.size > MAX_FILE_SIZE) {
+        throw new Error("File size too large. Maximum size is 10MB.");
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user?.user_metadata?.organizationId) {
+        throw new Error("No organization ID found");
+      }
+
+      const fileExt = file.name.split(".").pop()?.toLowerCase();
+      const fileName = `${uuidv4()}.${fileExt}`;
+      const filePath = `${user.user_metadata.organizationId}/${recipeId}/steps/${stepId}/${fileName}`;
+
+      const { error: uploadError, data } = await supabase.storage
+        .from("recipe-media")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("recipe-media").getPublicUrl(data.path);
+
+      return publicUrl;
+    } catch (error) {
+      console.error("Error uploading step media:", error);
+      throw error;
+    }
+  },
+
+  async deleteStepMedia(url: string): Promise<void> {
+    try {
+      const path = url.split("/recipe-media/").pop();
+      if (!path) throw new Error("Invalid step media URL");
+
+      const { error } = await supabase.storage
+        .from("recipe-media")
+        .remove([decodeURIComponent(path)]);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error deleting step media:", error);
+      throw error;
+    }
+  },
+
   async uploadQualityStandardImage(
     file: File,
     recipeId: string,

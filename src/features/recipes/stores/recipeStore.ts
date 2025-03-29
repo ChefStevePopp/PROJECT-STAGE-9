@@ -36,7 +36,7 @@ export const useRecipeStore = create<RecipeStore>((set, get) => ({
         throw new Error("No organization ID found");
       }
 
-      // Use the recipes_with_categories view instead of the recipes table
+      // Get all recipes from the view (now includes stages)
       const { data: recipes, error } = await supabase
         .from("recipes_with_categories")
         .select("*")
@@ -44,8 +44,29 @@ export const useRecipeStore = create<RecipeStore>((set, get) => ({
 
       if (error) throw error;
 
-      // No need to transform data since it's all in one view now
-      set({ recipes: recipes || [], error: null });
+      // Ensure stages is always an array and log the first recipe for debugging
+      const recipesWithValidStages = recipes?.map((recipe) => ({
+        ...recipe,
+        stages: recipe.stages || [],
+      }));
+
+      if (recipesWithValidStages && recipesWithValidStages.length > 0) {
+        console.log("First recipe data sample:", {
+          id: recipesWithValidStages[0].id,
+          name: recipesWithValidStages[0].name,
+          hasStages: Array.isArray(recipesWithValidStages[0].stages),
+          stagesCount: Array.isArray(recipesWithValidStages[0].stages)
+            ? recipesWithValidStages[0].stages.length
+            : 0,
+          createdBy: recipesWithValidStages[0].created_by,
+          createdByName: recipesWithValidStages[0].created_by_name,
+          modifiedBy: recipesWithValidStages[0].modified_by,
+          modifiedByName: recipesWithValidStages[0].modified_by_name,
+        });
+      }
+
+      // Set the recipes data
+      set({ recipes: recipesWithValidStages || [], error: null });
     } catch (error) {
       console.error("Error fetching recipes:", error);
       set({ error: (error as Error).message });
@@ -153,6 +174,7 @@ export const useRecipeStore = create<RecipeStore>((set, get) => ({
   },
 
   updateRecipe: async (id: string, updates: Partial<Recipe>) => {
+    console.log("Updating recipe with:", updates);
     set({ isLoading: true, error: null });
     try {
       const {
@@ -163,10 +185,34 @@ export const useRecipeStore = create<RecipeStore>((set, get) => ({
       }
 
       // Must update the base recipes table, not the view
+      // Make sure stages is properly formatted as JSONB
+      let formattedUpdates = { ...updates };
+
+      // Remove view-only fields that don't exist in the recipes table
+      const viewOnlyFields = [
+        "station_name",
+        "major_group_name",
+        "category_name",
+        "sub_category_name",
+        "created_by_name",
+        "modified_by_name",
+        "created_by_email",
+        "modified_by_email",
+      ];
+
+      viewOnlyFields.forEach((field) => {
+        if (field in formattedUpdates) {
+          delete formattedUpdates[field];
+        }
+      });
+
+      // Log the updates for debugging
+      console.log("Formatted updates before API call:", formattedUpdates);
+
       const { error } = await supabase
         .from("recipes")
         .update({
-          ...updates,
+          ...formattedUpdates,
           modified_by: user.id,
           updated_at: new Date().toISOString(),
         })

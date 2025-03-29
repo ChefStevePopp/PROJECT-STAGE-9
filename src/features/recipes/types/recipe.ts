@@ -20,6 +20,7 @@ export interface Recipe {
   target_cost_percent?: number;
   ingredients: RecipeIngredient[];
   steps: RecipeStep[];
+  stages?: RecipeStage[];
   equipment?: EquipmentItem[];
   allergens?: {
     contains: string[];
@@ -50,6 +51,8 @@ export interface Recipe {
   major_group_name?: string;
   category_name?: string;
   sub_category_name?: string;
+  created_by_name?: string;
+  modified_by_name?: string;
   // Image URL (legacy field)
   image_url?: string;
   major_group?: string | null;
@@ -85,6 +88,15 @@ export interface RecipeStep {
   is_quality_control_point?: boolean;
   is_critical_control_point?: boolean;
   media?: RecipeMedia[];
+  stage?: string;
+  custom_stage_label?: string | null;
+  is_prep_list_task?: boolean;
+  custom_step_label?: string | null;
+  delay?: {
+    value: number;
+    unit: "minutes" | "hours" | "days";
+  };
+  stage_id?: string;
 }
 
 export interface RecipeMedia {
@@ -99,6 +111,15 @@ export interface RecipeMedia {
   tags?: string[];
   timestamp?: number;
   sort_order?: number;
+}
+
+export interface RecipeStage {
+  id: string;
+  name: string;
+  is_prep_list_task: boolean;
+  sort_order: number;
+  color?: string;
+  description?: string;
 }
 
 export interface QualityStandards {

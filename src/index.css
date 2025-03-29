@@ -107,7 +107,7 @@ select::-ms-expand {
 
   /* Primary Button - Blue */
   .btn-primary {
-    @apply btn bg-primary-500 hover:bg-primary-600 text-white
+    @apply btn bg-primary-700/60 hover:bg-primary-700 text-white
            focus:ring-primary-500/50;
   }
 
@@ -140,6 +140,11 @@ select::-ms-expand {
            hover:bg-blue-500/10 focus:ring-blue-500/50;
   }
 
+  .btn-ghost-amber {
+    @apply btn-ghost text-amber-400 hover:text-amber-300
+           hover:bg-blue-amber/10 focus:ring-amber-500/50;
+  }
+
   /* Input */
   .input {
     @apply bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-2 text-base
@@ -157,6 +162,13 @@ select::-ms-expand {
     background-repeat: no-repeat;
     background-size: 1.5em 1.5em;
     padding-right: 2.5rem;
+  }
+
+  /* Stage dropdown in recipe steps */
+  .stage-dropdown {
+    min-width: 150px; /* 50% longer than default */
+    padding-top: 0.6rem; /* 15% taller */
+    padding-bottom: 0.6rem;
   }
 
   /* Tab */
@@ -335,6 +347,34 @@ select::-ms-expand {
   /* Diagnostic file paths */
   body:not(.show-diagnostics) .text-xs.text-gray-500.font-mono {
     display: none;
+  }
+
+  /* Line clamp utilities */
+  .line-clamp-1 {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Extra small text */
+  .text-2xs {
+    font-size: 0.65rem;
+    line-height: 0.9rem;
   }
 }
 
