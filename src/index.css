@@ -107,7 +107,7 @@ select::-ms-expand {
 
   /* Primary Button - Blue */
   .btn-primary {
-    @apply btn bg-primary-700/60 hover:bg-primary-700 text-white
+    @apply btn bg-primary-400/30 hover:bg-primary-400/50 text-white
            focus:ring-primary-500/50;
   }
 

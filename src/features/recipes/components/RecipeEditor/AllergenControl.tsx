@@ -5,6 +5,7 @@ import { AllergenBadge } from "@/features/allergens/components/AllergenBadge";
 import type { Recipe } from "../../types/recipe";
 import type { AllergenType } from "@/features/allergens/types";
 import { useMasterIngredientsStore } from "@/stores/masterIngredientsStore";
+import { useRecipeStore } from "@/stores/recipeStore";
 
 interface AllergenControlProps {
   recipe: Recipe;
@@ -191,11 +192,27 @@ export const AllergenControl: React.FC<AllergenControlProps> = ({
     isLoading: isFetchingIngredients,
   } = useMasterIngredientsStore();
 
+  // Fetch recipes to get names for recipe ingredients
+  const { recipes, fetchRecipes } = useRecipeStore();
+  const [recipeMap, setRecipeMap] = useState<Record<string, string>>({});
+
   useEffect(() => {
     if (masterIngredients.length === 0) {
       fetchIngredients();
     }
-  }, [masterIngredients.length, fetchIngredients]);
+    fetchRecipes();
+  }, [masterIngredients.length, fetchIngredients, fetchRecipes]);
+
+  // Create a map of recipe IDs to names
+  useEffect(() => {
+    if (recipes.length > 0) {
+      const map: Record<string, string> = {};
+      recipes.forEach((r) => {
+        map[r.id] = r.name;
+      });
+      setRecipeMap(map);
+    }
+  }, [recipes]);
 
   // Debug logging
   useEffect(() => {
@@ -317,6 +334,19 @@ export const AllergenControl: React.FC<AllergenControlProps> = ({
               (mi) => mi.id === ingredient.name,
             );
 
+            // Check if this is a recipe ingredient (UUID format)
+            const isRecipeIngredient =
+              !masterIngredient &&
+              ingredient.name &&
+              ingredient.name.match(
+                /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+              );
+
+            // Get recipe name if this is a recipe ingredient
+            const recipeName = isRecipeIngredient
+              ? recipeMap[ingredient.name]
+              : null;
+
             // Extract allergens from master ingredient
             const allergenInfo = masterIngredient
               ? extractAllergensFromMasterIngredient(masterIngredient)
@@ -330,7 +360,11 @@ export const AllergenControl: React.FC<AllergenControlProps> = ({
                 <div className="font-medium text-white mb-1">
                   {masterIngredient
                     ? masterIngredient.product
-                    : ingredient.name || "Unnamed Ingredient"}
+                    : recipeName || // Use recipe name if available
+                      ingredient.label || // Then label if available
+                      ingredient.commonMeasure || // Then common measure
+                      ingredient.name || // Then name
+                      "Unnamed Ingredient"}
                 </div>
 
                 {/* Display allergens */}
