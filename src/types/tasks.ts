@@ -18,6 +18,9 @@ export interface Task {
   recipe_id?: string;
   notes?: string;
   tags?: string[];
+  prep_list_template_id?: string; // Reference to a prep list template if this task is part of a prep list
+  prep_list_id?: string; // Reference to a specific prep list instance
+  sequence?: number; // Order in the prep list
 }
 
 export interface TaskStore {
@@ -32,4 +35,127 @@ export interface TaskStore {
   deleteTask: (id: string) => Promise<void>;
   assignTask: (id: string, assigneeId: string) => Promise<void>;
   completeTask: (id: string, completedBy: string) => Promise<void>;
+}
+
+export interface PrepListTemplate {
+  id: string;
+  organization_id: string;
+  title: string;
+  description?: string;
+  category: "opening" | "closing" | "prep" | "production" | "custom";
+  prep_system: "par" | "as_needed" | "scheduled_production" | "hybrid";
+  station?: string;
+  is_active: boolean;
+  created_at?: string;
+  created_by?: string;
+  updated_at?: string;
+  updated_by?: string;
+  tasks?: PrepListTemplateTask[];
+  tags?: string[];
+  par_levels?: Record<string, number>; // For PAR-based templates
+  schedule_days?: number[]; // For As-Needed templates (days of week: 0-6)
+  advance_days?: number; // For As-Needed templates (how many days in advance)
+  recipe_id?: string; // Reference to an associated recipe
+}
+
+export interface PrepListTemplateTask {
+  id: string;
+  template_id: string;
+  title: string;
+  description?: string;
+  sequence: number; // Order in the template
+  estimated_time?: number; // in minutes
+  station?: string;
+  recipe_id?: string; // Optional reference to a recipe
+  prep_item_id?: string; // Optional reference to a prepared item
+  required: boolean; // Whether this task is required for completion
+  created_at?: string;
+  updated_at?: string;
+  par_level?: number; // Target quantity for PAR-based tasks
+  current_level?: number; // Current quantity for PAR-based tasks
+  schedule_days?: number[]; // Specific days this task should appear (0-6)
+  kitchen_station?: string; // Kitchen station this task is associated with
+  team_member_role?: string; // Role required for this task (LINE, COLD PREP, etc.)
+  assignee_id?: string; // Specific person assigned to this task
+  measurement_type?: "par" | "2day" | "prep_item" | "task"; // Type of measurement for this task
+  on_hand?: number; // Current quantity on hand (for 2day measurement)
+  amount_required?: number; // Amount required (for 2day measurement)
+}
+
+export interface PrepList {
+  id: string;
+  organization_id: string;
+  template_id: string;
+  title: string;
+  description?: string;
+  date: string;
+  prep_system: "par" | "as_needed" | "scheduled_production" | "hybrid";
+  status: "draft" | "active" | "completed" | "archived";
+  assigned_to?: string; // User ID or station
+  completed_at?: string;
+  completed_by?: string;
+  created_at?: string;
+  created_by?: string;
+  updated_at?: string;
+  tasks?: Task[]; // References to actual task instances
+  notes?: string;
+  inventory_snapshot?: Record<string, number>; // For PAR-based lists
+  scheduled_for?: string; // Date this prep is scheduled for (might be different from creation date)
+}
+
+export interface PrepListStore {
+  templates: PrepListTemplate[];
+  prepLists: PrepList[];
+  isLoading: boolean;
+  error: string | null;
+  // Template operations
+  fetchTemplates: () => Promise<void>;
+  createTemplate: (
+    template: Omit<
+      PrepListTemplate,
+      "id" | "organization_id" | "created_at" | "updated_at"
+    >,
+  ) => Promise<void>;
+  updateTemplate: (
+    id: string,
+    updates: Partial<PrepListTemplate>,
+  ) => Promise<void>;
+  deleteTemplate: (id: string) => Promise<void>;
+  // Template task operations
+  addTaskToTemplate: (
+    templateId: string,
+    task: Omit<
+      PrepListTemplateTask,
+      "id" | "template_id" | "created_at" | "updated_at"
+    >,
+  ) => Promise<void>;
+  updateTemplateTask: (
+    taskId: string,
+    updates: Partial<PrepListTemplateTask>,
+  ) => Promise<void>;
+  removeTaskFromTemplate: (taskId: string) => Promise<void>;
+  reorderTemplateTasks: (
+    templateId: string,
+    taskIds: string[],
+  ) => Promise<void>;
+  // Prep list operations
+  fetchPrepLists: (filters?: {
+    date?: string;
+    status?: PrepList["status"];
+    assignedTo?: string;
+  }) => Promise<void>;
+  createPrepList: (
+    prepList: Omit<
+      PrepList,
+      "id" | "organization_id" | "created_at" | "updated_at"
+    >,
+  ) => Promise<void>;
+  updatePrepList: (id: string, updates: Partial<PrepList>) => Promise<void>;
+  deletePrepList: (id: string) => Promise<void>;
+  generatePrepListFromTemplate: (
+    templateId: string,
+    date: string,
+    assignedTo?: string,
+  ) => Promise<void>;
+  completePrepList: (id: string, completedBy: string) => Promise<void>;
 }

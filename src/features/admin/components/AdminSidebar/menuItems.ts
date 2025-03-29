@@ -21,6 +21,7 @@ import {
   ThermometerSnowflake,
   Thermometer,
   ClipboardList,
+  LibraryBig,
 } from "lucide-react";
 
 export const menuItems = (isDev: boolean) => {
@@ -36,7 +37,7 @@ export const menuItems = (isDev: boolean) => {
       id: "kitchen",
       label: "KITCHEN",
       items: [
-        { icon: ChefHat, label: "Recipe Manager", path: "/admin/recipes" },
+        { icon: LibraryBig, label: "Recipe Manager", path: "/admin/recipes" },
         { icon: UtensilsCrossed, label: "Task Manager", path: "/admin/tasks" },
         {
           icon: ThermometerSnowflake,

@@ -29,6 +29,9 @@ export const recipeApi = {
           temperature_value, temperature_unit,
           is_quality_control_point, is_critical_control_point, sort_order
         ),
+        recipe_stages (
+          id, name, is_prep_list_task, sort_order, color, description
+        ),
         recipe_training (
           id, required_skill_level, certification_required,
           common_errors, key_techniques, safety_protocols,
