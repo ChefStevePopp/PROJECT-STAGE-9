@@ -5,6 +5,9 @@ import {
   Sunrise,
   ClipboardCheck,
   Sunset,
+  CookingPot,
+  ChefHat,
+  CircleHelp,
   FileText,
   ListChecks,
   Utensils,
@@ -15,6 +18,7 @@ import {
   Copy,
   ChevronDown,
   ChevronRight,
+  HelpCircle,
 } from "lucide-react";
 import { usePrepListTemplateStore } from "../../../../../stores/prepListTemplateStore";
 import PrepListTemplateForm from "./components/PrepListTemplateForm";
@@ -85,15 +89,15 @@ export const ChecklistsManager: React.FC = () => {
       <style jsx>{`
         /* Expandable info section */
         .expandable-info-section {
-          @apply bg-gray-800/30 rounded-lg overflow-hidden border border-gray-700;
+          @apply bg-gray-800/30 rounded-lg overflow-hidden border border-gray-700 w-[98%];
         }
 
         .expandable-info-header {
-          @apply w-full p-4 flex items-start gap-3 text-left focus:outline-none hover:bg-gray-800/40 transition-colors;
+          @apply w-full p-4 flex items-center justify-between text-left focus:outline-none hover:bg-gray-800/40 transition-colors duration-200;
         }
 
         .expandable-info-content {
-          @apply px-4 pb-4 pt-0 ml-8;
+          @apply px-4 pb-4 pt-0 ml-8 w-full;
         }
       `}</style>
       {/* Diagnostic Text */}
@@ -152,7 +156,9 @@ export const ChecklistsManager: React.FC = () => {
       {activeTab === "opening" && <OpeningChecklists />}
       {activeTab === "closing" && <ClosingChecklists />}
       {activeTab === "spec-sheets" && <SpecSheets />}
-      {activeTab === "list-builder" && <PrepListBuilder />}
+      {activeTab === "list-builder" && (
+        <PrepListBuilder defaultShowCreationTool={false} />
+      )}
       {activeTab === "prep-templates" && (
         <div className="card p-6">
           {showTemplateForm ? (
@@ -189,29 +195,30 @@ export const ChecklistsManager: React.FC = () => {
                   className="expandable-info-header"
                   onClick={() => setIsInfoExpanded(!isInfoExpanded)}
                 >
-                  {isInfoExpanded ? (
-                    <ChevronDown className="h-5 w-5 text-gray-400" />
-                  ) : (
-                    <ChevronRight className="h-5 w-5 text-gray-400" />
-                  )}
-                  <div>
+                  <div className="flex items-center">
+                    <HelpCircle className="h-5 w-5 text-amber-400 mr-2" />
                     <h3 className="text-xl font-medium text-white">
-                      Module Management
+                      What is a List Module?
                     </h3>
-                    <p className="text-gray-400 text-sm">
-                      Click to {isInfoExpanded ? "collapse" : "expand"}{" "}
-                      information about module management
-                    </p>
+                  </div>
+                  <div className="ml-auto">
+                    {isInfoExpanded ? (
+                      <ChevronDown className="h-5 w-5 text-gray-400 transform transition-transform duration-200" />
+                    ) : (
+                      <ChevronRight className="h-5 w-5 text-gray-400 transform transition-transform duration-200" />
+                    )}
                   </div>
                 </button>
                 {isInfoExpanded && (
                   <div className="expandable-info-content">
                     <p className="text-gray-400 mb-6">
-                      Create and manage list modules that can be assigned to
-                      stations or team members. Modules can include both
-                      free-standing list items and items linked to recipes or
-                      prep items. Supports both PAR-based and As-Needed prep
-                      systems, or a hybrid approach.
+                      A list module equates to a single line of a hand-written
+                      prep list or check list. By making your lists modular, you
+                      create your lists on the fly like your would
+                      traditionally, but with the efficiency of drag and drop.
+                      The best part, no writing the prep list from scratch each
+                      time! Modules can include both free-standing list items
+                      and items linked to recipes or prep items.
                     </p>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -234,15 +241,15 @@ export const ChecklistsManager: React.FC = () => {
                           </li>
                           <li className="flex items-start">
                             <span className="inline-block w-2 h-2 rounded-full bg-blue-500 mt-2 mr-2"></span>
-                            Generate daily prep lists from modules
+                            Support for SCHEDULE by DAY prep systems
                           </li>
                           <li className="flex items-start">
                             <span className="inline-block w-2 h-2 rounded-full bg-blue-500 mt-2 mr-2"></span>
-                            Support for PAR-based inventory replenishment
+                            Support for PAR-based inventory prep systems
                           </li>
                           <li className="flex items-start">
                             <span className="inline-block w-2 h-2 rounded-full bg-blue-500 mt-2 mr-2"></span>
-                            Support for As-Needed prep scheduling
+                            Support for As-Needed prep systems
                           </li>
                         </ul>
                       </div>
@@ -253,13 +260,13 @@ export const ChecklistsManager: React.FC = () => {
                         </h4>
                         <div className="space-y-2">
                           <div className="flex items-center">
-                            <Utensils className="h-4 w-4 text-blue-500 mr-2" />
+                            <ChefHat className="h-4 w-4 text-blue-500 mr-2" />
                             <span className="text-gray-400">
                               Prep - Daily preparation tasks
                             </span>
                           </div>
                           <div className="flex items-center">
-                            <ClipboardCheck className="h-4 w-4 text-green-500 mr-2" />
+                            <CookingPot className="h-4 w-4 text-green-500 mr-2" />
                             <span className="text-gray-400">
                               Production - Service preparation
                             </span>

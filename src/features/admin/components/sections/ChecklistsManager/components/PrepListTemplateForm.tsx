@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Clock,
   ChefHat,
@@ -7,11 +7,17 @@ import {
   Gauge,
   AlignLeft,
   LibraryBig,
+  Database,
+  User,
+  Search,
 } from "lucide-react";
+import toast from "react-hot-toast";
 import { usePrepListTemplateStore } from "../../../../../../stores/prepListTemplateStore";
 import { useOperationsStore } from "../../../../../../stores/operationsStore";
 import { useTeamStore } from "../../../../../../stores/teamStore";
 import { useRecipeStore } from "@/features/recipes/stores/recipeStore";
+import { useMasterIngredientsStore } from "@/stores/masterIngredientsStore";
+// Using team member roles from the team store instead of kitchen roles
 import {
   PrepListTemplate,
   PrepListTemplateTask,
@@ -40,6 +46,7 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
   const { settings, fetchSettings } = useOperationsStore();
   const { members, fetchTeamMembers } = useTeamStore();
   const { recipes, fetchRecipes } = useRecipeStore();
+  const { ingredients, fetchIngredients } = useMasterIngredientsStore();
 
   const [formData, setFormData] = useState<Partial<PrepListTemplate>>({
     title: "",
@@ -52,7 +59,33 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
     schedule_days: [],
     advance_days: 1,
     recipe_id: "",
+    master_ingredient_id: "",
+    kitchen_role: "",
   });
+
+  // Search states
+  const [stationSearch, setStationSearch] = useState("");
+  const [roleSearch, setRoleSearch] = useState("");
+  const [recipeSearch, setRecipeSearch] = useState("");
+  const [ingredientSearch, setIngredientSearch] = useState("");
+
+  // Filtered options
+  const [filteredStations, setFilteredStations] = useState<string[]>([]);
+  const [filteredRoles, setFilteredRoles] = useState<string[]>([]);
+  const [filteredRecipes, setFilteredRecipes] = useState<any[]>([]);
+  const [filteredIngredients, setFilteredIngredients] = useState<any[]>([]);
+
+  // Dropdown visibility
+  const [stationDropdownOpen, setStationDropdownOpen] = useState(false);
+  const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
+  const [recipeDropdownOpen, setRecipeDropdownOpen] = useState(false);
+  const [ingredientDropdownOpen, setIngredientDropdownOpen] = useState(false);
+
+  // Refs for dropdown containers
+  const stationRef = useRef<HTMLDivElement>(null);
+  const roleRef = useRef<HTMLDivElement>(null);
+  const recipeRef = useRef<HTMLDivElement>(null);
+  const ingredientRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Fetch templates first to ensure they're loaded
@@ -64,20 +97,56 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
       }
     });
 
-    // Fetch operations settings, team members, and recipes
+    // Fetch operations settings, team members, recipes, and master ingredients
     fetchSettings();
     fetchTeamMembers();
     fetchRecipes();
+    fetchIngredients();
 
-    return () => selectTemplate(null);
+    // Add click outside listener to close dropdowns
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        stationRef.current &&
+        !stationRef.current.contains(event.target as Node)
+      ) {
+        setStationDropdownOpen(false);
+      }
+      if (roleRef.current && !roleRef.current.contains(event.target as Node)) {
+        setRoleDropdownOpen(false);
+      }
+      if (
+        recipeRef.current &&
+        !recipeRef.current.contains(event.target as Node)
+      ) {
+        setRecipeDropdownOpen(false);
+      }
+      if (
+        ingredientRef.current &&
+        !ingredientRef.current.contains(event.target as Node)
+      ) {
+        setIngredientDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      selectTemplate(null);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
   }, [
     templateId,
     selectTemplate,
     fetchSettings,
     fetchTeamMembers,
     fetchRecipes,
+    fetchIngredients,
     fetchTemplates,
   ]);
+
+  // Define recipeOptions here to avoid reference error
+  const recipeOptions = recipes
+    ? recipes.filter((recipe) => !recipe.id.includes("stage_"))
+    : [];
 
   useEffect(() => {
     if (selectedTemplate) {
@@ -92,9 +161,126 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
         schedule_days: selectedTemplate.schedule_days,
         advance_days: selectedTemplate.advance_days,
         recipe_id: selectedTemplate.recipe_id || "",
+        master_ingredient_id: selectedTemplate.master_ingredient_id || "",
+        kitchen_role: selectedTemplate.kitchen_role || "",
       });
+
+      // Set search fields based on selected values
+      if (selectedTemplate.station) {
+        setStationSearch(selectedTemplate.station);
+      }
+      if (selectedTemplate.kitchen_role) {
+        setRoleSearch(selectedTemplate.kitchen_role);
+      }
+
+      // Set recipe search if a recipe is selected
+      if (selectedTemplate.recipe_id && recipeOptions.length > 0) {
+        const recipeId = selectedTemplate.recipe_id;
+        if (
+          recipeId &&
+          typeof recipeId === "string" &&
+          recipeId.startsWith("stage_")
+        ) {
+          const stageOption = recipeOptions
+            .filter((recipe) => recipe.stages && recipe.stages.length > 0)
+            .flatMap((recipe) =>
+              recipe.stages.map((stage) => ({
+                id: `stage_${recipe.id}_${stage.id || stage.name}`,
+                name: `${recipe.name} - ${stage.name}`,
+              })),
+            )
+            .find((stage) => stage.id === recipeId);
+          if (stageOption) {
+            setRecipeSearch(stageOption.name);
+          }
+        } else {
+          const recipe = recipeOptions.find((r) => r.id === recipeId);
+          if (recipe) {
+            setRecipeSearch(recipe.name);
+          }
+        }
+      }
+
+      // Set ingredient search if an ingredient is selected
+      if (selectedTemplate.master_ingredient_id && ingredients) {
+        const ingredient = ingredients.find(
+          (i) => i.id === selectedTemplate.master_ingredient_id,
+        );
+        if (ingredient) {
+          setIngredientSearch(ingredient.product);
+        }
+      }
     }
-  }, [selectedTemplate]);
+  }, [selectedTemplate, recipes, ingredients]);
+
+  // Filter stations based on search
+  useEffect(() => {
+    if (settings?.kitchen_stations) {
+      const filtered = settings.kitchen_stations.filter((station) =>
+        station.toLowerCase().includes(stationSearch.toLowerCase()),
+      );
+      setFilteredStations(filtered);
+    }
+  }, [stationSearch, settings?.kitchen_stations]);
+
+  // Filter roles based on search
+  useEffect(() => {
+    const uniqueRoles = members
+      .flatMap((member) => member.roles || [])
+      .filter((role, index, self) => self.indexOf(role) === index)
+      .sort();
+
+    const filtered = uniqueRoles.filter((role) =>
+      role.toLowerCase().includes(roleSearch.toLowerCase()),
+    );
+    setFilteredRoles(filtered);
+  }, [roleSearch, members]);
+
+  // Filter recipes based on search
+  useEffect(() => {
+    // Filter recipes
+    const filteredRecipeOptions = recipeOptions.filter((recipe) =>
+      recipe.name.toLowerCase().includes(recipeSearch.toLowerCase()),
+    );
+
+    // Filter recipe stages
+    const filteredStageOptions = recipeOptions
+      .filter((recipe) => recipe.stages && recipe.stages.length > 0)
+      .flatMap((recipe) =>
+        recipe.stages
+          .filter((stage) =>
+            `${recipe.name} - ${stage.name}`
+              .toLowerCase()
+              .includes(recipeSearch.toLowerCase()),
+          )
+          .map((stage) => ({
+            id: `stage_${recipe.id}_${stage.id || stage.name}`,
+            name: `${recipe.name} - ${stage.name}`,
+            isStage: true,
+            recipeId: recipe.id,
+          })),
+      );
+
+    setFilteredRecipes([...filteredRecipeOptions, ...filteredStageOptions]);
+  }, [recipeSearch, recipeOptions, recipes]);
+
+  // Filter ingredients based on search
+  useEffect(() => {
+    const filtered = ingredients
+      .filter(
+        (ingredient) =>
+          ingredient.product
+            .toLowerCase()
+            .includes(ingredientSearch.toLowerCase()) ||
+          (ingredient.item_code &&
+            ingredient.item_code
+              .toLowerCase()
+              .includes(ingredientSearch.toLowerCase())),
+      )
+      .sort((a, b) => a.product.localeCompare(b.product));
+
+    setFilteredIngredients(filtered);
+  }, [ingredientSearch, ingredients]);
 
   const handleInputChange = (
     e: React.ChangeEvent<
@@ -108,13 +294,14 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
       setFormData((prev) => ({ ...prev, [name]: target.checked }));
     } else {
       // Handle recipe_id specially to process stage IDs
-      if (name === "recipe_id" && value.startsWith("stage_")) {
+      if (name === "recipe_id" && value && value.startsWith("stage_")) {
         // Store the stage reference in a format we can parse later
         setFormData((prev) => ({ ...prev, [name]: value }));
 
         // Extract recipe ID and stage info from the value
         const [_, recipeId, stageId] = value.split("_");
         console.log(`Selected stage ${stageId} from recipe ${recipeId}`);
+        console.log(`Storing full stage ID: ${value}`);
 
         // Here you could also store additional stage metadata if needed
       } else {
@@ -138,37 +325,49 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
     e.preventDefault();
 
     if (!formData.title) {
-      alert("Please enter a module title");
+      toast.error("Please enter a module title");
       return;
     }
 
     try {
+      // Ensure kitchen_role and master_ingredient_id are included in the submission
+      const dataToSubmit = {
+        ...formData,
+        kitchen_role: formData.kitchen_role || null,
+        master_ingredient_id: formData.master_ingredient_id || null,
+      };
+
+      // Log the data being submitted for debugging
+      console.log("Submitting form data:", dataToSubmit);
+      console.log("Recipe ID being saved:", dataToSubmit.recipe_id);
+
       if (selectedTemplate) {
-        await updateTemplate(selectedTemplate.id, formData);
+        await updateTemplate(selectedTemplate.id, dataToSubmit);
+        toast.success("Module updated successfully");
       } else {
         const newTemplateId = await createTemplate(
-          formData as Omit<
+          dataToSubmit as Omit<
             PrepListTemplate,
             "id" | "organization_id" | "created_at" | "updated_at"
           >,
         );
         if (newTemplateId) {
           selectTemplate(newTemplateId);
+          toast.success("Module created successfully");
           return; // Don't close the form, allow user to add tasks
         }
       }
       onClose();
     } catch (error) {
       console.error("Error saving module:", error);
+      toast.error(
+        "Error saving module: " +
+          (error instanceof Error ? error.message : String(error)),
+      );
     }
   };
 
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-  // Process recipes to include stages
-  const recipeOptions = recipes.filter(
-    (recipe) => !recipe.id.includes("stage_"),
-  );
 
   if (isLoading && !selectedTemplate) {
     return (
@@ -258,19 +457,85 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
               <ChefHat className="w-3 h-3 text-blue-400" />
               Station (Optional)
             </label>
-            <select
-              name="station"
-              value={formData.station || ""}
-              onChange={handleInputChange}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white"
-            >
-              <option value="">Select Kitchen Station</option>
-              {settings?.kitchen_stations?.map((station) => (
-                <option key={station} value={station}>
-                  {station}
-                </option>
-              ))}
-            </select>
+            <div className="relative" ref={stationRef}>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Type to search stations..."
+                  value={stationSearch}
+                  onChange={(e) => {
+                    setStationSearch(e.target.value);
+                    setStationDropdownOpen(true);
+                  }}
+                  onFocus={() => setStationDropdownOpen(true)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white pr-8"
+                />
+                <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              </div>
+
+              {stationDropdownOpen && filteredStations.length > 0 && (
+                <div className="absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg max-h-60 overflow-auto">
+                  {filteredStations.map((station) => (
+                    <div
+                      key={station}
+                      className={`p-2 hover:bg-gray-700 cursor-pointer ${formData.station === station ? "bg-gray-700" : ""}`}
+                      onClick={() => {
+                        setFormData((prev) => ({ ...prev, station }));
+                        setStationSearch(station);
+                        setStationDropdownOpen(false);
+                      }}
+                    >
+                      {station}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-1">
+              <User className="w-3 h-3 text-blue-400" />
+              Team Member Role
+            </label>
+            <div className="relative" ref={roleRef}>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Type to search roles..."
+                  value={roleSearch}
+                  onChange={(e) => {
+                    setRoleSearch(e.target.value);
+                    setRoleDropdownOpen(true);
+                  }}
+                  onFocus={() => setRoleDropdownOpen(true)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white pr-8"
+                />
+                <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              </div>
+
+              {roleDropdownOpen && filteredRoles.length > 0 && (
+                <div className="absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg max-h-60 overflow-auto">
+                  {filteredRoles.map((role) => (
+                    <div
+                      key={role}
+                      className={`p-2 hover:bg-gray-700 cursor-pointer ${formData.kitchen_role === role ? "bg-gray-700" : ""}`}
+                      onClick={() => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          kitchen_role: role,
+                        }));
+                        setRoleSearch(role);
+                        setRoleDropdownOpen(false);
+                        console.log("Selected kitchen role:", role); // Debug log
+                      }}
+                    >
+                      {role}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <div>
@@ -278,36 +543,98 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
               <LibraryBig className="w-3 h-3 text-blue-400" />
               Associated Recipe Library Item
             </label>
-            <select
-              name="recipe_id"
-              value={formData.recipe_id || ""}
-              onChange={handleInputChange}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white"
-            >
-              <option value="">Select Recipe or Stage (Optional)</option>
-              {recipeOptions.map((recipe) => (
-                <React.Fragment key={recipe.id}>
-                  <option value={recipe.id}>{recipe.name}</option>
+            <div className="relative" ref={recipeRef}>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Type to search recipes or stages..."
+                  value={recipeSearch}
+                  onChange={(e) => {
+                    setRecipeSearch(e.target.value);
+                    setRecipeDropdownOpen(true);
+                  }}
+                  onFocus={() => setRecipeDropdownOpen(true)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white pr-8"
+                />
+                <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              </div>
 
-                  {/* Render stages for this recipe if any */}
-                  {recipes
-                    .filter(
-                      (r) =>
-                        r.id === recipe.id && r.stages && r.stages.length > 0,
-                    )
-                    .flatMap((r) =>
-                      r.stages.map((stage) => (
-                        <option
-                          key={`stage_${recipe.id}_${stage.id || stage.name}`}
-                          value={`stage_${recipe.id}_${stage.id || stage.name}`}
-                        >
-                          &nbsp;&nbsp;&nbsp;{stage.name}
-                        </option>
-                      )),
-                    )}
-                </React.Fragment>
-              ))}
-            </select>
+              {recipeDropdownOpen && filteredRecipes.length > 0 && (
+                <div className="absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg max-h-60 overflow-auto">
+                  {filteredRecipes.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`p-2 hover:bg-gray-700 cursor-pointer ${formData.recipe_id === item.id ? "bg-gray-700" : ""}`}
+                      onClick={() => {
+                        const newRecipeId = item.id;
+                        console.log(`Setting recipe_id to: ${newRecipeId}`);
+                        setFormData((prev) => ({
+                          ...prev,
+                          recipe_id: newRecipeId,
+                        }));
+                        setRecipeSearch(item.name);
+                        setRecipeDropdownOpen(false);
+                      }}
+                    >
+                      {item.isStage ? (
+                        <span className="pl-4">{item.name}</span>
+                      ) : (
+                        item.name
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-1">
+              <Database className="w-3 h-3 text-blue-400" />
+              Associated Master Ingredient
+            </label>
+            <div className="relative" ref={ingredientRef}>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Type to search ingredients..."
+                  value={ingredientSearch}
+                  onChange={(e) => {
+                    setIngredientSearch(e.target.value);
+                    setIngredientDropdownOpen(true);
+                  }}
+                  onFocus={() => setIngredientDropdownOpen(true)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white pr-8"
+                />
+                <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              </div>
+
+              {ingredientDropdownOpen && filteredIngredients.length > 0 && (
+                <div className="absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg max-h-60 overflow-auto">
+                  {filteredIngredients.map((ingredient) => (
+                    <div
+                      key={ingredient.id}
+                      className={`p-2 hover:bg-gray-700 cursor-pointer ${formData.master_ingredient_id === ingredient.id ? "bg-gray-700" : ""}`}
+                      onClick={() => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          master_ingredient_id: ingredient.id,
+                        }));
+                        setIngredientSearch(ingredient.product);
+                        setIngredientDropdownOpen(false);
+                        console.log(
+                          "Selected master ingredient ID:",
+                          ingredient.id,
+                        ); // Debug log
+                      }}
+                    >
+                      {ingredient.product}{" "}
+                      {ingredient.item_code && `(${ingredient.item_code})`}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="md:col-span-2">

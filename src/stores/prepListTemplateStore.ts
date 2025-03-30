@@ -113,25 +113,14 @@ export const usePrepListTemplateStore = create<PrepListTemplateState>(
 
         if (!organizationId) throw new Error("No organization found for user");
 
-        // Check if recipe_id is a valid UUID or a stage ID
+        // Create a copy of the template data
         let templateData = { ...template };
 
-        // If recipe_id starts with 'stage_', extract the actual recipe UUID
-        if (
-          templateData.recipe_id &&
-          typeof templateData.recipe_id === "string" &&
-          templateData.recipe_id.startsWith("stage_")
-        ) {
-          // Extract the recipe UUID from the stage ID (format: stage_UUID_stage-timestamp)
-          const parts = templateData.recipe_id.split("_");
-          if (parts.length >= 2) {
-            // The UUID should be the second part
-            templateData.recipe_id = parts[1];
-          } else {
-            // If we can't extract a valid UUID, set to null
-            templateData.recipe_id = null;
-          }
-        }
+        // Log the incoming recipe_id for debugging
+        console.log("Original recipe_id:", templateData.recipe_id);
+
+        // IMPORTANT: We no longer modify the recipe_id if it's a stage ID
+        // This allows us to store the full stage reference
 
         // Ensure organization_id is included in the insert
         const { data, error } = await supabase
@@ -166,10 +155,16 @@ export const usePrepListTemplateStore = create<PrepListTemplateState>(
     updateTemplate: async (id, updates) => {
       set({ isLoading: true, error: null });
       try {
+        // Ensure recipe_id is preserved correctly, especially for stage IDs
+        const updatesToSend = { ...updates };
+
+        // Log the updates for debugging
+        console.log("Updating template with data:", updatesToSend);
+
         const { error } = await supabase
           .from("prep_list_templates")
           .update({
-            ...updates,
+            ...updatesToSend,
             updated_at: new Date().toISOString(),
           })
           .eq("id", id);
@@ -182,7 +177,7 @@ export const usePrepListTemplateStore = create<PrepListTemplateState>(
             template.id === id
               ? {
                   ...template,
-                  ...updates,
+                  ...updatesToSend,
                   updated_at: new Date().toISOString(),
                 }
               : template,
@@ -394,50 +389,83 @@ export const usePrepListTemplateStore = create<PrepListTemplateState>(
 
         // Get organization_id from user context or auth
         const { data: userData } = await supabase.auth.getUser();
+        if (!userData.user) throw new Error("User not authenticated");
 
         // Try to get organization ID from user metadata
         let organizationId = userData.user?.user_metadata?.organizationId;
 
         // If not found in metadata, try to get from organization_members table
         if (!organizationId) {
-          const { data: orgData } = await supabase
-            .from("organization_members")
+          const { data: orgData, error: orgError } = await supabase
+            .from("organization_team_members") // Updated table name from organization_members
             .select("organization_id")
-            .eq("user_id", userData.user?.id)
+            .eq("id", userData.user?.id)
             .single();
+
+          if (orgError && orgError.code !== "PGRST116") {
+            // PGRST116 is not found error
+            console.error("Error fetching organization:", orgError);
+            throw new Error("Failed to fetch organization data");
+          }
 
           if (orgData) {
             organizationId = orgData.organization_id;
           }
         }
 
+        // If still no organization ID, try organization_roles table
+        if (!organizationId) {
+          const { data: roleData, error: roleError } = await supabase
+            .from("organization_roles")
+            .select("organization_id")
+            .eq("user_id", userData.user?.id)
+            .single();
+
+          if (roleError && roleError.code !== "PGRST116") {
+            console.error("Error fetching organization roles:", roleError);
+          } else if (roleData) {
+            organizationId = roleData.organization_id;
+          }
+        }
+
         if (!organizationId) throw new Error("No organization found for user");
 
         // Create the prep list
+        const prepListToInsert = {
+          template_id: templateId,
+          organization_id: organizationId,
+          title: template.title,
+          description: template.description || "",
+          date,
+          prep_system: template.prep_system || "scheduled_production",
+          status: "active",
+          assigned_to: assignedTo || null,
+          created_by: userData.user?.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        console.log("Creating prep list with data:", prepListToInsert);
+
         const { data: prepListData, error: prepListError } = await supabase
           .from("prep_lists")
-          .insert({
-            template_id: templateId,
-            organization_id: organizationId,
-            title: template.title,
-            description: template.description,
-            date,
-            prep_system:
-              template.prep_system === "as_needed" && template.created_at
-                ? "scheduled_production"
-                : template.prep_system,
-            status: "active",
-            assigned_to: assignedTo,
-            created_by: userData.user?.id,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
+          .insert(prepListToInsert)
           .select()
           .single();
 
-        if (prepListError) throw prepListError;
+        if (prepListError) {
+          console.error("Error creating prep list:", prepListError);
+          throw new Error(
+            `Failed to create prep list: ${prepListError.message}`,
+          );
+        }
+
+        if (!prepListData) {
+          throw new Error("No data returned after creating prep list");
+        }
 
         const prepList = prepListData as PrepList;
+        console.log("Created prep list:", prepList);
 
         // Create tasks for the prep list based on template tasks
         if (template.tasks && template.tasks.length > 0) {
@@ -446,12 +474,12 @@ export const usePrepListTemplateStore = create<PrepListTemplateState>(
             title: templateTask.title,
             description: templateTask.description || "",
             due_date: date,
-            assignee_id: assignedTo,
-            station: templateTask.station,
+            assignee_id: assignedTo || null,
+            station: templateTask.station || null,
             priority: "medium" as const,
             estimated_time: templateTask.estimated_time || 0,
             completed: false,
-            recipe_id: templateTask.recipe_id,
+            recipe_id: templateTask.recipe_id || null,
             prep_list_template_id: templateId,
             prep_list_id: prepList.id,
             sequence: templateTask.sequence,
@@ -459,11 +487,19 @@ export const usePrepListTemplateStore = create<PrepListTemplateState>(
             created_at: new Date().toISOString(),
           }));
 
-          const { error: tasksError } = await supabase
-            .from("tasks")
-            .insert(tasksToCreate);
+          console.log(`Creating ${tasksToCreate.length} tasks for prep list`);
 
-          if (tasksError) throw tasksError;
+          const { data: tasksData, error: tasksError } = await supabase
+            .from("tasks")
+            .insert(tasksToCreate)
+            .select();
+
+          if (tasksError) {
+            console.error("Error creating tasks:", tasksError);
+            throw new Error(`Failed to create tasks: ${tasksError.message}`);
+          }
+
+          console.log(`Created ${tasksData?.length || 0} tasks successfully`);
         }
 
         set({ isLoading: false });
