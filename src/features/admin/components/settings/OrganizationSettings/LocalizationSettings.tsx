@@ -1,13 +1,13 @@
 import React from "react";
-import { Settings } from "lucide-react";
+import { Globe } from "lucide-react";
 import type { Organization } from "@/types/organization";
 
-interface AdditionalSettingsProps {
+interface LocalizationSettingsProps {
   organization: Organization;
   onChange: (updates: Partial<Organization>) => void;
 }
 
-export const AdditionalSettings: React.FC<AdditionalSettingsProps> = ({
+export const LocalizationSettings: React.FC<LocalizationSettingsProps> = ({
   organization,
   onChange,
 }) => {
@@ -24,9 +24,11 @@ export const AdditionalSettings: React.FC<AdditionalSettingsProps> = ({
     <div className="card p-6">
       <div className="flex items-center gap-3 mb-6">
         <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
-          <Settings className="w-5 h-5 text-purple-400" />
+          <Globe className="w-5 h-5 text-purple-400" />
         </div>
-        <h2 className="text-lg font-medium text-white">Additional Settings</h2>
+        <h2 className="text-lg font-medium text-white">
+          Localization Settings
+        </h2>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -75,17 +77,17 @@ export const AdditionalSettings: React.FC<AdditionalSettingsProps> = ({
 
         <div>
           <label className="block text-sm font-medium text-gray-400 mb-1">
-            Multi-Unit Support
+            Default Timezone
           </label>
           <select
-            value={organization.settings?.multi_unit?.toString() || "false"}
-            onChange={(e) =>
-              updateSettings("multi_unit", e.target.value === "true")
-            }
+            value={organization.settings?.default_timezone || ""}
+            onChange={(e) => updateSettings("default_timezone", e.target.value)}
             className="input w-full"
           >
-            <option value="false">Single Location</option>
-            <option value="true">Multiple Locations</option>
+            <option value="America/New_York">Eastern Time</option>
+            <option value="America/Chicago">Central Time</option>
+            <option value="America/Denver">Mountain Time</option>
+            <option value="America/Los_Angeles">Pacific Time</option>
           </select>
         </div>
 
@@ -103,6 +105,22 @@ export const AdditionalSettings: React.FC<AdditionalSettingsProps> = ({
             <option value="0">Sunday</option>
             <option value="1">Monday</option>
             <option value="6">Saturday</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-400 mb-1">
+            Multi-Unit Support
+          </label>
+          <select
+            value={organization.settings?.multi_unit?.toString() || "false"}
+            onChange={(e) =>
+              updateSettings("multi_unit", e.target.value === "true")
+            }
+            className="input w-full"
+          >
+            <option value="false">Single Location</option>
+            <option value="true">Multiple Locations</option>
           </select>
         </div>
       </div>

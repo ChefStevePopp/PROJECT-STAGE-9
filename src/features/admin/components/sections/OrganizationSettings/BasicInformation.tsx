@@ -119,6 +119,36 @@ export const BasicInformation: React.FC = () => {
             <option value="America/Los_Angeles">Pacific Time</option>
           </select>
         </div>
+
+        {/* Week Starts On */}
+        <div>
+          <label className="block text-sm font-medium text-gray-400 mb-1">
+            Week Starts On
+          </label>
+          <select
+            value={organization.settings?.weekStartsOn?.toString() || "1"}
+            className="input w-full"
+          >
+            <option value="0">Sunday</option>
+            <option value="1">Monday</option>
+            <option value="6">Saturday</option>
+          </select>
+        </div>
+
+        {/* Week Starts On */}
+        <div>
+          <label className="block text-sm font-medium text-gray-400 mb-1">
+            Week Starts On
+          </label>
+          <select
+            value={organization.settings?.weekStartsOn?.toString() || "1"}
+            className="input w-full"
+          >
+            <option value="0">Sunday</option>
+            <option value="1">Monday</option>
+            <option value="6">Saturday</option>
+          </select>
+        </div>
       </div>
 
       {/* Save Button */}

@@ -9,7 +9,13 @@ export interface DailySchedule {
 }
 
 export interface OrganizationSettings {
-  business_type: 'restaurant' | 'cafe' | 'bar' | 'food_truck' | 'catering' | 'other';
+  business_type:
+    | "restaurant"
+    | "cafe"
+    | "bar"
+    | "food_truck"
+    | "catering"
+    | "other";
   cuisine_type?: string;
   default_timezone: string;
   multi_unit: boolean;
@@ -17,6 +23,7 @@ export interface OrganizationSettings {
   date_format?: string;
   time_format?: string;
   operating_schedule?: DailySchedule;
+  weekStartsOn?: 0 | 1 | 6; // 0 = Sunday, 1 = Monday, 6 = Saturday
 }
 
 export interface Organization {

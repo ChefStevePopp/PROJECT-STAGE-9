@@ -1,40 +1,263 @@
-import React from 'react';
-import { Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
+import React, { useEffect, useState } from "react";
+import {
+  Calendar,
+  RefreshCw,
+  Filter,
+  ChevronDown,
+  ListChecks,
+} from "lucide-react";
+import { useProductionStore } from "@/stores/productionStore";
+import { format, addDays, parseISO, startOfWeek } from "date-fns";
+import { PrepListTemplateTask, Task } from "@/types/tasks";
+import { KanbanBoard } from "./KanbanBoard";
 
-const ProductionBoard = () => {
+export const ProductionBoard = () => {
+  const {
+    templateTasks,
+    templates,
+    isLoading,
+    error,
+    fetchTemplates,
+    fetchTemplateTasksByStatus,
+    updateTemplateTaskStatus,
+    completeTemplateTask,
+    updateTaskDueDate,
+    fetchOrganizationSchedule,
+  } = useProductionStore();
+
+  const [selectedDate, setSelectedDate] = useState<string>(
+    format(new Date(), "yyyy-MM-dd"),
+  );
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [weekDays, setWeekDays] = useState<string[]>([]);
+  const [tasksByDay, setTasksByDay] = useState<Record<string, Task[]>>({});
+
+  // Fetch organization schedule and tasks on component mount
+  useEffect(() => {
+    const fetchAllData = async () => {
+      setIsRefreshing(true);
+
+      // Fetch organization schedule to get operating days
+      const schedule = await fetchOrganizationSchedule();
+      console.log("Fetched schedule in ProductionBoard:", schedule);
+
+      // Generate week days based on the selected date
+      const startDate = startOfWeek(parseISO(selectedDate), {
+        weekStartsOn: 1,
+      }); // Start from Monday
+      const days = [];
+
+      // If we have a schedule from the organization, use those days
+      // Otherwise default to a full week
+      // Ensure daysToShow is always an array
+      const daysToShow =
+        Array.isArray(schedule?.team_schedule) &&
+        schedule.team_schedule.length > 0
+          ? schedule.team_schedule
+          : [3, 4, 5, 6, 0]; // Default to Wed-Sun
+
+      console.log("Days to show in ProductionBoard:", daysToShow);
+
+      // Map from day number (0-6) to day index in the week (0-6 starting from Monday)
+      // This ensures we're correctly mapping the day numbers to the right positions in the week
+      const dayNumberToWeekIndex = {
+        0: 6, // Sunday is at index 6 when week starts on Monday
+        1: 0, // Monday is at index 0
+        2: 1, // Tuesday is at index 1
+        3: 2, // Wednesday is at index 2
+        4: 3, // Thursday is at index 3
+        5: 4, // Friday is at index 4
+        6: 5, // Saturday is at index 5
+      };
+
+      for (let i = 0; i < 7; i++) {
+        // Convert loop index to day number (0-6, where 0 is Sunday)
+        // When week starts on Monday (weekStartsOn: 1), the mapping is:
+        // i=0 -> Monday (day 1), i=1 -> Tuesday (day 2), ..., i=6 -> Sunday (day 0)
+        const dayNumber = i === 6 ? 0 : i + 1;
+
+        // Only include days that are in the organization's schedule
+        if (daysToShow.includes(dayNumber)) {
+          const day = addDays(startDate, i);
+          const formattedDay = format(day, "yyyy-MM-dd");
+          console.log(
+            `Adding day ${dayNumber} (${format(day, "EEE")}) to week days: ${formattedDay}`,
+          );
+          days.push(formattedDay);
+        } else {
+          console.log(
+            `Skipping day ${dayNumber} (${format(addDays(startDate, i), "EEE")}) - not in schedule`,
+          );
+        }
+      }
+
+      console.log("Final week days:", days);
+
+      setWeekDays(days);
+
+      // Fetch tasks
+      await fetchTemplates();
+      await fetchTemplateTasksByStatus("pending");
+
+      setIsRefreshing(false);
+    };
+
+    fetchAllData();
+  }, [
+    fetchTemplates,
+    fetchTemplateTasksByStatus,
+    fetchOrganizationSchedule,
+    selectedDate,
+  ]);
+
+  // Organize tasks by day
+  useEffect(() => {
+    if (templateTasks) {
+      const taskMap: Record<string, Task[]> = {};
+
+      // Initialize empty arrays for each day
+      weekDays.forEach((day) => {
+        taskMap[day] = [];
+      });
+
+      // Convert template tasks to regular tasks and organize by due date
+      templateTasks.forEach((task) => {
+        // For demo purposes, distribute tasks across the week
+        // In a real implementation, you'd use the actual due_date from the task
+        const dueDate = task.due_date || selectedDate;
+
+        // Only add the task if the due date is in our week view
+        if (weekDays.includes(dueDate)) {
+          const regularTask: Task = {
+            id: task.id,
+            title: task.title,
+            description: task.description || "",
+            priority: "medium",
+            estimated_time: task.estimated_time || 0,
+            station: task.station || "",
+            assignee_id: task.assignee_id,
+            completed: false,
+            organization_id: "", // Not needed for display
+            due_date: dueDate,
+          };
+
+          taskMap[dueDate] = [...(taskMap[dueDate] || []), regularTask];
+        }
+      });
+
+      setTasksByDay(taskMap);
+    }
+  }, [templateTasks, weekDays, selectedDate]);
+
+  // Handle moving a task between days
+  const handleTaskMove = async (
+    taskId: string,
+    fromDay: string,
+    toDay: string,
+  ) => {
+    // Update the task's due date in the database
+    await updateTaskDueDate(taskId, toDay);
+
+    // Update local state
+    setTasksByDay((prev) => {
+      const newTasksByDay = { ...prev };
+
+      // Find the task in the fromDay array
+      const taskIndex = newTasksByDay[fromDay].findIndex(
+        (t) => t.id === taskId,
+      );
+      if (taskIndex === -1) return prev;
+
+      // Get the task and update its due date
+      const task = { ...newTasksByDay[fromDay][taskIndex], due_date: toDay };
+
+      // Remove from old day
+      newTasksByDay[fromDay] = newTasksByDay[fromDay].filter(
+        (t) => t.id !== taskId,
+      );
+
+      // Add to new day
+      newTasksByDay[toDay] = [...(newTasksByDay[toDay] || []), task];
+
+      return newTasksByDay;
+    });
+  };
+
+  // Handle completing a task
+  const handleCompleteTask = async (taskId: string) => {
+    await completeTemplateTask(taskId);
+
+    // Update local state by removing the completed task
+    setTasksByDay((prev) => {
+      const newTasksByDay = { ...prev };
+
+      // Find which day contains this task
+      Object.keys(newTasksByDay).forEach((day) => {
+        newTasksByDay[day] = newTasksByDay[day].filter((t) => t.id !== taskId);
+      });
+
+      return newTasksByDay;
+    });
+  };
+
+  // Handle week change
+  const handleWeekChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSelectedDate(e.target.value);
+  };
+
+  // Handle refresh
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchTemplates();
+    await fetchTemplateTasksByStatus("pending");
+    setIsRefreshing(false);
+  };
+
   return (
     <div className="space-y-6">
       <header className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-white">Production Board</h1>
+        <h1 className="text-3xl font-bold text-white">Production Schedule</h1>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-gray-800/50 rounded-lg p-2 border border-gray-700">
+            <Calendar className="w-5 h-5 text-gray-400" />
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={handleWeekChange}
+              className="bg-transparent border-none text-white focus:outline-none"
+            />
+          </div>
+          <button
+            onClick={handleRefresh}
+            className="btn-ghost"
+            disabled={isRefreshing}
+          >
+            <RefreshCw
+              className={`w-5 h-5 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </button>
+        </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="card p-6">
-          <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-yellow-400" />
-            Pending
-          </h2>
-          {/* Pending tasks */}
+      {error && (
+        <div className="bg-rose-500/20 border border-rose-500/50 text-rose-300 p-4 rounded-lg">
+          Error: {error}
         </div>
+      )}
 
-        <div className="card p-6">
-          <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-            <Clock className="w-5 h-5 text-blue-400" />
-            In Progress
-          </h2>
-          {/* In progress tasks */}
+      {isLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-400"></div>
         </div>
-
-        <div className="card p-6">
-          <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-            <CheckCircle2 className="w-5 h-5 text-green-400" />
-            Completed
-          </h2>
-          {/* Completed tasks */}
-        </div>
-      </div>
+      ) : (
+        <KanbanBoard
+          days={weekDays}
+          tasks={tasksByDay}
+          onTaskMove={handleTaskMove}
+          onTaskComplete={handleCompleteTask}
+        />
+      )}
     </div>
   );
 };
-
-export { ProductionBoard };

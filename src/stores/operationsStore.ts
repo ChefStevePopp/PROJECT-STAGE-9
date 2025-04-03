@@ -27,7 +27,13 @@ export const useOperationsStore = create<OperationsStore>((set) => ({
       }
 
       // Make a clean copy of the settings object without any potential circular references
-      const cleanSettings = JSON.parse(JSON.stringify(updatedSettings));
+      // Use a more reliable deep copy method that preserves all properties
+      const cleanSettings = structuredClone(updatedSettings);
+
+      // Ensure team_schedule is properly included in the update
+      if (updatedSettings.team_schedule) {
+        cleanSettings.team_schedule = updatedSettings.team_schedule;
+      }
 
       console.log("Sending to database:", JSON.stringify(cleanSettings));
 

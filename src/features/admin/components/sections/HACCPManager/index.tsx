@@ -5,6 +5,7 @@ import {
   ChevronRight,
   ClipboardCheck,
   Download,
+  FileCheck,
   Plus,
   Search,
   Thermometer,
@@ -171,8 +172,13 @@ const TemperatureLog = ({ title, description, icon: Icon }) => (
   </div>
 );
 
+// Import the BoardOfHealth component
+import { BoardOfHealth } from "../../settings/OrganizationSettings/BoardOfHealth";
+import { useAuth } from "@/hooks/useAuth";
+
 export const HACCPManager: React.FC = () => {
   const [activeTab, setActiveTab] = useState("fridges");
+  const { organization, updateOrganization } = useAuth();
 
   return (
     <div className="space-y-6">
@@ -230,6 +236,13 @@ export const HACCPManager: React.FC = () => {
         >
           <ClipboardCheck className="w-5 h-5" />
           Fridge Organization
+        </button>
+        <button
+          onClick={() => setActiveTab("health")}
+          className={`tab lime ${activeTab === "health" ? "active" : ""}`}
+        >
+          <FileCheck className="w-5 h-5" />
+          Board of Health
         </button>
       </div>
 
@@ -340,6 +353,13 @@ export const HACCPManager: React.FC = () => {
             icon={ClipboardCheck}
           />
         </div>
+      )}
+
+      {activeTab === "health" && (
+        <BoardOfHealth
+          organization={organization}
+          onChange={updateOrganization}
+        />
       )}
     </div>
   );

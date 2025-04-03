@@ -22,6 +22,7 @@ import {
   Thermometer,
   ClipboardList,
   LibraryBig,
+  Globe,
 } from "lucide-react";
 
 export const menuItems = (isDev: boolean) => {

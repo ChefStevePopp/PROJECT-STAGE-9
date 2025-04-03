@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { Building2, MapPin, Users, Settings, Clock } from "lucide-react";
+import { Building2, MapPin, Users, Globe, Clock } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/Card";
 import { BasicInformation } from "./BasicInformation";
 import { LocationDetails } from "./LocationDetails";
 import { OperatingInformation } from "./OperatingInformation";
-import { AdditionalSettings } from "./AdditionalSettings";
+import { LocalizationSettings } from "./LocalizationSettings";
 
 export const OrganizationSettings: React.FC = () => {
   const { organization, user } = useAuth();
@@ -22,8 +22,8 @@ export const OrganizationSettings: React.FC = () => {
     { id: "operations", label: "Operations", icon: Clock, color: "amber" },
     {
       id: "settings",
-      label: "Additional Settings",
-      icon: Settings,
+      label: "Localization",
+      icon: Globe,
       color: "purple",
     },
   ];
@@ -86,7 +86,7 @@ export const OrganizationSettings: React.FC = () => {
           {activeTab === "details" && <BasicInformation />}
           {activeTab === "locations" && <LocationDetails />}
           {activeTab === "operations" && <OperatingInformation />}
-          {activeTab === "settings" && <AdditionalSettings />}
+          {activeTab === "settings" && <LocalizationSettings />}
         </CardContent>
       </Card>
     </div>

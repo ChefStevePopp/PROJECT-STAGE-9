@@ -1,6 +1,6 @@
-import React from 'react';
-import { Building2 } from 'lucide-react';
-import type { Organization } from '@/types/organization';
+import React from "react";
+import { Building2 } from "lucide-react";
+import type { Organization } from "@/types/organization";
 
 interface OrganizationDetailsProps {
   organization: Organization;
@@ -9,7 +9,7 @@ interface OrganizationDetailsProps {
 
 export const OrganizationDetails: React.FC<OrganizationDetailsProps> = ({
   organization,
-  onChange
+  onChange,
 }) => {
   return (
     <div className="card p-6">
@@ -45,10 +45,23 @@ export const OrganizationDetails: React.FC<OrganizationDetailsProps> = ({
           </label>
           <input
             type="text"
-            value={organization.legal_name || ''}
+            value={organization.legal_name || ""}
             onChange={(e) => onChange({ legal_name: e.target.value })}
             className="input w-full"
             placeholder="Enter legal business name"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-400 mb-1">
+            Tax ID/Business Number
+          </label>
+          <input
+            type="text"
+            value={organization.tax_id || ""}
+            onChange={(e) => onChange({ tax_id: e.target.value })}
+            className="input w-full"
+            placeholder="Enter tax ID or business number"
           />
         </div>
 
@@ -59,50 +72,58 @@ export const OrganizationDetails: React.FC<OrganizationDetailsProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <input
               type="text"
-              value={organization.settings?.street_address || ''}
-              onChange={(e) => onChange({
-                settings: {
-                  ...organization.settings,
-                  street_address: e.target.value
-                }
-              })}
+              value={organization.settings?.street_address || ""}
+              onChange={(e) =>
+                onChange({
+                  settings: {
+                    ...organization.settings,
+                    street_address: e.target.value,
+                  },
+                })
+              }
               className="input w-full"
               placeholder="Street Address"
             />
             <input
               type="text"
-              value={organization.settings?.city || ''}
-              onChange={(e) => onChange({
-                settings: {
-                  ...organization.settings,
-                  city: e.target.value
-                }
-              })}
+              value={organization.settings?.city || ""}
+              onChange={(e) =>
+                onChange({
+                  settings: {
+                    ...organization.settings,
+                    city: e.target.value,
+                  },
+                })
+              }
               className="input w-full"
               placeholder="City"
             />
             <div className="grid grid-cols-2 gap-4">
               <input
                 type="text"
-                value={organization.settings?.state || ''}
-                onChange={(e) => onChange({
-                  settings: {
-                    ...organization.settings,
-                    state: e.target.value
-                  }
-                })}
+                value={organization.settings?.state || ""}
+                onChange={(e) =>
+                  onChange({
+                    settings: {
+                      ...organization.settings,
+                      state: e.target.value,
+                    },
+                  })
+                }
                 className="input w-full"
                 placeholder="State/Province"
               />
               <input
                 type="text"
-                value={organization.settings?.postal_code || ''}
-                onChange={(e) => onChange({
-                  settings: {
-                    ...organization.settings,
-                    postal_code: e.target.value
-                  }
-                })}
+                value={organization.settings?.postal_code || ""}
+                onChange={(e) =>
+                  onChange({
+                    settings: {
+                      ...organization.settings,
+                      postal_code: e.target.value,
+                    },
+                  })
+                }
                 className="input w-full"
                 placeholder="Postal Code"
               />
@@ -112,24 +133,11 @@ export const OrganizationDetails: React.FC<OrganizationDetailsProps> = ({
 
         <div>
           <label className="block text-sm font-medium text-gray-400 mb-1">
-            Tax ID/Business Number
-          </label>
-          <input
-            type="text"
-            value={organization.tax_id || ''}
-            onChange={(e) => onChange({ tax_id: e.target.value })}
-            className="input w-full"
-            placeholder="Enter tax ID or business number"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-400 mb-1">
             Website
           </label>
           <input
             type="url"
-            value={organization.website || ''}
+            value={organization.website || ""}
             onChange={(e) => onChange({ website: e.target.value })}
             className="input w-full"
             placeholder="https://example.com"
@@ -142,7 +150,7 @@ export const OrganizationDetails: React.FC<OrganizationDetailsProps> = ({
           </label>
           <input
             type="email"
-            value={organization.contact_email || ''}
+            value={organization.contact_email || ""}
             onChange={(e) => onChange({ contact_email: e.target.value })}
             className="input w-full"
             placeholder="organization@example.com"
@@ -155,13 +163,15 @@ export const OrganizationDetails: React.FC<OrganizationDetailsProps> = ({
           </label>
           <input
             type="email"
-            value={organization.settings?.accounting_email || ''}
-            onChange={(e) => onChange({
-              settings: {
-                ...organization.settings,
-                accounting_email: e.target.value
-              }
-            })}
+            value={organization.settings?.accounting_email || ""}
+            onChange={(e) =>
+              onChange({
+                settings: {
+                  ...organization.settings,
+                  accounting_email: e.target.value,
+                },
+              })
+            }
             className="input w-full"
             placeholder="accounting@example.com"
           />
@@ -173,7 +183,7 @@ export const OrganizationDetails: React.FC<OrganizationDetailsProps> = ({
           </label>
           <input
             type="tel"
-            value={organization.contact_phone || ''}
+            value={organization.contact_phone || ""}
             onChange={(e) => onChange({ contact_phone: e.target.value })}
             className="input w-full"
             placeholder="(555) 555-5555"
