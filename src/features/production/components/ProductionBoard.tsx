@@ -1,153 +1,70 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Calendar,
   RefreshCw,
   Filter,
-  ChevronDown,
-  ListChecks,
+  HandPlatter,
+  User,
+  CheckSquare,
+  LayoutGrid,
+  LayoutList,
+  Coffee,
+  ListFilter,
 } from "lucide-react";
 import { useProductionStore } from "@/stores/productionStore";
-import { format, addDays, parseISO, startOfWeek } from "date-fns";
-import { PrepListTemplateTask, Task } from "@/types/tasks";
+import { useOperationsStore } from "@/stores/operationsStore";
+import { format } from "date-fns";
+import { Task, PrepListTemplate } from "@/types/tasks";
 import { KanbanBoard } from "./KanbanBoard";
+import { useProductionData } from "@/hooks/useProductionData";
+import { SectionLoadingLogo } from "@/components/SectionLoadingLogo";
 
 export const ProductionBoard = () => {
-  const {
-    templateTasks,
-    templates,
-    isLoading,
-    error,
-    fetchTemplates,
-    fetchTemplateTasksByStatus,
-    updateTemplateTaskStatus,
-    completeTemplateTask,
-    updateTaskDueDate,
-    fetchOrganizationSchedule,
-  } = useProductionStore();
+  const { completeTemplateTask, updateTaskDueDate, templates, fetchTemplates } =
+    useProductionStore();
+  const { settings, fetchSettings } = useOperationsStore();
 
   const [selectedDate, setSelectedDate] = useState<string>(
     format(new Date(), "yyyy-MM-dd"),
   );
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [weekDays, setWeekDays] = useState<string[]>([]);
-  const [tasksByDay, setTasksByDay] = useState<Record<string, Task[]>>({});
+  const [view, setView] = useState<"week" | "day">("week");
+  const [selectedPrepLists, setSelectedPrepLists] = useState<string[]>([]);
+  const [showPrepListFilter, setShowPrepListFilter] = useState(false);
+  const [filters, setFilters] = useState({
+    status: "pending" as "pending" | "in_progress" | "completed",
+    personalOnly: false,
+    kitchenStation: "",
+    adminView: false,
+    showCateringEvents: true,
+    prepListIds: [] as string[],
+  });
+  const [searchTerm, setSearchTerm] = useState("");
 
-  // Fetch organization schedule and tasks on component mount
+  // Fetch operations settings and templates on component mount
   useEffect(() => {
-    const fetchAllData = async () => {
-      setIsRefreshing(true);
+    fetchSettings();
+    fetchTemplates();
+  }, [fetchSettings, fetchTemplates]);
 
-      // Fetch organization schedule to get operating days
-      const schedule = await fetchOrganizationSchedule();
-      console.log("Fetched schedule in ProductionBoard:", schedule);
-
-      // Generate week days based on the selected date
-      const startDate = startOfWeek(parseISO(selectedDate), {
-        weekStartsOn: 1,
-      }); // Start from Monday
-      const days = [];
-
-      // If we have a schedule from the organization, use those days
-      // Otherwise default to a full week
-      // Ensure daysToShow is always an array
-      const daysToShow =
-        Array.isArray(schedule?.team_schedule) &&
-        schedule.team_schedule.length > 0
-          ? schedule.team_schedule
-          : [3, 4, 5, 6, 0]; // Default to Wed-Sun
-
-      console.log("Days to show in ProductionBoard:", daysToShow);
-
-      // Map from day number (0-6) to day index in the week (0-6 starting from Monday)
-      // This ensures we're correctly mapping the day numbers to the right positions in the week
-      const dayNumberToWeekIndex = {
-        0: 6, // Sunday is at index 6 when week starts on Monday
-        1: 0, // Monday is at index 0
-        2: 1, // Tuesday is at index 1
-        3: 2, // Wednesday is at index 2
-        4: 3, // Thursday is at index 3
-        5: 4, // Friday is at index 4
-        6: 5, // Saturday is at index 5
-      };
-
-      for (let i = 0; i < 7; i++) {
-        // Convert loop index to day number (0-6, where 0 is Sunday)
-        // When week starts on Monday (weekStartsOn: 1), the mapping is:
-        // i=0 -> Monday (day 1), i=1 -> Tuesday (day 2), ..., i=6 -> Sunday (day 0)
-        const dayNumber = i === 6 ? 0 : i + 1;
-
-        // Only include days that are in the organization's schedule
-        if (daysToShow.includes(dayNumber)) {
-          const day = addDays(startDate, i);
-          const formattedDay = format(day, "yyyy-MM-dd");
-          console.log(
-            `Adding day ${dayNumber} (${format(day, "EEE")}) to week days: ${formattedDay}`,
-          );
-          days.push(formattedDay);
-        } else {
-          console.log(
-            `Skipping day ${dayNumber} (${format(addDays(startDate, i), "EEE")}) - not in schedule`,
-          );
-        }
-      }
-
-      console.log("Final week days:", days);
-
-      setWeekDays(days);
-
-      // Fetch tasks
-      await fetchTemplates();
-      await fetchTemplateTasksByStatus("pending");
-
-      setIsRefreshing(false);
-    };
-
-    fetchAllData();
-  }, [
-    fetchTemplates,
-    fetchTemplateTasksByStatus,
-    fetchOrganizationSchedule,
-    selectedDate,
-  ]);
-
-  // Organize tasks by day
+  // Update filters when selected prep lists change
   useEffect(() => {
-    if (templateTasks) {
-      const taskMap: Record<string, Task[]> = {};
+    setFilters((prev) => ({
+      ...prev,
+      prepListIds: selectedPrepLists,
+    }));
+  }, [selectedPrepLists]);
 
-      // Initialize empty arrays for each day
-      weekDays.forEach((day) => {
-        taskMap[day] = [];
-      });
-
-      // Convert template tasks to regular tasks and organize by due date
-      templateTasks.forEach((task) => {
-        // For demo purposes, distribute tasks across the week
-        // In a real implementation, you'd use the actual due_date from the task
-        const dueDate = task.due_date || selectedDate;
-
-        // Only add the task if the due date is in our week view
-        if (weekDays.includes(dueDate)) {
-          const regularTask: Task = {
-            id: task.id,
-            title: task.title,
-            description: task.description || "",
-            priority: "medium",
-            estimated_time: task.estimated_time || 0,
-            station: task.station || "",
-            assignee_id: task.assignee_id,
-            completed: false,
-            organization_id: "", // Not needed for display
-            due_date: dueDate,
-          };
-
-          taskMap[dueDate] = [...(taskMap[dueDate] || []), regularTask];
-        }
-      });
-
-      setTasksByDay(taskMap);
-    }
-  }, [templateTasks, weekDays, selectedDate]);
+  // Use the custom hook to fetch and organize data
+  const {
+    weekDays,
+    tasksByDay,
+    isLoading,
+    error,
+    isRefreshing,
+    setIsRefreshing,
+    cateringEvents,
+    refreshData,
+  } = useProductionData(selectedDate, filters);
 
   // Handle moving a task between days
   const handleTaskMove = async (
@@ -207,35 +124,238 @@ export const ProductionBoard = () => {
 
   // Handle refresh
   const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await fetchTemplates();
-    await fetchTemplateTasksByStatus("pending");
-    setIsRefreshing(false);
+    await refreshData();
   };
+
+  // Handle filter changes
+  const togglePersonalFilter = () => {
+    setFilters((prev) => ({
+      ...prev,
+      personalOnly: !prev.personalOnly,
+    }));
+  };
+
+  // Handle kitchen station filter change
+  const handleKitchenStationChange = (station: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      kitchenStation: station === prev.kitchenStation ? "" : station,
+    }));
+  };
+
+  // Toggle admin view
+  const toggleAdminView = () => {
+    setFilters((prev) => ({
+      ...prev,
+      adminView: !prev.adminView,
+    }));
+  };
+
+  // Toggle catering events
+  const toggleCateringEvents = () => {
+    setFilters((prev) => ({
+      ...prev,
+      showCateringEvents: !prev.showCateringEvents,
+    }));
+  };
+
+  // Toggle between week and day view
+  const toggleView = () => {
+    setView(view === "week" ? "day" : "week");
+  };
+
+  // Filter templates based on search term
+  const filteredTemplates = templates.filter(
+    (template) =>
+      template.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (template.description || "")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      (template.category || "")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()),
+  );
 
   return (
     <div className="space-y-6">
-      <header className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-white">Production Schedule</h1>
+      <header className="flex justify-between items-center p-2 bg-gray-800/30 rounded-lg border border-gray-700/50">
+        <h1 className="text-2xl font-bold text-white">Production Schedule</h1>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-gray-800/50 rounded-lg p-2 border border-gray-700">
-            <Calendar className="w-5 h-5 text-gray-400" />
+          {/* Date Selector */}
+          <div className="flex items-center gap-2 bg-gray-800/50 rounded-lg p-1.5 border border-gray-700">
+            <Calendar className="w-3 h-3 text-blue-400" />
             <input
               type="date"
               value={selectedDate}
               onChange={handleWeekChange}
-              className="bg-transparent border-none text-white focus:outline-none"
+              className="bg-transparent border-none text-white focus:outline-none text-sm w-32"
             />
           </div>
+
+          {/* Filter Controls */}
+          <div className="flex items-center gap-2">
+            {/* My Tasks Filter */}
+            <button
+              onClick={togglePersonalFilter}
+              title="My Tasks"
+              className={`p-1.5 rounded-lg ${filters.personalOnly ? "bg-indigo-500/30 text-indigo-300 border border-indigo-500/50" : "bg-gray-800/50 text-gray-400 border border-gray-700"}`}
+            >
+              <User className="w-5 h-5" />
+            </button>
+
+            {/* Kitchen Station Filter Dropdown */}
+            <div className="relative">
+              <button
+                className={`p-1.5 rounded-lg flex items-center gap-1 ${filters.kitchenStation ? "bg-amber-500/30 text-amber-300 border border-amber-500/50" : "bg-gray-800/50 text-gray-400 border border-gray-700"}`}
+                title="Kitchen Station"
+              >
+                <Filter className="w-5 h-5" />
+                {filters.kitchenStation && (
+                  <span className="text-xs">
+                    {filters.kitchenStation
+                      .split("_")
+                      .map(
+                        (word) => word.charAt(0).toUpperCase() + word.slice(1),
+                      )
+                      .join(" ")}
+                  </span>
+                )}
+              </button>
+              <select
+                value={filters.kitchenStation}
+                onChange={(e) => handleKitchenStationChange(e.target.value)}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                aria-label="Select kitchen station"
+              >
+                <option value="">All Stations</option>
+                {settings?.kitchen_stations &&
+                settings.kitchen_stations.length > 0 ? (
+                  settings.kitchen_stations.map((station) => (
+                    <option key={station} value={station}>
+                      {station
+                        .split("_")
+                        .map(
+                          (word) =>
+                            word.charAt(0).toUpperCase() + word.slice(1),
+                        )
+                        .join(" ")}
+                    </option>
+                  ))
+                ) : (
+                  // Fallback options if settings are not loaded
+                  <>
+                    <option value="hot_line">Hot Line</option>
+                    <option value="cold_line">Cold Line</option>
+                    <option value="pastry">Pastry</option>
+                    <option value="prep">Prep</option>
+                    <option value="dish">Dish</option>
+                    <option value="catering">Catering</option>
+                  </>
+                )}
+              </select>
+            </div>
+
+            {/* Catering Events Toggle */}
+            <button
+              onClick={toggleCateringEvents}
+              title="Catering Events"
+              className={`p-1.5 rounded-lg ${filters.showCateringEvents ? "bg-emerald-500/30 text-emerald-300 border border-emerald-500/50" : "bg-gray-800/50 text-gray-400 border border-gray-700"}`}
+            >
+              <HandPlatter className="w-5 h-5" />
+            </button>
+
+            {/* Admin View Toggle */}
+            <button
+              onClick={toggleAdminView}
+              title="Admin View"
+              className={`p-1.5 rounded-lg ${filters.adminView ? "bg-purple-500/30 text-purple-300 border border-purple-500/50" : "bg-gray-800/50 text-gray-400 border border-gray-700"}`}
+            >
+              <CheckSquare className="w-5 h-5" />
+            </button>
+
+            {/* Prep List Filter Toggle */}
+            <div className="relative">
+              <button
+                onClick={() => setShowPrepListFilter(!showPrepListFilter)}
+                title="Filter by Prep Lists"
+                className={`p-1.5 rounded-lg flex items-center gap-1 ${selectedPrepLists.length > 0 ? "bg-blue-500/30 text-blue-300 border border-blue-500/50" : "bg-gray-800/50 text-gray-400 border border-gray-700"}`}
+              >
+                <ListFilter className="w-5 h-5" />
+                {selectedPrepLists.length > 0 && (
+                  <span className="text-xs font-medium">
+                    {selectedPrepLists.length}
+                  </span>
+                )}
+              </button>
+              {selectedPrepLists.length > 0 && !showPrepListFilter && (
+                <div className="absolute top-full right-0 mt-1 bg-gray-800/90 border border-gray-700 rounded-lg p-2 z-10 w-48 max-h-32 overflow-y-auto">
+                  <div className="flex justify-between items-center mb-1">
+                    <h4 className="text-xs font-medium text-white">
+                      Selected Lists
+                    </h4>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedPrepLists([]);
+                      }}
+                      className="text-xs text-blue-400 hover:text-blue-300"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  {templates
+                    .filter((template) =>
+                      selectedPrepLists.includes(template.id),
+                    )
+                    .map((template) => (
+                      <div
+                        key={template.id}
+                        className="flex items-center justify-between py-1 px-2 text-xs text-white bg-blue-500/20 rounded mb-1"
+                      >
+                        <span className="truncate">{template.title}</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedPrepLists((prev) =>
+                              prev.filter((id) => id !== template.id),
+                            );
+                          }}
+                          className="text-gray-300 hover:text-white ml-1"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* View Toggle */}
+          <button
+            onClick={toggleView}
+            title={
+              view === "week" ? "Switch to Day View" : "Switch to Week View"
+            }
+            className="p-1.5 rounded-lg bg-gray-800/50 text-gray-300 border border-gray-700 hover:bg-gray-700/50"
+          >
+            {view === "week" ? (
+              <LayoutList className="w-5 h-5" />
+            ) : (
+              <LayoutGrid className="w-5 h-5" />
+            )}
+          </button>
+
+          {/* Refresh Button */}
           <button
             onClick={handleRefresh}
-            className="btn-ghost"
+            title="Refresh Data"
+            className="p-1.5 rounded-lg bg-gray-800/50 text-gray-300 border border-gray-700 hover:bg-gray-700/50"
             disabled={isRefreshing}
           >
             <RefreshCw
-              className={`w-5 h-5 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+              className={`w-5 h-5 ${isRefreshing ? "animate-spin text-blue-400" : ""}`}
             />
-            Refresh
           </button>
         </div>
       </header>
@@ -246,13 +366,134 @@ export const ProductionBoard = () => {
         </div>
       )}
 
+      {/* Prep List Filter Dropdown */}
+      {showPrepListFilter && (
+        <div className="bg-gray-800/90 border border-gray-700 rounded-lg p-4 mb-4 animate-fadeIn shadow-lg">
+          <div className="flex justify-between items-center mb-3">
+            <div>
+              <h3 className="text-white font-medium">Filter by Prep Lists</h3>
+              <p className="text-gray-400 text-xs mt-1">
+                Select prep lists to filter tasks
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-300">
+                {selectedPrepLists.length} selected
+              </span>
+              <button
+                onClick={() => setSelectedPrepLists([])}
+                className="text-xs bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 px-2 py-1 rounded"
+                disabled={selectedPrepLists.length === 0}
+              >
+                Clear All
+              </button>
+            </div>
+          </div>
+
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search templates..."
+              className="w-full bg-gray-700/50 border border-gray-600 rounded px-3 py-2 text-white text-sm mb-3 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-60 overflow-y-auto pr-2">
+            {filteredTemplates.length === 0 ? (
+              <p className="text-gray-400 text-sm col-span-full">
+                {templates.length === 0
+                  ? "No prep list templates available"
+                  : "No matching templates found"}
+              </p>
+            ) : (
+              filteredTemplates.map((template: PrepListTemplate) => (
+                <div
+                  key={template.id}
+                  className={`flex items-center p-2 rounded cursor-pointer transition-colors ${selectedPrepLists.includes(template.id) ? "bg-blue-500/20 border border-blue-500/50" : "bg-gray-700/30 border border-gray-700 hover:bg-gray-700/50"}`}
+                  onClick={() => {
+                    setSelectedPrepLists((prev) =>
+                      prev.includes(template.id)
+                        ? prev.filter((id) => id !== template.id)
+                        : [...prev, template.id],
+                    );
+                  }}
+                >
+                  <div className="flex-1 truncate">
+                    <div className="flex items-center">
+                      {selectedPrepLists.includes(template.id) && (
+                        <div className="w-2 h-2 bg-blue-400 rounded-full mr-2"></div>
+                      )}
+                      <p className="text-sm text-white truncate">
+                        {template.title}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-xs text-gray-400 truncate">
+                        {template.category}
+                      </p>
+                      {template.station && (
+                        <span className="text-xs bg-gray-700 text-gray-300 px-1.5 py-0.5 rounded">
+                          {template.station}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {selectedPrepLists.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-gray-700">
+              <h4 className="text-sm text-white font-medium mb-2">
+                Selected Lists
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {templates
+                  .filter((template) => selectedPrepLists.includes(template.id))
+                  .map((template) => (
+                    <div
+                      key={template.id}
+                      className="flex items-center bg-blue-500/30 text-blue-200 text-xs px-2 py-1 rounded-full"
+                    >
+                      <span className="truncate max-w-[100px]">
+                        {template.title}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedPrepLists((prev) =>
+                            prev.filter((id) => id !== template.id),
+                          );
+                        }}
+                        className="ml-1.5 text-blue-300 hover:text-white"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-400"></div>
+          <SectionLoadingLogo
+            section="tasks"
+            message={
+              filters.personalOnly
+                ? "Loading your tasks..."
+                : "Loading all tasks..."
+            }
+          />
         </div>
       ) : (
         <KanbanBoard
-          days={weekDays}
+          days={view === "week" ? weekDays : [selectedDate]}
           tasks={tasksByDay}
           onTaskMove={handleTaskMove}
           onTaskComplete={handleCompleteTask}

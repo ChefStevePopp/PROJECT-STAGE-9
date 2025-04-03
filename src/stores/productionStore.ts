@@ -23,6 +23,9 @@ interface ProductionState {
   fetchTemplates: () => Promise<void>;
   fetchTemplateTasksByStatus: (
     status: "pending" | "in_progress" | "completed",
+    personalOnly?: boolean,
+    kitchenStation?: string,
+    adminView?: boolean,
   ) => Promise<void>;
   updateTemplateTaskStatus: (taskId: string, status: string) => Promise<void>;
   completeTemplateTask: (taskId: string) => Promise<void>;
@@ -106,7 +109,12 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
     }
   },
 
-  fetchTemplateTasksByStatus: async (status) => {
+  fetchTemplateTasksByStatus: async (
+    status: "pending" | "in_progress" | "completed",
+    personalOnly: boolean = false,
+    kitchenStation?: string,
+    adminView?: boolean,
+  ) => {
     set({ isLoading: true, error: null });
     try {
       // Get organization_id from user context
@@ -116,6 +124,7 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
       }
 
       const organizationId = userData.user.user_metadata.organizationId;
+      const userId = userData.user.id;
 
       // First get all templates for this organization
       const { data: templatesData, error: templatesError } = await supabase
@@ -132,12 +141,33 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
 
       const templateIds = templatesData.map((template) => template.id);
 
-      // Now fetch all template tasks for these templates
-      const { data, error } = await supabase
+      // Build the query for template tasks
+      let query = supabase
         .from("prep_list_template_tasks")
         .select("*")
-        .in("template_id", templateIds)
-        .order("sequence", { ascending: true });
+        .in("template_id", templateIds);
+
+      // Add personal filter if requested
+      if (personalOnly) {
+        query = query.eq("assignee_id", userId);
+      }
+
+      // Add kitchen station filter if provided
+      if (kitchenStation) {
+        query = query.eq("kitchen_station", kitchenStation);
+      }
+
+      // Admin view logic can be implemented here if needed
+      // For now, we'll just log that it's being used
+      if (adminView) {
+        console.log("Admin view filter applied");
+        // In a real implementation, you might want to add additional filters or data
+      }
+
+      // Execute the query with ordering
+      const { data, error } = await query.order("sequence", {
+        ascending: true,
+      });
 
       if (error) throw error;
 

@@ -28,7 +28,7 @@ import SpecSheets from "./components/SpecSheets";
 import PrepListBuilder from "./components/PrepListBuilder";
 
 export const ChecklistsManager: React.FC = () => {
-  const [activeTab, setActiveTab] = useState("prep-templates");
+  const [activeTab, setActiveTab] = useState("list-builder");
   const [showTemplateForm, setShowTemplateForm] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<
     string | undefined

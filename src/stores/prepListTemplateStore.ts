@@ -96,12 +96,12 @@ export const usePrepListTemplateStore = create<PrepListTemplateState>(
         // If not found in metadata, try to get from organization_members table
         if (!organizationId) {
           const { data: orgData, error: orgError } = await supabase
-            .from("organization_members")
+            .from("organization_team_members")
             .select("organization_id")
             .eq("user_id", userData.user.id)
-            .single();
+            .maybeSingle();
 
-          if (orgError) {
+          if (orgError && orgError.code !== "PGRST116") {
             console.error("Error fetching organization:", orgError);
             throw new Error("Failed to fetch organization data");
           }
@@ -397,10 +397,10 @@ export const usePrepListTemplateStore = create<PrepListTemplateState>(
         // If not found in metadata, try to get from organization_members table
         if (!organizationId) {
           const { data: orgData, error: orgError } = await supabase
-            .from("organization_team_members") // Updated table name from organization_members
+            .from("organization_team_members")
             .select("organization_id")
-            .eq("id", userData.user?.id)
-            .single();
+            .eq("user_id", userData.user?.id)
+            .maybeSingle();
 
           if (orgError && orgError.code !== "PGRST116") {
             // PGRST116 is not found error
@@ -419,7 +419,7 @@ export const usePrepListTemplateStore = create<PrepListTemplateState>(
             .from("organization_roles")
             .select("organization_id")
             .eq("user_id", userData.user?.id)
-            .single();
+            .maybeSingle();
 
           if (roleError && roleError.code !== "PGRST116") {
             console.error("Error fetching organization roles:", roleError);

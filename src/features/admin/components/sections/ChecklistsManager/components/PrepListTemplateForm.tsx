@@ -10,6 +10,8 @@ import {
   Database,
   User,
   Search,
+  MapPin,
+  X,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { usePrepListTemplateStore } from "../../../../../../stores/prepListTemplateStore";
@@ -61,6 +63,7 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
     recipe_id: "",
     master_ingredient_id: "",
     kitchen_role: "",
+    kitchen_stations: [],
   });
 
   // Search states
@@ -68,24 +71,31 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
   const [roleSearch, setRoleSearch] = useState("");
   const [recipeSearch, setRecipeSearch] = useState("");
   const [ingredientSearch, setIngredientSearch] = useState("");
+  const [kitchenStationSearch, setKitchenStationSearch] = useState("");
 
   // Filtered options
   const [filteredStations, setFilteredStations] = useState<string[]>([]);
   const [filteredRoles, setFilteredRoles] = useState<string[]>([]);
   const [filteredRecipes, setFilteredRecipes] = useState<any[]>([]);
   const [filteredIngredients, setFilteredIngredients] = useState<any[]>([]);
+  const [filteredKitchenStations, setFilteredKitchenStations] = useState<
+    string[]
+  >([]);
 
   // Dropdown visibility
   const [stationDropdownOpen, setStationDropdownOpen] = useState(false);
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
   const [recipeDropdownOpen, setRecipeDropdownOpen] = useState(false);
   const [ingredientDropdownOpen, setIngredientDropdownOpen] = useState(false);
+  const [kitchenStationDropdownOpen, setKitchenStationDropdownOpen] =
+    useState(false);
 
   // Refs for dropdown containers
   const stationRef = useRef<HTMLDivElement>(null);
   const roleRef = useRef<HTMLDivElement>(null);
   const recipeRef = useRef<HTMLDivElement>(null);
   const ingredientRef = useRef<HTMLDivElement>(null);
+  const kitchenStationRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Fetch templates first to ensure they're loaded
@@ -126,6 +136,12 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
       ) {
         setIngredientDropdownOpen(false);
       }
+      if (
+        kitchenStationRef.current &&
+        !kitchenStationRef.current.contains(event.target as Node)
+      ) {
+        setKitchenStationDropdownOpen(false);
+      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -163,6 +179,7 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
         recipe_id: selectedTemplate.recipe_id || "",
         master_ingredient_id: selectedTemplate.master_ingredient_id || "",
         kitchen_role: selectedTemplate.kitchen_role || "",
+        kitchen_stations: selectedTemplate.kitchen_stations || [],
       });
 
       // Set search fields based on selected values
@@ -222,6 +239,22 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
       setFilteredStations(filtered);
     }
   }, [stationSearch, settings?.kitchen_stations]);
+
+  // Filter kitchen stations based on search
+  useEffect(() => {
+    if (settings?.kitchen_stations) {
+      const filtered = settings.kitchen_stations.filter(
+        (station) =>
+          station.toLowerCase().includes(kitchenStationSearch.toLowerCase()) &&
+          !(formData.kitchen_stations || []).includes(station),
+      );
+      setFilteredKitchenStations(filtered);
+    }
+  }, [
+    kitchenStationSearch,
+    settings?.kitchen_stations,
+    formData.kitchen_stations,
+  ]);
 
   // Filter roles based on search
   useEffect(() => {
@@ -491,6 +524,90 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
                 </div>
               )}
             </div>
+          </div>
+
+          <div>
+            <label className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-1">
+              <MapPin className="w-3 h-3 text-blue-400" />
+              Kitchen Stations Access
+            </label>
+            <div className="relative" ref={kitchenStationRef}>
+              {/* Selected stations */}
+              <div className="flex flex-wrap gap-1 mb-2">
+                {(formData.kitchen_stations || []).map((station) => (
+                  <div
+                    key={station}
+                    className="bg-blue-900/30 border border-blue-500/30 rounded-full px-2 py-1 text-sm flex items-center"
+                  >
+                    <span className="text-blue-300 mr-1">{station}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          kitchen_stations: (
+                            prev.kitchen_stations || []
+                          ).filter((s) => s !== station),
+                        }));
+                      }}
+                      className="text-blue-400 hover:text-blue-300"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Type to add kitchen stations..."
+                  value={kitchenStationSearch}
+                  onChange={(e) => {
+                    setKitchenStationSearch(e.target.value);
+                    setKitchenStationDropdownOpen(true);
+                  }}
+                  onFocus={() => setKitchenStationDropdownOpen(true)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white pr-8"
+                />
+                <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              </div>
+
+              {kitchenStationDropdownOpen &&
+                filteredKitchenStations.length > 0 && (
+                  <div className="absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg max-h-60 overflow-auto">
+                    {filteredKitchenStations.map((station) => (
+                      <div
+                        key={station}
+                        className="p-2 hover:bg-gray-700 cursor-pointer"
+                        onClick={() => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            kitchen_stations: [
+                              ...(prev.kitchen_stations || []),
+                              station,
+                            ],
+                          }));
+                          setKitchenStationSearch("");
+                        }}
+                      >
+                        {station}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+              {kitchenStationDropdownOpen &&
+                kitchenStationSearch &&
+                filteredKitchenStations.length === 0 && (
+                  <div className="absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-gray-400">
+                    No matching stations found
+                  </div>
+                )}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Select which kitchen stations have access to this module
+            </p>
           </div>
 
           <div>

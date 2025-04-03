@@ -58,6 +58,7 @@ export interface PrepListTemplate {
   recipe_id?: string; // Reference to an associated recipe
   master_ingredient_id?: string; // Reference to an associated master ingredient
   kitchen_role?: string; // Reference to a kitchen role
+  kitchen_stations?: string[]; // Kitchen stations that have access to this template
 }
 
 export interface PrepListTemplateTask {
@@ -87,7 +88,7 @@ export interface PrepListTemplateTask {
 export interface PrepList {
   id: string;
   organization_id: string;
-  template_id: string;
+  template_id: string; // Reference to the template this prep list is based on
   title: string;
   description?: string;
   date: string;
@@ -103,6 +104,7 @@ export interface PrepList {
   notes?: string;
   inventory_snapshot?: Record<string, number>; // For PAR-based lists
   scheduled_for?: string; // Date this prep is scheduled for (might be different from creation date)
+  viewer_team_members?: string[]; // Team members who can view this prep list
 }
 
 export interface PrepListStore {

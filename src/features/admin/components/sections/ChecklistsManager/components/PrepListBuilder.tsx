@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { supabase } from "../../../../../../config/supabase";
 import {
   Plus,
   ListChecks,
@@ -19,6 +20,7 @@ import {
   CookingPot,
   Sunrise,
   Sunset,
+  MapPin,
 } from "lucide-react";
 import { usePrepListTemplateStore } from "../../../../../../stores/prepListTemplateStore";
 import {
@@ -45,6 +47,7 @@ interface PrepListItemProps {
   title: string;
   description?: string;
   templateId: string;
+  kitchenStations?: string[];
   onEdit: (id: string) => void;
   onRemove: (id: string) => void;
 }
@@ -54,6 +57,7 @@ const SortableItem = ({
   title,
   description,
   templateId,
+  kitchenStations,
   onEdit,
   onRemove,
 }: PrepListItemProps) => {
@@ -163,6 +167,24 @@ const SortableItem = ({
           {description && (
             <p className="text-gray-400 text-sm mt-2">{description}</p>
           )}
+          {kitchenStations && kitchenStations.length > 0 && (
+            <div className="mt-2">
+              <div className="flex items-center gap-1 text-gray-400 text-xs">
+                <MapPin className="h-3 w-3 text-blue-400" />
+                <span>Stations:</span>
+                <div className="flex flex-wrap gap-1">
+                  {kitchenStations.map((station) => (
+                    <span
+                      key={station}
+                      className="bg-blue-900/30 border border-blue-500/30 rounded-full px-2 py-0.5 text-xs text-blue-300"
+                    >
+                      {station}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -174,8 +196,11 @@ interface SavedPrepList {
   title: string;
   description?: string;
   templates: string[];
-  createdAt: string;
-  updatedAt: string;
+  created_at?: string;
+  updated_at?: string;
+  organization_id?: string;
+  created_by?: string;
+  kitchen_stations?: string[];
 }
 
 interface PrepListBuilderProps {
@@ -190,6 +215,9 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
   const [selectedTemplates, setSelectedTemplates] = useState<string[]>([]);
   const [prepListTitle, setPrepListTitle] = useState("New Prep List");
   const [prepListDescription, setPrepListDescription] = useState("");
+  const [selectedKitchenStations, setSelectedKitchenStations] = useState<
+    string[]
+  >([]);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [savedPrepLists, setSavedPrepLists] = useState<SavedPrepList[]>([]);
@@ -205,6 +233,7 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
   const [isEditingExisting, setIsEditingExisting] = useState(false);
   const [infoSectionExpanded, setInfoSectionExpanded] = useState(true);
   const [isInfoExpanded, setIsInfoExpanded] = useState(false);
+  const [kitchenStations, setKitchenStations] = useState<string[]>([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -213,18 +242,108 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
     }),
   );
 
+  const fetchSavedPrepLists = async () => {
+    try {
+      // Get the user's organization_id
+      const { data: userData, error: userError } =
+        await supabase.auth.getUser();
+      if (userError) throw userError;
+
+      const userId = userData.user?.id;
+
+      // Get the user's organization from user metadata or organization_team_members table
+      let organizationId = userData.user?.user_metadata?.organizationId;
+
+      if (!organizationId) {
+        // Try to get from organization_team_members table
+        const { data: orgData, error: orgError } = await supabase
+          .from("organization_team_members")
+          .select("organization_id")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        if (!orgError && orgData) {
+          organizationId = orgData.organization_id;
+        }
+      }
+
+      if (!organizationId) {
+        throw new Error("No organization found for user");
+      }
+
+      // Get saved prep lists for the organization from prep_lists table
+      const { data, error } = await supabase
+        .from("prep_lists")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .order("updated_at", { ascending: false });
+
+      if (error) throw error;
+
+      // Transform the data to match our interface
+      const transformedData = data.map((list) => ({
+        ...list,
+        templates: list.template_id ? [list.template_id] : [],
+        kitchen_stations: list.kitchen_stations || [],
+      }));
+
+      setSavedPrepLists(transformedData);
+    } catch (error) {
+      console.error("Error loading saved prep lists:", error);
+      toast.error("Failed to load saved prep lists");
+    }
+  };
+
+  const fetchKitchenStations = async () => {
+    try {
+      // Get the user's organization_id
+      const { data: userData, error: userError } =
+        await supabase.auth.getUser();
+      if (userError) throw userError;
+
+      const userId = userData.user?.id;
+
+      // Get the user's organization from user metadata or organization_team_members table
+      let organizationId = userData.user?.user_metadata?.organizationId;
+
+      if (!organizationId) {
+        // Try to get from organization_team_members table
+        const { data: orgData, error: orgError } = await supabase
+          .from("organization_team_members")
+          .select("organization_id")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        if (!orgError && orgData) {
+          organizationId = orgData.organization_id;
+        }
+      }
+
+      if (!organizationId) {
+        throw new Error("No organization found for user");
+      }
+
+      // Get kitchen stations from operations_settings
+      const { data, error } = await supabase
+        .from("operations_settings")
+        .select("kitchen_stations")
+        .eq("organization_id", organizationId)
+        .single();
+
+      if (error) throw error;
+
+      if (data && data.kitchen_stations) {
+        setKitchenStations(data.kitchen_stations);
+      }
+    } catch (error) {
+      console.error("Error loading kitchen stations:", error);
+    }
+  };
+
   useEffect(() => {
     fetchTemplates();
-    // Load saved prep lists from local storage
-    const savedLists = localStorage.getItem("savedPrepLists");
-    if (savedLists) {
-      try {
-        setSavedPrepLists(JSON.parse(savedLists));
-      } catch (error) {
-        console.error("Error loading saved prep lists:", error);
-        toast.error("Failed to load saved prep lists");
-      }
-    }
+    fetchSavedPrepLists();
+    fetchKitchenStations();
   }, [fetchTemplates]);
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -272,65 +391,100 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
 
     setIsSaving(true);
     try {
-      // Save the prep list configuration to local storage first
-      const now = new Date().toISOString();
-      let updatedLists = [...savedPrepLists];
-
-      if (isEditingExisting && currentPrepListId) {
-        // Update existing prep list
-        updatedLists = updatedLists.map((list) => {
-          if (list.id === currentPrepListId) {
-            return {
-              ...list,
-              title: prepListTitle,
-              description: prepListDescription,
-              templates: selectedTemplates,
-              updatedAt: now,
-            };
-          }
-          return list;
-        });
-        toast.success("Prep list updated successfully");
-      } else {
-        // Create new prep list
-        const newPrepList: SavedPrepList = {
-          id: `preplist_${Date.now()}`,
-          title: prepListTitle,
-          description: prepListDescription,
-          templates: selectedTemplates,
-          createdAt: now,
-          updatedAt: now,
-        };
-        updatedLists.push(newPrepList);
-        setCurrentPrepListId(newPrepList.id);
-        toast.success("Prep list saved successfully");
-      }
-
-      setSavedPrepLists(updatedLists);
-      localStorage.setItem("savedPrepLists", JSON.stringify(updatedLists));
-
       // Get tomorrow's date as the default date for the prep list
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       const formattedDate = tomorrow.toISOString().split("T")[0];
 
+      // Get the user's organization_id and user_id
+      const { data: userData, error: userError } =
+        await supabase.auth.getUser();
+      if (userError) throw userError;
+
+      const userId = userData.user?.id;
+
+      // Get the user's organization from user metadata or organization_team_members table
+      let organizationId = userData.user?.user_metadata?.organizationId;
+
+      if (!organizationId) {
+        // Try to get from organization_team_members table
+        const { data: orgData, error: orgError } = await supabase
+          .from("organization_team_members")
+          .select("organization_id")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        if (!orgError && orgData) {
+          organizationId = orgData.organization_id;
+        }
+      }
+
+      if (!organizationId) {
+        throw new Error("No organization found for user");
+      }
+
       // Create a prep list for the first template and get its ID
       const firstTemplateId = selectedTemplates[0];
-      const prepListId = await generatePrepListFromTemplate(
-        firstTemplateId,
-        formattedDate,
-      );
 
-      if (prepListId) {
-        // If there are more templates, generate prep lists for them too
-        if (selectedTemplates.length > 1) {
-          const remainingTemplates = selectedTemplates.slice(1);
-          for (const templateId of remainingTemplates) {
-            await generatePrepListFromTemplate(templateId, formattedDate);
-          }
-        }
+      // Get the kitchen stations from the template
+      const template = templates.find((t) => t.id === firstTemplateId);
+      const templateKitchenStations = template?.kitchen_stations || [];
+
+      if (isEditingExisting && currentPrepListId) {
+        // Update existing prep list in the database
+        const { error } = await supabase
+          .from("prep_lists")
+          .update({
+            title: prepListTitle,
+            description: prepListDescription,
+            template_id: firstTemplateId, // Use the first template as the template_id
+            kitchen_stations:
+              selectedKitchenStations.length > 0
+                ? selectedKitchenStations
+                : templateKitchenStations, // Use selected stations or fall back to template stations
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", currentPrepListId);
+
+        if (error) throw error;
+        toast.success("Prep list updated successfully");
       } else {
-        toast.error("Failed to generate prep list in database");
+        // Create new prep list in the database
+        const { data, error } = await supabase
+          .from("prep_lists")
+          .insert({
+            organization_id: organizationId,
+            title: prepListTitle,
+            description: prepListDescription,
+            template_id: firstTemplateId, // Use the first template as the template_id
+            kitchen_stations:
+              selectedKitchenStations.length > 0
+                ? selectedKitchenStations
+                : templateKitchenStations, // Use selected stations or fall back to template stations
+            date: formattedDate,
+            prep_system: "scheduled_production", // Default prep system
+            status: "active", // Default status
+            created_by: userId,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        setCurrentPrepListId(data.id);
+        toast.success("Prep list saved successfully");
+      }
+
+      // Refresh the saved prep lists from the database
+      await fetchSavedPrepLists();
+
+      // If there are more templates, generate prep lists for them too
+      if (selectedTemplates.length > 1) {
+        const remainingTemplates = selectedTemplates.slice(1);
+        for (const templateId of remainingTemplates) {
+          await generatePrepListFromTemplate(templateId, formattedDate);
+        }
       }
     } catch (error) {
       console.error("Error saving prep list:", error);
@@ -346,6 +500,7 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
     setPrepListTitle("New Prep List");
     setPrepListDescription("");
     setSelectedTemplates([]);
+    setSelectedKitchenStations([]);
     setShowCreationTool(true);
     setShowSavedLists(false);
     toast.success("Started new prep list");
@@ -356,7 +511,10 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
     if (prepList) {
       setPrepListTitle(prepList.title);
       setPrepListDescription(prepList.description || "");
-      setSelectedTemplates(prepList.templates);
+      // Set selected templates from the template_id
+      setSelectedTemplates(prepList.template_id ? [prepList.template_id] : []);
+      // Set selected kitchen stations
+      setSelectedKitchenStations(prepList.kitchen_stations || []);
       setCurrentPrepListId(prepList.id);
       setIsEditingExisting(true);
       setShowSavedLists(false);
@@ -365,23 +523,32 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
     }
   };
 
-  const handleDeletePrepList = (
+  const handleDeletePrepList = async (
     prepListId: string,
     event: React.MouseEvent,
   ) => {
     event.stopPropagation();
     if (confirm("Are you sure you want to delete this prep list?")) {
-      const updatedLists = savedPrepLists.filter(
-        (list) => list.id !== prepListId,
-      );
-      setSavedPrepLists(updatedLists);
-      localStorage.setItem("savedPrepLists", JSON.stringify(updatedLists));
+      try {
+        const { error } = await supabase
+          .from("prep_lists")
+          .delete()
+          .eq("id", prepListId);
 
-      if (currentPrepListId === prepListId) {
-        handleCreateNewList();
+        if (error) throw error;
+
+        // Refresh the saved prep lists from the database
+        await fetchSavedPrepLists();
+
+        if (currentPrepListId === prepListId) {
+          handleCreateNewList();
+        }
+
+        toast.success("Prep list deleted");
+      } catch (error) {
+        console.error("Error deleting prep list:", error);
+        toast.error("Failed to delete prep list");
       }
-
-      toast.success("Prep list deleted");
     }
   };
 
@@ -521,6 +688,10 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
                     <span className="inline-block w-2 h-2 rounded-full bg-blue-500 mt-2 mr-2"></span>
                     Support for As-Needed prep systems
                   </li>
+                  <li className="flex items-start">
+                    <span className="inline-block w-2 h-2 rounded-full bg-blue-500 mt-2 mr-2"></span>
+                    Assign kitchen stations for access control
+                  </li>
                 </ul>
               </div>
 
@@ -551,6 +722,13 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
                     <Sunset className="h-4 w-4 text-rose-500 mr-2" />
                     <span className="text-gray-400">
                       Closing - End of day procedures
+                    </span>
+                  </div>
+                  <div className="flex items-center">
+                    <MapPin className="h-4 w-4 text-purple-500 mr-2" />
+                    <span className="text-gray-400">
+                      Station Access - Control which stations can use each
+                      module
                     </span>
                   </div>
                 </div>
@@ -603,8 +781,25 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
                       {list.description}
                     </p>
                   )}
+                  {list.kitchen_stations &&
+                    list.kitchen_stations.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {list.kitchen_stations.map((station) => (
+                          <span
+                            key={station}
+                            className="bg-blue-900/30 border border-blue-500/30 rounded-full px-2 py-0.5 text-xs text-blue-300"
+                          >
+                            {station}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   <div className="flex justify-between items-center mt-2 text-xs text-gray-500">
-                    <span>{new Date(list.updatedAt).toLocaleDateString()}</span>
+                    <span>
+                      {list.updated_at
+                        ? new Date(list.updated_at).toLocaleDateString()
+                        : "Recently updated"}
+                    </span>
                     <span>{list.templates.length} modules</span>
                   </div>
                 </div>
@@ -687,6 +882,62 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
                   rows={3}
                 />
               </div>
+
+              <div className="mb-4">
+                <label
+                  htmlFor="kitchenStations"
+                  className="block text-sm font-medium text-gray-400 mb-1"
+                >
+                  Kitchen Stations Access
+                </label>
+                <div className="bg-gray-800 border border-gray-700 rounded-md p-3">
+                  <p className="text-xs text-gray-400 mb-2">
+                    Select which kitchen stations can view and use this prep
+                    list
+                  </p>
+                  <div className="flex flex-wrap gap-2 max-h-[150px] overflow-y-auto">
+                    {kitchenStations.length > 0 ? (
+                      kitchenStations.map((station) => (
+                        <div
+                          key={station}
+                          onClick={() => {
+                            if (selectedKitchenStations.includes(station)) {
+                              setSelectedKitchenStations(
+                                selectedKitchenStations.filter(
+                                  (s) => s !== station,
+                                ),
+                              );
+                            } else {
+                              setSelectedKitchenStations([
+                                ...selectedKitchenStations,
+                                station,
+                              ]);
+                            }
+                          }}
+                          className={`cursor-pointer px-3 py-1.5 rounded-full text-sm flex items-center gap-1 ${selectedKitchenStations.includes(station) ? "bg-primary-400/30 text-gray-300" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}
+                        >
+                          {selectedKitchenStations.includes(station) && (
+                            <div className="w-3 h-3 bg-white rounded-full flex items-center justify-center">
+                              <div className="w-1.5 h-1.5 bg-primary-400/30 rounded-full"></div>
+                            </div>
+                          )}
+                          {station}
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-gray-500 italic">
+                        No kitchen stations configured. Add them in Operations
+                        Settings.
+                      </p>
+                    )}
+                  </div>
+                  {selectedKitchenStations.length > 0 && (
+                    <div className="mt-2 text-xs text-gray-400">
+                      {selectedKitchenStations.length} station(s) selected
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700">
@@ -726,6 +977,7 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
                           title={template.title}
                           description={template.description}
                           templateId={templateId}
+                          kitchenStations={template.kitchen_stations}
                           onEdit={handleEditTemplate}
                           onRemove={handleRemoveTemplate}
                         />
@@ -778,6 +1030,22 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
                           {template.description}
                         </p>
                       )}
+                      {template.kitchen_stations &&
+                        template.kitchen_stations.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            <span className="text-xs text-gray-400">
+                              Stations:
+                            </span>
+                            {template.kitchen_stations.map((station) => (
+                              <span
+                                key={station}
+                                className="bg-blue-900/30 border border-blue-500/30 rounded-full px-2 py-0.5 text-xs text-blue-300"
+                              >
+                                {station}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       <div className="space-y-1 mt-2">
                         <div className="grid grid-cols-2 gap-1 text-xs">
                           <div className="flex items-center gap-1">
