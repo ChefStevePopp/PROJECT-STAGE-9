@@ -63,6 +63,7 @@ export const usePrepListTemplateStore = create<PrepListTemplateState>(
     fetchTemplates: async () => {
       set({ isLoading: true, error: null });
       try {
+        console.log("Fetching prep list templates...");
         const { data, error } = await supabase
           .from("prep_list_templates")
           .select(
@@ -74,6 +75,14 @@ export const usePrepListTemplateStore = create<PrepListTemplateState>(
           .order("title");
 
         if (error) throw error;
+
+        console.log("Fetched prep list templates:", data);
+        if (data && data.length > 0) {
+          console.log("First template:", data[0]);
+          console.log("First template tasks:", data[0].tasks);
+        } else {
+          console.log("No templates found");
+        }
 
         set({ templates: data as PrepListTemplate[], isLoading: false });
       } catch (error) {

@@ -33,89 +33,147 @@ export const useProductionData = (
   // Fetch organization schedule and tasks on component mount
   useEffect(() => {
     const fetchAllData = async () => {
+      // Only set refreshing state once at the beginning
       setIsRefreshing(true);
+      console.log("Starting fetchAllData with selectedDate:", selectedDate);
+      console.log("Current filters:", JSON.stringify(filters, null, 2));
+      console.log("Prep list IDs:", filters.prepListIds);
 
-      // Fetch organization schedule to get operating days
-      const schedule = await fetchOrganizationSchedule();
-      console.log("Fetched schedule in useProductionData:", schedule);
-
-      // Generate week days based on the selected date
-      const startDate = startOfWeek(parseISO(selectedDate), {
-        weekStartsOn: 1,
-      }); // Start from Monday
-      const days = [];
-
-      // If we have a schedule from the organization, use those days
-      // Otherwise default to a full week
-      // Ensure daysToShow is always an array
-      const daysToShow =
-        Array.isArray(schedule?.team_schedule) &&
-        schedule.team_schedule.length > 0
-          ? schedule.team_schedule
-          : [3, 4, 5, 6, 0]; // Default to Wed-Sun
-
-      console.log("Days to show in useProductionData:", daysToShow);
-
-      // Map from day number (0-6) to day index in the week (0-6 starting from Monday)
-      // This ensures we're correctly mapping the day numbers to the right positions in the week
-      const dayNumberToWeekIndex = {
-        0: 6, // Sunday is at index 6 when week starts on Monday
-        1: 0, // Monday is at index 0
-        2: 1, // Tuesday is at index 1
-        3: 2, // Wednesday is at index 2
-        4: 3, // Thursday is at index 3
-        5: 4, // Friday is at index 4
-        6: 5, // Saturday is at index 5
-      };
-
-      for (let i = 0; i < 7; i++) {
-        // Convert loop index to day number (0-6, where 0 is Sunday)
-        // When week starts on Monday (weekStartsOn: 1), the mapping is:
-        // i=0 -> Monday (day 1), i=1 -> Tuesday (day 2), ..., i=6 -> Sunday (day 0)
-        const dayNumber = i === 6 ? 0 : i + 1;
-
-        // Only include days that are in the organization's schedule
-        if (daysToShow.includes(dayNumber)) {
-          const day = addDays(startDate, i);
-          const formattedDay = format(day, "yyyy-MM-dd");
-          console.log(
-            `Adding day ${dayNumber} (${format(day, "EEE")}) to week days: ${formattedDay}`,
-          );
-          days.push(formattedDay);
-        } else {
-          console.log(
-            `Skipping day ${dayNumber} (${format(addDays(startDate, i), "EEE")}) - not in schedule`,
-          );
-        }
-      }
-
-      console.log("Final week days:", days);
-
-      setWeekDays(days);
-
-      // Fetch tasks with filters
-      await fetchTemplates();
-      await fetchTemplateTasksByStatus(
-        filters.status,
-        filters.personalOnly,
-        filters.kitchenStation,
-        filters.adminView,
-      );
-
-      // Fetch catering events for the selected week
       try {
-        // This is a placeholder for actual catering events fetching
-        // In a real implementation, you would fetch from your API or database
-        const events = await fetchCateringEvents(
-          days[0],
-          days[days.length - 1],
+        // Fetch organization schedule to get operating days
+        console.log("Fetching organization schedule...");
+        const schedule = await fetchOrganizationSchedule();
+        console.log(
+          "Organization schedule received:",
+          JSON.stringify(schedule, null, 2),
         );
-        setCateringEvents(events);
-      } catch (error) {
-        console.error("Error fetching catering events:", error);
-      }
 
-      setIsRefreshing(false);
+        // Generate week days based on the selected date
+        const startDate = startOfWeek(parseISO(selectedDate), {
+          weekStartsOn: 1,
+        }); // Start from Monday
+        console.log("Week start date:", format(startDate, "yyyy-MM-dd"));
+        const days = [];
+
+        // If we have a schedule from the organization, use those days
+        // Otherwise default to a full week
+        // Ensure daysToShow is always an array
+        const daysToShow =
+          Array.isArray(schedule?.team_schedule) &&
+          schedule.team_schedule.length > 0
+            ? schedule.team_schedule
+            : [3, 4, 5, 6, 0]; // Default to Wed-Sun
+
+        console.log("Days to show in schedule:", daysToShow);
+
+        // Map from day number (0-6) to day index in the week (0-6 starting from Monday)
+        const dayNumberToWeekIndex = {
+          0: 6, // Sunday is at index 6 when week starts on Monday
+          1: 0, // Monday is at index 0
+          2: 1, // Tuesday is at index 1
+          3: 2, // Wednesday is at index 2
+          4: 3, // Thursday is at index 3
+          5: 4, // Friday is at index 4
+          6: 5, // Saturday is at index 5
+        };
+
+        for (let i = 0; i < 7; i++) {
+          // Convert loop index to day number (0-6, where 0 is Sunday)
+          // When week starts on Monday (weekStartsOn: 1), the mapping is:
+          // i=0 -> Monday (day 1), i=1 -> Tuesday (day 2), ..., i=6 -> Sunday (day 0)
+          const dayNumber = i === 6 ? 0 : i + 1;
+
+          // Only include days that are in the organization's schedule
+          if (daysToShow.includes(dayNumber)) {
+            const day = addDays(startDate, i);
+            const formattedDay = format(day, "yyyy-MM-dd");
+            days.push(formattedDay);
+          }
+        }
+
+        console.log("Generated week days:", days);
+        setWeekDays(days);
+
+        // Fetch tasks and catering events in parallel
+        console.log(
+          "Starting parallel fetch of templates/tasks and catering events...",
+        );
+        try {
+          const [_, events] = await Promise.all([
+            // Fetch templates and tasks
+            (async () => {
+              try {
+                console.log("Fetching templates...");
+                await fetchTemplates();
+                console.log("Templates fetched successfully");
+
+                console.log("Fetching template tasks with filters:", {
+                  status: filters.status,
+                  personalOnly: filters.personalOnly,
+                  kitchenStation: filters.kitchenStation,
+                  adminView: filters.adminView,
+                  prepListIds: filters.prepListIds,
+                });
+
+                if (filters.prepListIds && filters.prepListIds.length > 0) {
+                  console.log(
+                    "Selected prep list IDs for task filtering:",
+                    filters.prepListIds,
+                  );
+                } else {
+                  console.log(
+                    "No prep list IDs selected, will fetch all tasks",
+                  );
+                }
+
+                await fetchTemplateTasksByStatus(
+                  filters.status,
+                  filters.personalOnly,
+                  filters.kitchenStation,
+                  filters.adminView,
+                  filters.prepListIds, // Pass the selected prep list IDs to the fetch function
+                );
+                console.log("Template tasks fetched successfully");
+              } catch (err) {
+                console.error("Error in template/task fetching:", err);
+                throw err; // Re-throw to be caught by the outer try/catch
+              }
+            })(),
+            // Fetch catering events
+            (async () => {
+              try {
+                console.log(
+                  `Fetching catering events from ${days[0]} to ${days[days.length - 1]}`,
+                );
+                // This is a placeholder for actual catering events fetching
+                const cateringEvents = await fetchCateringEvents(
+                  days[0],
+                  days[days.length - 1],
+                );
+                console.log(`Fetched ${cateringEvents.length} catering events`);
+                return cateringEvents;
+              } catch (error) {
+                console.error("Error fetching catering events:", error);
+                return [];
+              }
+            })(),
+          ]);
+
+          console.log("Parallel fetch completed successfully");
+          setCateringEvents(events);
+        } catch (parallelError) {
+          console.error("Error in parallel fetch operations:", parallelError);
+          // Set error state but continue with what we have
+        }
+      } catch (error) {
+        console.error("Error in fetchAllData:", error);
+        // Set error state to display to user
+        set({ error: error instanceof Error ? error.message : String(error) });
+      } finally {
+        // Only set refreshing state once at the end
+        setIsRefreshing(false);
+        console.log("fetchAllData completed");
+      }
     };
 
     fetchAllData();
@@ -139,75 +197,106 @@ export const useProductionData = (
     return [];
   };
 
-  // Organize tasks by day
+  // Organize tasks by day - memoized to prevent unnecessary recalculations
   useEffect(() => {
-    if (templateTasks) {
-      const taskMap: Record<string, Task[]> = {};
+    if (!templateTasks || weekDays.length === 0) return;
 
-      // Initialize empty arrays for each day
-      weekDays.forEach((day) => {
-        taskMap[day] = [];
+    console.log("Organizing tasks by day with templateTasks:", templateTasks);
+    console.log("Current filters:", filters);
+    console.log("Selected prep list IDs:", filters.prepListIds);
+
+    // Create task map once and update it efficiently
+    const taskMap: Record<string, Task[]> = {};
+
+    // Initialize empty arrays for each day
+    weekDays.forEach((day) => {
+      taskMap[day] = [];
+    });
+
+    // Use all tasks regardless of filters to ensure we show everything in the database
+    let filteredTasks = templateTasks;
+
+    console.log(
+      "Using all template tasks without filtering:",
+      templateTasks.length,
+    );
+
+    // Log each task's details for debugging
+    if (templateTasks && templateTasks.length > 0) {
+      console.log(
+        `Logging details for ${templateTasks.length} template tasks:`,
+      );
+      templateTasks.forEach((task) => {
+        console.log(
+          `Task ${task.id} has template_id: ${task.template_id || "UNDEFINED"}, due_date: ${task.due_date || "UNDEFINED"}`,
+        );
       });
+    } else {
+      console.warn(
+        "No template tasks available - this may indicate an upstream issue",
+      );
+    }
 
-      // Filter tasks by selected prep lists if any are selected
-      const filteredTasks =
-        filters.prepListIds && filters.prepListIds.length > 0
-          ? templateTasks.filter((task) =>
-              filters.prepListIds!.includes(task.template_id),
-            )
-          : templateTasks;
+    // Convert template tasks to regular tasks and organize by due date
+    filteredTasks.forEach((task) => {
+      // Use the task's due_date if available, otherwise use the selected date
+      const dueDate = task.due_date || selectedDate;
 
-      // Convert template tasks to regular tasks and organize by due date
-      filteredTasks.forEach((task) => {
-        // For demo purposes, distribute tasks across the week
-        // In a real implementation, you'd use the actual due_date from the task
-        const dueDate = task.due_date || selectedDate;
+      console.log(`Processing task ${task.id} with due date ${dueDate}`);
 
-        // Only add the task if the due date is in our week view
-        if (weekDays.includes(dueDate)) {
-          const regularTask: Task = {
-            id: task.id,
-            title: task.title,
-            description: task.description || "",
-            priority: "medium",
-            estimated_time: task.estimated_time || 0,
-            station: task.station || "",
-            assignee_id: task.assignee_id,
+      // Only add the task if the due date is in our week view
+      if (weekDays.includes(dueDate)) {
+        const regularTask: Task = {
+          id: task.id,
+          title: task.title,
+          description: task.description || "",
+          priority: task.priority || "medium",
+          estimated_time: task.estimated_time || 0,
+          station: task.station || "",
+          assignee_id: task.assignee_id,
+          completed: task.completed || false,
+          organization_id: task.organization_id || "", // Preserve organization_id if available
+          due_date: dueDate,
+          template_id: task.template_id, // Preserve template_id for reference
+          prep_list_id: task.prep_list_id, // Preserve prep_list_id for reference
+        };
+
+        console.log(`Adding task to ${dueDate}:`, regularTask);
+        taskMap[dueDate] = [...(taskMap[dueDate] || []), regularTask];
+      } else {
+        console.log(
+          `Task ${task.id} due date ${dueDate} not in week days:`,
+          weekDays,
+        );
+      }
+    });
+
+    // Add catering events as tasks if they exist and the filter is enabled
+    if (cateringEvents.length > 0 && filters.showCateringEvents) {
+      cateringEvents.forEach((event) => {
+        const eventDate = event.date;
+        if (weekDays.includes(eventDate)) {
+          const cateringTask: Task = {
+            id: `catering-${event.id}`,
+            title: `Catering: ${event.title}`,
+            description: event.description || "",
+            priority: "high",
+            estimated_time: event.duration || 0,
+            station: "catering",
+            assignee_id: event.assignee_id || "",
             completed: false,
-            organization_id: "", // Not needed for display
-            due_date: dueDate,
+            organization_id: "",
+            due_date: eventDate,
+            is_catering_event: true,
           };
 
-          taskMap[dueDate] = [...(taskMap[dueDate] || []), regularTask];
+          taskMap[eventDate] = [...(taskMap[eventDate] || []), cateringTask];
         }
       });
-
-      // Add catering events as tasks if they exist and the filter is enabled
-      if (cateringEvents.length > 0 && filters.showCateringEvents) {
-        cateringEvents.forEach((event) => {
-          const eventDate = event.date;
-          if (weekDays.includes(eventDate)) {
-            const cateringTask: Task = {
-              id: `catering-${event.id}`,
-              title: `Catering: ${event.title}`,
-              description: event.description || "",
-              priority: "high",
-              estimated_time: event.duration || 0,
-              station: "catering",
-              assignee_id: event.assignee_id || "",
-              completed: false,
-              organization_id: "",
-              due_date: eventDate,
-              is_catering_event: true,
-            };
-
-            taskMap[eventDate] = [...(taskMap[eventDate] || []), cateringTask];
-          }
-        });
-      }
-
-      setTasksByDay(taskMap);
     }
+
+    console.log("Final tasksByDay:", taskMap);
+    setTasksByDay(taskMap);
   }, [
     templateTasks,
     weekDays,
@@ -228,14 +317,26 @@ export const useProductionData = (
     cateringEvents,
     refreshData: async () => {
       setIsRefreshing(true);
-      await fetchTemplates();
-      await fetchTemplateTasksByStatus(
-        filters.status,
-        filters.personalOnly,
-        filters.kitchenStation,
-        filters.adminView,
-      );
-      setIsRefreshing(false);
+      try {
+        // Fetch data in parallel to reduce loading time
+        await Promise.all([
+          fetchTemplates(),
+          fetchTemplateTasksByStatus(
+            filters.status,
+            filters.personalOnly,
+            filters.kitchenStation,
+            filters.adminView,
+            filters.prepListIds, // Pass the selected prep list IDs to the fetch function
+          ),
+        ]);
+
+        // Add a small delay to ensure the database has time to update
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      } catch (error) {
+        console.error("Error refreshing data:", error);
+      } finally {
+        setIsRefreshing(false);
+      }
     },
   };
 };

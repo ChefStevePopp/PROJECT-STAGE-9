@@ -13,6 +13,9 @@ interface KanbanBoardProps {
   tasks: Record<string, Task[]>;
   onTaskMove: (taskId: string, fromDay: string, toDay: string) => void;
   onTaskComplete: (taskId: string) => void;
+  onDayClick?: (day: string) => void;
+  onHeaderClick?: () => void;
+  isDayView?: boolean;
 }
 
 export const KanbanBoard: React.FC<KanbanBoardProps> = ({
@@ -20,6 +23,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   tasks,
   onTaskMove,
   onTaskComplete,
+  onDayClick,
+  onHeaderClick,
+  isDayView = false,
 }) => {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -47,6 +53,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
             day={day}
             tasks={tasks[day] || []}
             onTaskComplete={onTaskComplete}
+            onDayClick={onDayClick ? () => onDayClick(day) : undefined}
+            onHeaderClick={onHeaderClick}
+            isDayView={isDayView}
+            className=""
           />
         ))}
       </div>

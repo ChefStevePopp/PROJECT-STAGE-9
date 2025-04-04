@@ -1,18 +1,29 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { UserMenu } from "../UserMenu";
 import { ROUTES } from "@/config/routes";
-import { Clock, Bell, Menu, X } from "lucide-react";
+import { Clock, Bell, Menu, X, ListFilter } from "lucide-react";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { usePrepListTemplateStore } from "@/stores/prepListTemplateStore";
 
-export const Header: React.FC<{ className?: string }> = ({
-  className = "",
-}) => {
+export const Header: React.FC<{
+  className?: string;
+  onPrepListsSelected?: (selectedPrepLists: string[]) => void;
+  isProductionDayView?: boolean;
+}> = ({ className = "", onPrepListsSelected, isProductionDayView = false }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [notificationCount, setNotificationCount] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showPrepListFilter, setShowPrepListFilter] = useState(false);
+  const [selectedPrepLists, setSelectedPrepLists] = useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
   const isMobile = useMediaQuery("(max-width: 1000px)");
+  const { templates, fetchTemplates } = usePrepListTemplateStore();
+  const isProductionRoute = location.pathname.includes(
+    ROUTES.KITCHEN.PRODUCTION,
+  );
 
   // Update time every minute
   useEffect(() => {
@@ -22,6 +33,20 @@ export const Header: React.FC<{ className?: string }> = ({
 
     return () => clearInterval(timer);
   }, []);
+
+  // Fetch templates when on production route
+  useEffect(() => {
+    if (isProductionRoute) {
+      fetchTemplates();
+    }
+  }, [isProductionRoute, fetchTemplates]);
+
+  // Notify parent component when selected prep lists change
+  useEffect(() => {
+    if (onPrepListsSelected && isProductionRoute) {
+      onPrepListsSelected(selectedPrepLists);
+    }
+  }, [selectedPrepLists, onPrepListsSelected, isProductionRoute]);
 
   // Simulate receiving notifications
   useEffect(() => {
@@ -122,6 +147,8 @@ export const Header: React.FC<{ className?: string }> = ({
                   </div>
                 )}
               </button>
+
+              {/* Removed Prep List Filter from Header - Now handled in ProductionBoard */}
 
               {/* Desktop User Menu */}
               {!isMobile && <UserMenu />}

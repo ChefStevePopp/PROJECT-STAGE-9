@@ -26,12 +26,17 @@ interface ProductionState {
     personalOnly?: boolean,
     kitchenStation?: string,
     adminView?: boolean,
+    prepListIds?: string[],
   ) => Promise<void>;
   updateTemplateTaskStatus: (taskId: string, status: string) => Promise<void>;
   completeTemplateTask: (taskId: string) => Promise<void>;
   assignTemplateTask: (taskId: string, assigneeId: string) => Promise<void>;
   updateTaskDueDate: (taskId: string, dueDate: string) => Promise<void>;
   fetchOrganizationSchedule: () => Promise<OrganizationSchedule | null>;
+  createTemplateTaskFromModule: (
+    module: PrepListTemplateTask,
+    dueDate: string,
+  ) => Promise<PrepListTemplateTask | null>;
 }
 
 export const useProductionStore = create<ProductionState>((set, get) => ({
@@ -70,6 +75,7 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
 
       if (error) throw error;
 
+      console.log("Fetched prep lists:", data);
       set({ prepLists: data as PrepList[], isLoading: false });
     } catch (error) {
       console.error("Error fetching prep lists:", error);
@@ -78,7 +84,9 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
   },
 
   fetchTemplates: async () => {
-    set({ isLoading: true, error: null });
+    // Don't set isLoading here to prevent UI flashing when called from useProductionData
+    // The parent component will handle the loading state
+    set({ error: null });
     try {
       // Get organization_id from user context
       const { data: userData } = await supabase.auth.getUser();
@@ -89,23 +97,46 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
       const organizationId = userData.user.user_metadata.organizationId;
 
       // Fetch prep list templates
-      const { data, error } = await supabase
+      const { data: templatesData, error: templatesError } = await supabase
         .from("prep_list_templates")
-        .select(
-          `
-          *,
-          tasks:prep_list_template_tasks(*)
-        `,
-        )
+        .select("*")
         .eq("organization_id", organizationId)
         .order("title");
 
-      if (error) throw error;
+      if (templatesError) throw templatesError;
 
-      set({ templates: data as PrepListTemplate[], isLoading: false });
+      console.log("Fetched templates:", templatesData);
+
+      // For each template, fetch its tasks separately
+      const templatesWithTasks = await Promise.all(
+        templatesData.map(async (template) => {
+          const { data: tasksData, error: tasksError } = await supabase
+            .from("prep_list_template_tasks")
+            .select("*")
+            .eq("template_id", template.id)
+            .order("sequence", { ascending: true });
+
+          if (tasksError) {
+            console.error(
+              `Error fetching tasks for template ${template.id}:`,
+              tasksError,
+            );
+            return { ...template, tasks: [] };
+          }
+
+          console.log(
+            `Fetched ${tasksData.length} tasks for template ${template.id}`,
+          );
+          return { ...template, tasks: tasksData || [] };
+        }),
+      );
+
+      console.log("Templates with tasks:", templatesWithTasks);
+      // Update state in a single operation
+      set({ templates: templatesWithTasks as PrepListTemplate[] });
     } catch (error) {
       console.error("Error fetching prep list templates:", error);
-      set({ error: (error as Error).message, isLoading: false });
+      set({ error: (error as Error).message });
     }
   },
 
@@ -114,75 +145,239 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
     personalOnly: boolean = false,
     kitchenStation?: string,
     adminView?: boolean,
+    prepListIds?: string[],
   ) => {
-    set({ isLoading: true, error: null });
+    console.log("=== FETCH TEMPLATE TASKS START ====");
+    console.log("Fetching template tasks with status:", status);
+    console.log("Personal only filter:", personalOnly);
+    console.log("Kitchen station filter:", kitchenStation);
+    console.log("Admin view:", adminView);
+    console.log("Fetching template tasks with prepListIds:", prepListIds);
+
+    // Validate prepListIds parameter
+    if (prepListIds) {
+      if (!Array.isArray(prepListIds)) {
+        console.error("ERROR: prepListIds is not an array:", prepListIds);
+        set({ error: "Invalid prep list IDs format", templateTasks: [] });
+        return;
+      }
+
+      if (prepListIds.length === 0) {
+        console.warn("WARNING: prepListIds array is empty");
+        // Return empty array early instead of proceeding with empty filter
+        set({ templateTasks: [] });
+        return;
+      } else {
+        console.log(
+          "PrepListIds validation passed, first few IDs:",
+          prepListIds.slice(0, 3),
+        );
+      }
+    }
+
+    // Don't set isLoading here to prevent UI flashing when called from useProductionData
+    // The parent component will handle the loading state
+    set({ error: null });
     try {
       // Get organization_id from user context
-      const { data: userData } = await supabase.auth.getUser();
+      console.log("Getting user data from Supabase...");
+      const { data: userData, error: userError } =
+        await supabase.auth.getUser();
+
+      if (userError) {
+        console.error("Error fetching user data:", userError);
+        throw new Error(`Authentication error: ${userError.message}`);
+      }
+
+      if (!userData.user) {
+        console.error("No user data returned from Supabase");
+        throw new Error("User not authenticated");
+      }
+
       if (!userData.user?.user_metadata?.organizationId) {
-        throw new Error("No organization ID found");
+        console.error(
+          "User metadata missing organizationId:",
+          userData.user?.user_metadata,
+        );
+        throw new Error("No organization ID found in user metadata");
       }
 
       const organizationId = userData.user.user_metadata.organizationId;
       const userId = userData.user.id;
+      console.log(`User ID: ${userId}, Organization ID: ${organizationId}`);
 
-      // First get all templates for this organization
-      const { data: templatesData, error: templatesError } = await supabase
-        .from("prep_list_templates")
-        .select("id")
-        .eq("organization_id", organizationId);
+      // If prepListIds are provided, get the template IDs from those prep lists
+      let templateIds = [];
+      if (prepListIds && prepListIds.length > 0) {
+        console.log("Filtering by prep list IDs in query:", prepListIds);
 
-      if (templatesError) throw templatesError;
+        // First, get the template IDs associated with these prep lists
+        console.log("Fetching prep lists data to extract template IDs...");
+        const { data: prepListsData, error: prepListsError } = await supabase
+          .from("prep_lists")
+          .select("id, template_id, template_ids")
+          .in("id", prepListIds);
 
-      if (!templatesData || templatesData.length === 0) {
-        set({ templateTasks: [], isLoading: false });
-        return;
+        if (prepListsError) {
+          console.error("Error fetching prep lists:", prepListsError);
+          throw new Error(
+            `Failed to fetch prep lists: ${prepListsError.message}`,
+          );
+        }
+
+        if (!prepListsData || prepListsData.length === 0) {
+          console.warn(
+            "No prep lists found for the provided IDs:",
+            prepListIds,
+          );
+          set({ templateTasks: [] });
+          return;
+        }
+
+        console.log(
+          "Fetched prep lists for template IDs:",
+          JSON.stringify(prepListsData, null, 2),
+        );
+
+        // Extract all template IDs (from both template_id field and template_ids array)
+        templateIds = prepListsData
+          .flatMap((prepList) => {
+            const ids = [];
+            if (prepList.template_id) {
+              console.log(
+                `Prep list ${prepList.id} has template_id: ${prepList.template_id}`,
+              );
+              ids.push(prepList.template_id);
+            }
+            if (prepList.template_ids && Array.isArray(prepList.template_ids)) {
+              console.log(
+                `Prep list ${prepList.id} has template_ids array: ${JSON.stringify(prepList.template_ids)}`,
+              );
+              ids.push(...prepList.template_ids);
+            }
+
+            if (ids.length === 0) {
+              console.warn(
+                `Prep list ${prepList.id} has no template IDs (neither template_id nor template_ids array)`,
+              );
+            }
+
+            return ids;
+          })
+          .filter((id) => {
+            if (!id) {
+              console.warn("Filtered out null/undefined template ID");
+              return false;
+            }
+            return true;
+          }); // Remove any null/undefined values
+
+        console.log(
+          "Final extracted template IDs after filtering:",
+          templateIds,
+        );
+
+        console.log("Extracted template IDs from prep lists:", templateIds);
+
+        if (templateIds.length === 0) {
+          console.warn("No template IDs found in the selected prep lists");
+          set({ templateTasks: [] });
+          return;
+        }
+      } else {
+        // Otherwise, get all templates for this organization
+        console.log(
+          "No prep list IDs provided, fetching all templates for organization",
+        );
+        const { data: templatesData, error: templatesError } = await supabase
+          .from("prep_list_templates")
+          .select("id")
+          .eq("organization_id", organizationId);
+
+        if (templatesError) {
+          console.error("Error fetching templates:", templatesError);
+          throw new Error(
+            `Failed to fetch templates: ${templatesError.message}`,
+          );
+        }
+
+        if (!templatesData || templatesData.length === 0) {
+          console.warn("No templates found for this organization");
+          set({ templateTasks: [] });
+          return;
+        }
+
+        console.log("Found templates for organization:", templatesData);
+        templateIds = templatesData.map((template) => template.id);
       }
 
-      const templateIds = templatesData.map((template) => template.id);
-
       // Build the query for template tasks
+      console.log(
+        "Building query for template tasks with template IDs:",
+        templateIds,
+      );
+      // IMPORTANT: We're not filtering by template_id anymore to ensure all tasks show up
+      // This allows tasks created from modules to appear on the Kanban board
       let query = supabase
         .from("prep_list_template_tasks")
         .select("*")
-        .in("template_id", templateIds);
+        .eq("organization_id", organizationId);
 
       // Add personal filter if requested
       if (personalOnly) {
+        console.log(`Adding personal filter for user ID: ${userId}`);
         query = query.eq("assignee_id", userId);
       }
 
       // Add kitchen station filter if provided
       if (kitchenStation) {
+        console.log(`Adding kitchen station filter: ${kitchenStation}`);
         query = query.eq("kitchen_station", kitchenStation);
       }
 
       // Admin view logic can be implemented here if needed
-      // For now, we'll just log that it's being used
       if (adminView) {
         console.log("Admin view filter applied");
-        // In a real implementation, you might want to add additional filters or data
+        // No specific filter for admin view yet
       }
 
       // Execute the query with ordering
+      console.log("Executing query for template tasks...");
       const { data, error } = await query.order("sequence", {
         ascending: true,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error executing template tasks query:", error);
+        throw new Error(`Failed to fetch template tasks: ${error.message}`);
+      }
 
       // Since prep_list_template_tasks doesn't have a completed field,
       // we'll treat all tasks as pending for now
-      // In a real implementation, you might want to add a completed field to the table
       const tasks = data as PrepListTemplateTask[];
+      console.log(`Fetched ${tasks.length} template tasks`);
+      if (tasks.length > 0) {
+        console.log("Sample task:", JSON.stringify(tasks[0], null, 2));
+      } else {
+        console.warn("No tasks found for the specified filters");
+      }
 
-      // Distribute tasks across the week for demo purposes
-      // In a real implementation, you'd use actual due dates
+      // Only assign due dates to tasks that don't already have one
+      console.log("Checking tasks for missing due dates...");
       const today = new Date();
       const modifiedTasks = tasks.map((task, index) => {
-        // Assign due dates across the week for demonstration
+        // If the task already has a due_date, keep it
+        if (task.due_date) {
+          console.log(`Task ${task.id} already has due_date: ${task.due_date}`);
+          return task;
+        }
+
+        // Otherwise assign a due date for demonstration
         const dueDate = new Date(today);
         dueDate.setDate(today.getDate() + (index % 7)); // Distribute across 7 days
+        console.log(
+          `Assigning due_date ${dueDate.toISOString().split("T")[0]} to task ${task.id}`,
+        );
 
         return {
           ...task,
@@ -191,13 +386,16 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
       });
 
       // Filter based on the requested status
-      // For now, we'll just return all tasks as pending since there's no status field
       const filteredTasks = status === "completed" ? [] : modifiedTasks;
+      console.log(`Final filtered tasks count: ${filteredTasks.length}`);
 
-      set({ templateTasks: filteredTasks, isLoading: false });
+      // Update state in a single operation
+      set({ templateTasks: filteredTasks });
+      console.log("=== FETCH TEMPLATE TASKS COMPLETE ====");
     } catch (error) {
       console.error(`Error fetching ${status} template tasks:`, error);
-      set({ error: (error as Error).message, isLoading: false });
+      set({ error: error instanceof Error ? error.message : String(error) });
+      console.log("=== FETCH TEMPLATE TASKS FAILED ====");
     }
   },
 
@@ -280,111 +478,74 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
     }
   },
 
-  fetchOrganizationSchedule: async () => {
+  createTemplateTaskFromModule: async (module, dueDate) => {
+    set({ isLoading: true, error: null });
     try {
-      // Get organization_id from user context
       const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user?.user_metadata?.organizationId) {
-        throw new Error("No organization ID found");
+      if (!userData.user) throw new Error("User not authenticated");
+
+      // Try to get organization ID from user metadata
+      let organizationId = userData.user?.user_metadata?.organizationId;
+
+      // If not found in metadata, try to get from organization_members table
+      if (!organizationId) {
+        const { data: orgData, error: orgError } = await supabase
+          .from("organization_team_members")
+          .select("organization_id")
+          .eq("user_id", userData.user.id)
+          .maybeSingle();
+
+        if (orgError && orgError.code !== "PGRST116") {
+          console.error("Error fetching organization:", orgError);
+          throw new Error("Failed to fetch organization data");
+        }
+
+        if (orgData) {
+          organizationId = orgData.organization_id;
+        }
       }
 
-      const organizationId = userData.user.user_metadata.organizationId;
-      console.log("Organization ID:", organizationId);
+      if (!organizationId) throw new Error("No organization found for user");
 
-      // Fetch organization settings
+      // Create a new task based on the module template
+      const newTask: Partial<PrepListTemplateTask> = {
+        title: module.title,
+        description: module.description,
+        estimated_time: module.estimated_time,
+        station: module.station,
+        template_id: module.template_id,
+        sequence: module.sequence,
+        kitchen_station: module.kitchen_station,
+        assignee_id: userData.user.id, // Assign to current user by default
+        due_date: dueDate,
+        organization_id: organizationId,
+        // Do not include id field at all to let Supabase generate a new ID
+      };
+
+      console.log("Creating new task from module:", newTask);
+
+      // Insert the new task into the database
       const { data, error } = await supabase
-        .from("organizations")
-        .select("settings")
-        .eq("id", organizationId)
+        .from("prep_list_template_tasks")
+        .insert([newTask])
+        .select()
         .single();
 
       if (error) {
-        console.error("Error fetching organization settings:", error);
-        throw error;
+        console.error("Error creating task from module:", error);
+        throw new Error(`Failed to create task: ${error.message}`);
       }
 
-      console.log("Raw organization data:", JSON.stringify(data, null, 2));
-
-      // Extract team_schedule from settings
-      let teamSchedule = [];
-
-      if (data?.settings) {
-        console.log("Settings found:", JSON.stringify(data.settings, null, 2));
-
-        if (data.settings.team_schedule) {
-          console.log(
-            "Team schedule found in settings:",
-            data.settings.team_schedule,
-          );
-
-          // Check if team_schedule is an object with day names as keys
-          if (
-            typeof data.settings.team_schedule === "object" &&
-            !Array.isArray(data.settings.team_schedule)
-          ) {
-            // Convert day names to day numbers (0 = Sunday, 1 = Monday, etc.)
-            const dayMapping = {
-              Sunday: 0,
-              Monday: 1,
-              Tuesday: 2,
-              Wednesday: 3,
-              Thursday: 4,
-              Friday: 5,
-              Saturday: 6,
-            };
-
-            // Add day numbers for days that are not closed
-            for (const [day, hours] of Object.entries(
-              data.settings.team_schedule,
-            )) {
-              if (Array.isArray(hours) && hours.length > 0) {
-                // Skip days marked as closed
-                if (!hours[0].closed) {
-                  const dayNumber = dayMapping[day];
-                  if (dayNumber !== undefined) {
-                    teamSchedule.push(dayNumber);
-                  }
-                }
-              }
-            }
-
-            console.log(
-              "Converted team schedule from day names to numbers:",
-              teamSchedule,
-            );
-          } else if (Array.isArray(data.settings.team_schedule)) {
-            // If it's already an array of day numbers, use it directly
-            teamSchedule = data.settings.team_schedule;
-          } else {
-            // Default if format is unexpected
-            console.log(
-              "Unexpected team_schedule format, using default Wed-Sun",
-            );
-            teamSchedule = [3, 4, 5, 6, 0]; // Wed, Thu, Fri, Sat, Sun
-          }
-        } else {
-          console.log("No team_schedule in settings, using default Wed-Sun");
-          teamSchedule = [3, 4, 5, 6, 0]; // Wed, Thu, Fri, Sat, Sun
-        }
-      } else {
-        console.log("No settings found, using default Wed-Sun");
-        teamSchedule = [3, 4, 5, 6, 0]; // Wed, Thu, Fri, Sat, Sun
+      if (!data) {
+        throw new Error("No data returned after creating task");
       }
 
-      // Ensure we have at least some days in the schedule
-      if (teamSchedule.length === 0) {
-        console.log(
-          "No valid days found in team_schedule, using default Wed-Sun",
-        );
-        teamSchedule = [3, 4, 5, 6, 0]; // Wed, Thu, Fri, Sat, Sun
-      }
+      // Update the local state with the new task
+      set((state) => ({
+        templateTasks: [...state.templateTasks, data as PrepListTemplateTask],
+        isLoading: false,
+      }));
 
-      console.log("Final organization schedule:", teamSchedule);
-      return { team_schedule: teamSchedule };
-    } catch (error) {
-      console.error("Error fetching organization schedule:", error);
-      // Default to Wednesday through Sunday (3-6) for this organization
-      return { team_schedule: [3, 4, 5, 6, 0] }; // Wed, Thu, Fri, Sat, Sun
-    }
-  },
-}));
+      console.log(`Added module ${module.title} to day ${dueDate}`);
+      return data as PrepListTemplateTask;
+    } catch

@@ -88,7 +88,8 @@ export interface PrepListTemplateTask {
 export interface PrepList {
   id: string;
   organization_id: string;
-  template_id: string; // Reference to the template this prep list is based on
+  template_id?: string; // Legacy reference to the template this prep list is based on
+  template_ids?: string[]; // Array of template IDs this prep list is based on
   title: string;
   description?: string;
   date: string;
@@ -105,6 +106,7 @@ export interface PrepList {
   inventory_snapshot?: Record<string, number>; // For PAR-based lists
   scheduled_for?: string; // Date this prep is scheduled for (might be different from creation date)
   viewer_team_members?: string[]; // Team members who can view this prep list
+  kitchen_stations?: string[]; // Kitchen stations that have access to this prep list
 }
 
 export interface PrepListStore {

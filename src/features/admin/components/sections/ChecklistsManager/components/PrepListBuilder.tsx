@@ -20,7 +20,11 @@ import {
   CookingPot,
   Sunrise,
   Sunset,
+  SaveAll,
   MapPin,
+  FileText,
+  AlignLeft,
+  X,
 } from "lucide-react";
 import { usePrepListTemplateStore } from "../../../../../../stores/prepListTemplateStore";
 import {
@@ -494,6 +498,12 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
     }
   };
 
+  const handleSaveAndClose = async () => {
+    await handleSavePrepList();
+    setShowCreationTool(false);
+    setShowSavedLists(true);
+  };
+
   const handleCreateNewList = () => {
     setCurrentPrepListId(null);
     setIsEditingExisting(false);
@@ -617,7 +627,7 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
               </button>
             )}
             <button
-              className="btn-ghost rounded-l-none"
+              className="btn-ghost-green rounded-l-none"
               onClick={handleCreateNewList}
             >
               <FilePlus className="h-4 w-4 mr-2" />
@@ -814,7 +824,7 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
           )}
 
           <div className="mt-4 flex justify-center">
-            <button className="btn-primary" onClick={handleCreateNewList}>
+            <button className="btn-ghost" onClick={handleCreateNewList}>
               <Plus className="h-4 w-4 mr-2" />
               Create New List
             </button>
@@ -830,8 +840,9 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
                 <div className="flex justify-between items-center mb-1">
                   <label
                     htmlFor="prepListTitle"
-                    className="block text-sm font-medium text-gray-400"
+                    className="flex items-center gap-1 text-sm font-medium text-gray-400"
                   >
+                    <FileText className="h-3 w-3 text-blue-400" />
                     Prep List Title
                   </label>
                   {isEditingExisting && (
@@ -847,30 +858,43 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
                     type="text"
                     value={prepListTitle}
                     onChange={(e) => setPrepListTitle(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-2 pr-10 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-2 pr-20 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Enter prep list title"
                   />
-                  <button
-                    className={`absolute right-2 top-1/2 transform -translate-y-1/2 p-1.5 rounded-md ${isSaving ? "opacity-70 cursor-not-allowed bg-gray-700" : "bg-blue-600 hover:bg-blue-700"}`}
-                    onClick={handleSavePrepList}
-                    disabled={isSaving}
-                    title={
-                      isEditingExisting ? "Update Prep List" : "Save Prep List"
-                    }
-                  >
-                    {isSaving ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
-                    ) : (
-                      <Save className="h-4 w-4 text-white" />
-                    )}
-                  </button>
+                  <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-1">
+                    <button
+                      className={`p-1.5 rounded-md ${isSaving ? "opacity-70 cursor-not-allowed bg-gray-700" : "bg-blue-600 hover:bg-blue-700"}`}
+                      onClick={handleSaveAndClose}
+                      disabled={isSaving}
+                      title="Save and Close"
+                    >
+                      <SaveAll className="h-4 w-4 text-white" />
+                    </button>
+                    <button
+                      className={`p-1.5 rounded-md ${isSaving ? "opacity-70 cursor-not-allowed bg-gray-700" : "bg-primary-600 hover:bg-primary-700"}`}
+                      onClick={handleSavePrepList}
+                      disabled={isSaving}
+                      title={
+                        isEditingExisting
+                          ? "Update Prep List"
+                          : "Save Prep List"
+                      }
+                    >
+                      {isSaving ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                      ) : (
+                        <Save className="h-4 w-4 text-white" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="mb-4">
                 <label
                   htmlFor="prepListDescription"
-                  className="block text-sm font-medium text-gray-400 mb-1"
+                  className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-1"
                 >
+                  <AlignLeft className="h-3 w-3 text-blue-400" />
                   Description (Optional)
                 </label>
                 <textarea
@@ -886,8 +910,9 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
               <div className="mb-4">
                 <label
                   htmlFor="kitchenStations"
-                  className="block text-sm font-medium text-gray-400 mb-1"
+                  className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-1"
                 >
+                  <MapPin className="h-3 w-3 text-blue-400" />
                   Kitchen Stations Access
                 </label>
                 <div className="bg-gray-800 border border-gray-700 rounded-md p-3">
@@ -914,13 +939,9 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
                               ]);
                             }
                           }}
-                          className={`cursor-pointer px-3 py-1.5 rounded-full text-sm flex items-center gap-1 ${selectedKitchenStations.includes(station) ? "bg-primary-400/30 text-gray-300" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}
+                          className={`cursor-pointer px-3 py-1.5 text-sm rounded-full flex items-center gap-1 ${selectedKitchenStations.includes(station) ? "bg-primary-400/30 text-gray-300" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}
                         >
-                          {selectedKitchenStations.includes(station) && (
-                            <div className="w-3 h-3 bg-white rounded-full flex items-center justify-center">
-                              <div className="w-1.5 h-1.5 bg-primary-400/30 rounded-full"></div>
-                            </div>
-                          )}
+                          {/* Removed the square indicator while keeping the selection color */}
                           {station}
                         </div>
                       ))
@@ -946,7 +967,7 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
                   Modules in this Prep List
                 </h3>
                 <button
-                  className="btn-secondary text-sm"
+                  className="btn-ghost-blue text-sm"
                   onClick={() => setShowTemplateSelector(!showTemplateSelector)}
                 >
                   <Plus className="h-4 w-4 mr-1" />

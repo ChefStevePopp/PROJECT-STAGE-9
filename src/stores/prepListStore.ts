@@ -1,6 +1,11 @@
 import { create } from "zustand";
 import { supabase } from "../lib/supabase";
-import { PrepList, PrepListStore, PrepListTemplate } from "../types/tasks";
+import {
+  PrepList,
+  PrepListStore,
+  PrepListTemplate,
+  PrepListFilters,
+} from "../types/tasks";
 
 // Helper function to get organization ID for the current user
 const getUserOrganizationId = async () => {
@@ -83,12 +88,7 @@ export const usePrepListStore = create<PrepListStore>((set, get) => ({
       // Build the query
       let query = supabase
         .from("prep_lists")
-        .select(
-          `
-          *,
-          tasks:tasks(*)
-        `,
-        )
+        .select("*, template_ids")
         .eq("organization_id", organizationId);
 
       // Apply filters if provided
@@ -101,6 +101,10 @@ export const usePrepListStore = create<PrepListStore>((set, get) => ({
         }
         if (filters.assignedTo) {
           query = query.eq("assigned_to", filters.assignedTo);
+        }
+        if (filters.templateId) {
+          // Filter by template ID in the template_ids array
+          query = query.contains("template_ids", [filters.templateId]);
         }
       }
 
@@ -131,6 +135,7 @@ export const usePrepListStore = create<PrepListStore>((set, get) => ({
           created_by: userId,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
+          template_ids: prepList.template_ids || [],
         })
         .select()
         .single();
@@ -257,6 +262,7 @@ export const usePrepListStore = create<PrepListStore>((set, get) => ({
         .from("prep_lists")
         .insert({
           template_id: templateId,
+          template_ids: [templateId], // Store the template ID in the array
           title: templateData.title,
           description: templateData.description,
           date: date,
