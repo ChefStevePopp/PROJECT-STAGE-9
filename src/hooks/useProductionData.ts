@@ -30,14 +30,22 @@ export const useProductionData = (
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [cateringEvents, setCateringEvents] = useState<any[]>([]);
 
+  // Force refresh when component mounts - removed filter dependencies to show all tasks
+  useEffect(() => {
+    console.log("Component mounted, refreshing data to show ALL tasks");
+    refreshData();
+  }, [
+    selectedDate,
+    // Removed filter dependencies to show all tasks regardless of filters
+  ]);
+
   // Fetch organization schedule and tasks on component mount
   useEffect(() => {
     const fetchAllData = async () => {
       // Only set refreshing state once at the beginning
       setIsRefreshing(true);
       console.log("Starting fetchAllData with selectedDate:", selectedDate);
-      console.log("Current filters:", JSON.stringify(filters, null, 2));
-      console.log("Prep list IDs:", filters.prepListIds);
+      console.log("SIMPLIFIED: Fetching ALL tasks without filtering");
 
       try {
         // Fetch organization schedule to get operating days
@@ -77,17 +85,25 @@ export const useProductionData = (
           6: 5, // Saturday is at index 5
         };
 
-        for (let i = 0; i < 7; i++) {
-          // Convert loop index to day number (0-6, where 0 is Sunday)
-          // When week starts on Monday (weekStartsOn: 1), the mapping is:
-          // i=0 -> Monday (day 1), i=1 -> Tuesday (day 2), ..., i=6 -> Sunday (day 0)
-          const dayNumber = i === 6 ? 0 : i + 1;
+        // Generate days based on whether we're in admin view, have specific prep lists, or in day view mode
+        if (filters.adminView) {
+          // Admin view should always show the selected date
+          console.log("Using admin view - including selected date directly");
+          days.push(selectedDate);
+        } else {
+          // Normal week view generation
+          for (let i = 0; i < 7; i++) {
+            // Convert loop index to day number (0-6, where 0 is Sunday)
+            // When week starts on Monday (weekStartsOn: 1), the mapping is:
+            // i=0 -> Monday (day 1), i=1 -> Tuesday (day 2), ..., i=6 -> Sunday (day 0)
+            const dayNumber = i === 6 ? 0 : i + 1;
 
-          // Only include days that are in the organization's schedule
-          if (daysToShow.includes(dayNumber)) {
-            const day = addDays(startDate, i);
-            const formattedDay = format(day, "yyyy-MM-dd");
-            days.push(formattedDay);
+            // Only include days that are in the organization's schedule
+            if (daysToShow.includes(dayNumber)) {
+              const day = addDays(startDate, i);
+              const formattedDay = format(day, "yyyy-MM-dd");
+              days.push(formattedDay);
+            }
           }
         }
 
@@ -126,12 +142,13 @@ export const useProductionData = (
                   );
                 }
 
+                // Simplified to fetch ALL tasks without filtering
                 await fetchTemplateTasksByStatus(
-                  filters.status,
-                  filters.personalOnly,
-                  filters.kitchenStation,
-                  filters.adminView,
-                  filters.prepListIds, // Pass the selected prep list IDs to the fetch function
+                  "all", // Show all statuses
+                  false, // Don't filter by personal tasks
+                  undefined, // Don't filter by kitchen station
+                  true, // Use admin view to see everything
+                  undefined, // Don't filter by prep list IDs
                 );
                 console.log("Template tasks fetched successfully");
               } catch (err) {
@@ -197,13 +214,16 @@ export const useProductionData = (
     return [];
   };
 
-  // Organize tasks by day - memoized to prevent unnecessary recalculations
+  // COMPLETELY SIMPLIFIED APPROACH - Just put all tasks in the day view
   useEffect(() => {
     if (!templateTasks || weekDays.length === 0) return;
 
-    console.log("Organizing tasks by day with templateTasks:", templateTasks);
-    console.log("Current filters:", filters);
-    console.log("Selected prep list IDs:", filters.prepListIds);
+    console.log(
+      "SUPER SIMPLIFIED: Organizing ALL tasks by day with templateTasks:",
+      templateTasks.length,
+    );
+    console.log("SUPER SIMPLIFIED: Current view days:", weekDays);
+    console.log("SUPER SIMPLIFIED: Raw template tasks:", templateTasks);
 
     // Create task map once and update it efficiently
     const taskMap: Record<string, Task[]> = {};
@@ -213,63 +233,102 @@ export const useProductionData = (
       taskMap[day] = [];
     });
 
-    // Use all tasks regardless of filters to ensure we show everything in the database
-    let filteredTasks = templateTasks;
-
+    // CRITICAL FIX: Log the raw template tasks data to see what we're working with
     console.log(
-      "Using all template tasks without filtering:",
-      templateTasks.length,
+      "CRITICAL DEBUG: Raw template tasks data:",
+      JSON.stringify(templateTasks, null, 2),
     );
 
-    // Log each task's details for debugging
-    if (templateTasks && templateTasks.length > 0) {
+    const isDayView = weekDays.length === 1;
+    const selectedDay = weekDays[0]; // First day in the array
+
+    // For day view, put ALL tasks on the selected day
+    if (isDayView) {
       console.log(
-        `Logging details for ${templateTasks.length} template tasks:`,
+        `CRITICAL FIX: Day view detected - putting ALL ${templateTasks.length} tasks on ${selectedDay}`,
       );
-      templateTasks.forEach((task) => {
-        console.log(
-          `Task ${task.id} has template_id: ${task.template_id || "UNDEFINED"}, due_date: ${task.due_date || "UNDEFINED"}`,
-        );
+
+      // Convert all template tasks to regular tasks and put them on the selected day
+      const regularTasks = templateTasks.map((task) => {
+        console.log(`CRITICAL DEBUG: Processing task ${task.id}:`, task);
+        return {
+          id: task.id,
+          title: task.title || "Untitled Task", // Provide fallback for title
+          description: task.description || "",
+          priority: task.priority ? task.priority.toString() : "medium", // Convert numeric priority to string
+          estimated_time: task.estimated_time || 0,
+          station: task.station || task.kitchen_station || "", // Try both station fields
+          assignee_id: task.assignee_id,
+          completed: task.status === "completed" || false, // Check status field
+          organization_id: task.organization_id || "", // Use the organization_id from the task if available
+          due_date: selectedDay, // Force all tasks to the selected day
+          template_id: task.template_id,
+          prep_list_id: task.prep_list_id,
+          // Ensure all prep system data is included
+          prep_system: task.prep_system,
+          par_level: task.par_level,
+          current_level: task.current_level,
+          amount_required: task.amount_required,
+          kitchen_station: task.kitchen_station,
+          kitchen_stations: task.kitchen_stations,
+          kitchen_role: task.kitchen_role,
+          master_ingredient_id: task.master_ingredient_id,
+          recipe_id: task.recipe_id,
+        };
       });
-    } else {
-      console.warn(
-        "No template tasks available - this may indicate an upstream issue",
+
+      // Put all tasks on the selected day
+      taskMap[selectedDay] = regularTasks;
+      console.log(
+        `SIMPLIFIED: Added ${regularTasks.length} tasks to ${selectedDay}`,
       );
     }
+    // For week view, organize tasks by their due dates
+    else {
+      console.log("SIMPLIFIED: Week view - organizing tasks by due date");
 
-    // Convert template tasks to regular tasks and organize by due date
-    filteredTasks.forEach((task) => {
-      // Use the task's due_date if available, otherwise use the selected date
-      const dueDate = task.due_date || selectedDate;
+      templateTasks.forEach((task) => {
+        // Get or default the due date
+        const dueDate = task.due_date || selectedDate;
+        const dueDateClean = dueDate.split("T")[0];
 
-      console.log(`Processing task ${task.id} with due date ${dueDate}`);
-
-      // Only add the task if the due date is in our week view
-      if (weekDays.includes(dueDate)) {
-        const regularTask: Task = {
-          id: task.id,
-          title: task.title,
-          description: task.description || "",
-          priority: task.priority || "medium",
-          estimated_time: task.estimated_time || 0,
-          station: task.station || "",
-          assignee_id: task.assignee_id,
-          completed: task.completed || false,
-          organization_id: task.organization_id || "", // Preserve organization_id if available
-          due_date: dueDate,
-          template_id: task.template_id, // Preserve template_id for reference
-          prep_list_id: task.prep_list_id, // Preserve prep_list_id for reference
-        };
-
-        console.log(`Adding task to ${dueDate}:`, regularTask);
-        taskMap[dueDate] = [...(taskMap[dueDate] || []), regularTask];
-      } else {
-        console.log(
-          `Task ${task.id} due date ${dueDate} not in week days:`,
-          weekDays,
+        // Find which day in the week this task belongs to
+        const matchingDay = weekDays.find(
+          (day) => day.split("T")[0] === dueDateClean,
         );
-      }
-    });
+
+        if (matchingDay) {
+          // Create a regular task
+          const regularTask: Task = {
+            id: task.id,
+            title: task.title,
+            description: task.description || "",
+            priority: task.priority || "medium",
+            estimated_time: task.estimated_time || 0,
+            station: task.station || "",
+            assignee_id: task.assignee_id,
+            completed: task.completed || false,
+            organization_id: task.organization_id || "", // Use the organization_id from the task if available
+            due_date: matchingDay,
+            template_id: task.template_id,
+            prep_list_id: task.prep_list_id,
+            // Ensure prep system data is included
+            prep_system: task.prep_system,
+            par_level: task.par_level,
+            current_level: task.current_level,
+            amount_required: task.amount_required,
+            kitchen_station: task.kitchen_station,
+            kitchen_stations: task.kitchen_stations,
+            kitchen_role: task.kitchen_role,
+            master_ingredient_id: task.master_ingredient_id,
+            recipe_id: task.recipe_id,
+          };
+
+          // Add to the matching day
+          taskMap[matchingDay].push(regularTask);
+        }
+      });
+    }
 
     // Add catering events as tasks if they exist and the filter is enabled
     if (cateringEvents.length > 0 && filters.showCateringEvents) {
@@ -295,7 +354,12 @@ export const useProductionData = (
       });
     }
 
-    console.log("Final tasksByDay:", taskMap);
+    // SIMPLIFIED: Log the final task count for each day
+    Object.keys(taskMap).forEach((day) => {
+      console.log(`SIMPLIFIED: Day ${day} has ${taskMap[day].length} tasks`);
+    });
+
+    console.log("SIMPLIFIED: Setting tasksByDay with tasks");
     setTasksByDay(taskMap);
   }, [
     templateTasks,
@@ -306,6 +370,38 @@ export const useProductionData = (
     filters.prepListIds,
   ]);
 
+  // Define refreshData function outside of the return to make it available to other effects
+  const refreshData = async () => {
+    setIsRefreshing(true);
+    try {
+      console.log("Refreshing data with filters:", filters);
+      console.log("Selected date:", selectedDate);
+      console.log("Prep list IDs:", filters.prepListIds);
+
+      // Fetch data in parallel to reduce loading time
+      await Promise.all([
+        fetchTemplates(),
+        // Simplified to fetch ALL tasks without filtering
+        fetchTemplateTasksByStatus(
+          "all", // Show all statuses
+          false, // Don't filter by personal tasks
+          undefined, // Don't filter by kitchen station
+          true, // Use admin view to see everything
+          undefined, // Don't filter by prep list IDs
+        ),
+      ]);
+
+      // Add a small delay to ensure the database has time to update
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      console.log("Data refresh completed");
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   return {
     weekDays,
     tasksByDay,
@@ -315,28 +411,6 @@ export const useProductionData = (
     isRefreshing,
     setIsRefreshing,
     cateringEvents,
-    refreshData: async () => {
-      setIsRefreshing(true);
-      try {
-        // Fetch data in parallel to reduce loading time
-        await Promise.all([
-          fetchTemplates(),
-          fetchTemplateTasksByStatus(
-            filters.status,
-            filters.personalOnly,
-            filters.kitchenStation,
-            filters.adminView,
-            filters.prepListIds, // Pass the selected prep list IDs to the fetch function
-          ),
-        ]);
-
-        // Add a small delay to ensure the database has time to update
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      } catch (error) {
-        console.error("Error refreshing data:", error);
-      } finally {
-        setIsRefreshing(false);
-      }
-    },
+    refreshData,
   };
 };

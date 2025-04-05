@@ -6,6 +6,8 @@ export interface Task {
   due_date: string;
   assignee_id?: string;
   station?: string;
+  kitchen_station_id?: string; // ID of the kitchen station this task is assigned to
+  kitchen_station?: string; // Name of the kitchen station this task is assigned to
   priority: "low" | "medium" | "high";
   estimated_time: number; // in minutes
   actual_time?: number; // in minutes
@@ -21,10 +23,22 @@ export interface Task {
   prep_list_template_id?: string; // Reference to a prep list template if this task is part of a prep list
   prep_list_id?: string; // Reference to a specific prep list instance
   sequence?: number; // Order in the prep list
+  assignment_type?: "direct" | "lottery" | "station"; // Whether this task is directly assigned, available for lottery, or assigned to a station
+  requires_certification?: string[]; // List of certification IDs required to perform this task
+  claimed_at?: string; // When the task was claimed in lottery mode
+  claimed_by?: string; // Who claimed the task in lottery mode
+  prep_system?: "par" | "as_needed" | "scheduled_production" | "hybrid"; // The prep system used for this task
+  par_level?: number; // Target quantity for PAR-based tasks
+  current_level?: number; // Current quantity for PAR-based tasks
+  amount_required?: number; // Amount required to be prepared
+  permission_level?: "all" | "station" | "assigned"; // Who can view this task
+  status?: "pending" | "in_progress" | "completed"; // Current status of the task
+  template_id?: string; // Reference to the template this task was created from
 }
 
 export interface TaskStore {
   tasks: Task[];
+  lotteryTasks: Task[]; // Tasks available for lottery assignment
   isLoading: boolean;
   error: string | null;
   fetchTasks: () => Promise<void>;
@@ -34,6 +48,9 @@ export interface TaskStore {
   updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   assignTask: (id: string, assigneeId: string) => Promise<void>;
+  assignToStation: (id: string, stationId: string) => Promise<void>;
+  setTaskForLottery: (id: string) => Promise<void>;
+  claimLotteryTask: (id: string, userId: string) => Promise<void>;
   completeTask: (id: string, completedBy: string) => Promise<void>;
 }
 
@@ -83,6 +100,9 @@ export interface PrepListTemplateTask {
   measurement_type?: "par" | "2day" | "prep_item" | "task"; // Type of measurement for this task
   on_hand?: number; // Current quantity on hand (for 2day measurement)
   amount_required?: number; // Amount required (for 2day measurement)
+  organization_id?: string; // Reference to the organization this task belongs to
+  due_date?: string; // Due date for this task
+  status?: string; // Status of the task (pending, in_progress, completed)
 }
 
 export interface PrepList {

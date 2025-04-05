@@ -12,19 +12,40 @@ interface TaskColumnProps {
   day: string;
   tasks: Task[];
   onTaskComplete: (taskId: string) => void;
+  onTaskAssign?: (taskId: string, assigneeId: string) => Promise<void>;
+  onTaskSetForLottery?: (taskId: string) => Promise<void>;
   onDayClick?: () => void;
   onHeaderClick?: () => void;
   isDayView?: boolean;
+  onUpdatePrepSystem?: (
+    taskId: string,
+    system: "par" | "as_needed" | "scheduled_production" | "hybrid",
+  ) => Promise<void>;
+  onUpdateAmount?: (taskId: string, amount: number) => Promise<void>;
+  onUpdateParLevel?: (taskId: string, parLevel: number) => Promise<void>;
+  onUpdateCurrentLevel?: (
+    taskId: string,
+    currentLevel: number,
+  ) => Promise<void>;
 }
 
 export const TaskColumn: React.FC<TaskColumnProps> = ({
   day,
   tasks,
   onTaskComplete,
+  onTaskAssign,
+  onTaskSetForLottery,
   onDayClick,
   onHeaderClick,
   isDayView = false,
+  onUpdatePrepSystem,
+  onUpdateAmount,
+  onUpdateParLevel,
+  onUpdateCurrentLevel,
+  className,
 }) => {
+  // DEBUG: Log the tasks for this column
+  // console.log(`TaskColumn for ${day} rendering with ${tasks.length} tasks`);
   const { setNodeRef } = useDroppable({
     id: `column:${day}`,
   });
@@ -35,7 +56,8 @@ export const TaskColumn: React.FC<TaskColumnProps> = ({
   const isCurrentDay = isToday(date);
 
   // Create a list of task IDs for SortableContext
-  const taskIds = tasks.map((task) => `${task.id}:${day}`);
+  // Ensure each ID is unique by adding an index to prevent duplicates
+  const taskIds = tasks.map((task, index) => `${task.id}:${day}:${index}`);
 
   // Determine which click handler to use
   const handleHeaderClick = isDayView ? onHeaderClick : onDayClick;
@@ -69,13 +91,19 @@ export const TaskColumn: React.FC<TaskColumnProps> = ({
         <div className="space-y-3 max-h-[calc(100vh-250px)] overflow-y-auto pr-2">
           {tasks.length > 0 ? (
             tasks.map((task) => {
-              console.log(`Rendering task in column ${day}:`, task);
+              // console.log(`Rendering task in column ${day}:`, task);
               return (
                 <SortableTaskCard
-                  key={`${task.id}:${day}`}
-                  id={`${task.id}:${day}`}
+                  key={`${task.id}:${day}:${tasks.indexOf(task)}`}
+                  id={`${task.id}:${day}:${tasks.indexOf(task)}`}
                   task={task}
                   onComplete={onTaskComplete}
+                  onAssign={onTaskAssign}
+                  onSetForLottery={onTaskSetForLottery}
+                  onUpdatePrepSystem={onUpdatePrepSystem}
+                  onUpdateAmount={onUpdateAmount}
+                  onUpdatePar={onUpdateParLevel}
+                  onUpdateCurrent={onUpdateCurrentLevel}
                 />
               );
             })

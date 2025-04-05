@@ -39,6 +39,10 @@ export const ProductionBoard = ({
     templates,
     fetchTemplates,
     createTemplateTaskFromModule,
+    updateTaskPrepSystem,
+    updateTaskAmount,
+    updateTaskParLevel,
+    updateTaskCurrentLevel,
   } = useProductionStore();
   const { settings, fetchSettings } = useOperationsStore();
   const { prepLists, fetchPrepLists } = usePrepListStore();
@@ -63,7 +67,7 @@ export const ProductionBoard = ({
   const [showPrepListFilter, setShowPrepListFilter] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [availableModules, setAvailableModules] = useState<
-    PrepListTemplateTask[]
+    (PrepListTemplateTask & { assigned?: boolean })[]
   >([]);
   const [filters, setFilters] = useState({
     status: "pending" as "pending" | "in_progress" | "completed",
@@ -198,12 +202,18 @@ export const ProductionBoard = ({
 
       console.log("Selected prep lists:", selectedPrepLists);
       console.log("Extracted template IDs:", templateIds);
+
+      // Force refresh data to ensure we load tasks with the new filter
+      setTimeout(() => refreshData(), 100); // Add slight delay to ensure state is updated
     } else {
       // If no prep lists selected, clear the filter
       setFilters((prev) => ({
         ...prev,
         prepListIds: [],
       }));
+
+      // Force refresh with empty filter
+      setTimeout(() => refreshData(), 100);
     }
 
     console.log("Available prep lists:", prepLists);
@@ -221,10 +231,65 @@ export const ProductionBoard = ({
     refreshData,
   } = useProductionData(selectedDate, filters);
 
+  // Update assigned status of modules when tasks change
+  useEffect(() => {
+    if (selectedDay && availableModules.length > 0) {
+      const tasksForDay = tasksByDay[selectedDay] || [];
+      console.log(
+        `Checking assigned modules for day ${selectedDay}:`,
+        tasksForDay,
+      );
+
+      const assignedModuleIds = tasksForDay
+        .map((task) => task.template_id)
+        .filter(Boolean);
+
+      console.log("Assigned module IDs:", assignedModuleIds);
+      console.log(
+        "Available modules before update:",
+        availableModules.map((m) => ({
+          id: m.id,
+          title: m.title,
+          template_id: m.template_id,
+        })),
+      );
+
+      // Update assigned status for modules
+      setAvailableModules((prevModules) => {
+        const updated = prevModules.map((module) => ({
+          ...module,
+          assigned: assignedModuleIds.includes(module.template_id || module.id),
+        }));
+        console.log(
+          "Available modules after update:",
+          updated.map((m) => ({
+            id: m.id,
+            title: m.title,
+            assigned: m.assigned,
+          })),
+        );
+        return updated;
+      });
+    }
+  }, [tasksByDay, selectedDay]);
+
   // Handle adding a module to a day
-  const handleAddModule = async (module: PrepListTemplateTask) => {
+  const handleAddModule = async (
+    module: PrepListTemplateTask & { assigned?: boolean },
+  ) => {
     if (!selectedDay) {
       toast.error("No day selected. Please select a day first.");
+      return;
+    }
+
+    // If the module is already assigned, don't add it again
+    if (module.assigned) {
+      toast.info(
+        <div className="flex items-center gap-2">
+          <CheckCircle className="w-4 h-4 text-blue-400" />
+          <span>{module.title} is already assigned to this day</span>
+        </div>,
+      );
       return;
     }
 
@@ -254,9 +319,11 @@ export const ProductionBoard = ({
           return updatedTasks;
         });
 
-        // Remove the module from available modules to prevent duplication
+        // Mark the module as assigned instead of removing it
         setAvailableModules((prevModules) =>
-          prevModules.filter((m) => m.id !== module.id),
+          prevModules.map((m) =>
+            m.id === module.id ? { ...m, assigned: true } : m,
+          ),
         );
 
         // Don't refresh data immediately - this is causing the task to disappear
@@ -300,17 +367,14 @@ export const ProductionBoard = ({
     await updateTaskDueDate(taskId, toDay);
 
     // Update local state
-    // Note: This function is commented out because setTasksByDay is not defined
-    // Uncomment and fix once the proper state management is implemented
-    /*
     setTasksByDay((prev) => {
       const newTasksByDay = { ...prev };
 
       // Find the task in the fromDay array
-      const taskIndex = newTasksByDay[fromDay].findIndex(
+      const taskIndex = newTasksByDay[fromDay]?.findIndex(
         (t) => t.id === taskId,
       );
-      if (taskIndex === -1) return prev;
+      if (taskIndex === -1 || taskIndex === undefined) return prev;
 
       // Get the task and update its due date
       const task = { ...newTasksByDay[fromDay][taskIndex], due_date: toDay };
@@ -325,7 +389,6 @@ export const ProductionBoard = ({
 
       return newTasksByDay;
     });
-    */
   };
 
   // Handle completing a task
@@ -333,9 +396,6 @@ export const ProductionBoard = ({
     await completeTemplateTask(taskId);
 
     // Update local state by removing the completed task
-    // Note: This function is commented out because setTasksByDay is not defined
-    // Uncomment and fix once the proper state management is implemented
-    /*
     setTasksByDay((prev) => {
       const newTasksByDay = { ...prev };
 
@@ -346,7 +406,126 @@ export const ProductionBoard = ({
 
       return newTasksByDay;
     });
-    */
+  };
+
+  // Handle prep system update
+  const handleUpdatePrepSystem = async (
+    taskId: string,
+    system: "par" | "as_needed" | "scheduled_production" | "hybrid",
+  ) => {
+    try {
+      await updateTaskPrepSystem(taskId, system);
+
+      // Update local state
+      setTasksByDay((prev) => {
+        const newTasksByDay = { ...prev };
+
+        // Find which day contains this task
+        Object.keys(newTasksByDay).forEach((day) => {
+          newTasksByDay[day] = newTasksByDay[day].map((task) =>
+            task.id === taskId ? { ...task, prep_system: system } : task,
+          );
+        });
+
+        return newTasksByDay;
+      });
+
+      toast.success(`Updated prep system to ${system.toUpperCase()}`);
+      return true;
+    } catch (error) {
+      console.error("Error updating prep system:", error);
+      toast.error("Failed to update prep system");
+      return false;
+    }
+  };
+
+  // Handle amount update
+  const handleUpdateAmount = async (taskId: string, amount: number) => {
+    try {
+      await updateTaskAmount(taskId, amount);
+
+      // Update local state
+      setTasksByDay((prev) => {
+        const newTasksByDay = { ...prev };
+
+        // Find which day contains this task
+        Object.keys(newTasksByDay).forEach((day) => {
+          newTasksByDay[day] = newTasksByDay[day].map((task) =>
+            task.id === taskId ? { ...task, amount_required: amount } : task,
+          );
+        });
+
+        return newTasksByDay;
+      });
+
+      toast.success(`Updated required amount to ${amount}`);
+      return true;
+    } catch (error) {
+      console.error("Error updating amount:", error);
+      toast.error("Failed to update amount");
+      return false;
+    }
+  };
+
+  // Handle PAR level update
+  const handleUpdateParLevel = async (taskId: string, parLevel: number) => {
+    try {
+      await updateTaskParLevel(taskId, parLevel);
+
+      // Update local state
+      setTasksByDay((prev) => {
+        const newTasksByDay = { ...prev };
+
+        // Find which day contains this task
+        Object.keys(newTasksByDay).forEach((day) => {
+          newTasksByDay[day] = newTasksByDay[day].map((task) =>
+            task.id === taskId ? { ...task, par_level: parLevel } : task,
+          );
+        });
+
+        return newTasksByDay;
+      });
+
+      toast.success(`Updated PAR level to ${parLevel}`);
+      return true;
+    } catch (error) {
+      console.error("Error updating PAR level:", error);
+      toast.error("Failed to update PAR level");
+      return false;
+    }
+  };
+
+  // Handle current level update
+  const handleUpdateCurrentLevel = async (
+    taskId: string,
+    currentLevel: number,
+  ) => {
+    try {
+      await updateTaskCurrentLevel(taskId, currentLevel);
+
+      // Update local state
+      setTasksByDay((prev) => {
+        const newTasksByDay = { ...prev };
+
+        // Find which day contains this task
+        Object.keys(newTasksByDay).forEach((day) => {
+          newTasksByDay[day] = newTasksByDay[day].map((task) =>
+            task.id === taskId
+              ? { ...task, current_level: currentLevel }
+              : task,
+          );
+        });
+
+        return newTasksByDay;
+      });
+
+      toast.success(`Updated current level to ${currentLevel}`);
+      return true;
+    } catch (error) {
+      console.error("Error updating current level:", error);
+      toast.error("Failed to update current level");
+      return false;
+    }
   };
 
   // Handle week change
@@ -402,9 +581,36 @@ export const ProductionBoard = ({
 
   // Handle day click to switch to day view
   const handleDayClick = (day: string) => {
+    console.log("=== DAY CLICK HANDLER START ====");
     setSelectedDate(day);
     setSelectedDay(day);
     setView("day");
+
+    // CRITICAL FIX: Do NOT clear prepListIds when switching to day view
+    // This was causing the tasks to disappear
+    setFilters((prev) => ({
+      ...prev,
+      status: "pending",
+      personalOnly: false,
+      kitchenStation: "",
+      adminView: true, // CRITICAL FIX: Set adminView to true to bypass filters
+      showCateringEvents: true,
+      // Keep existing prepListIds
+    }));
+
+    // Force refresh data when switching to day view
+    setTimeout(() => {
+      console.log("SIMPLIFIED: Forcing data refresh after day click");
+      refreshData();
+    }, 100);
+
+    // Debug the current state
+    console.log("Current tasksByDay:", tasksByDay);
+    console.log("Selected day:", day);
+    console.log(
+      "Tasks for selected day:",
+      tasksByDay[day] || "No tasks for this day",
+    );
 
     console.log("=== DAY CLICK HANDLER START ====");
     console.log("Day clicked:", day);
@@ -485,44 +691,9 @@ export const ProductionBoard = ({
           });
         }
 
-        // Find the templates that match the template IDs
-        const selectedTemplates = templates.filter((template) => {
-          const isIncluded = templateIds.includes(template.id);
-          console.log(`Template ${template.id} included: ${isIncluded}`);
-          return isIncluded;
-        });
-
-        console.log(`Found ${selectedTemplates.length} matching templates`);
-
-        // Extract all tasks from the selected templates
-        const modulesFromTemplates = selectedTemplates.flatMap((template) => {
-          if (!template.tasks || template.tasks.length === 0) {
-            console.warn(`Template ${template.id} has no tasks`);
-            return [];
-          }
-          console.log(
-            `Template ${template.id} has ${template.tasks.length} tasks`,
-          );
-          return template.tasks || [];
-        });
-
-        console.log(
-          `Extracted ${modulesFromTemplates.length} modules from templates`,
-        );
-
-        if (modulesFromTemplates.length > 0) {
-          console.log(
-            "First module sample:",
-            JSON.stringify(modulesFromTemplates[0], null, 2),
-          );
-          setAvailableModules(modulesFromTemplates);
-        } else {
-          console.warn(
-            "No modules found in templates, attempting direct database query...",
-          );
-          // If no modules found in templates, try direct database query as fallback
-          fetchModulesDirectly(templateIds);
-        }
+        // IMPORTANT: For the Available Modules column, we only want to show data from prep_list_templates
+        // We'll fetch the templates directly using the fetchModulesDirectly function
+        fetchModulesDirectly(templateIds);
       } catch (error) {
         console.error("Error processing prep lists for modules:", error);
         // Attempt direct database query as fallback
@@ -538,12 +709,12 @@ export const ProductionBoard = ({
     console.log("=== DAY CLICK HANDLER COMPLETE ====");
   };
 
-  // Fallback function to fetch templates directly from the database
+  // Function to fetch templates directly from the database for the Available Modules column
   const fetchModulesDirectly = async (templateIds: string[]) => {
     try {
       console.log("=== DIRECT MODULE FETCH START ====");
       console.log(
-        "Attempting to fetch templates directly for template IDs:",
+        "Fetching templates from prep_list_templates table for template IDs:",
         templateIds,
       );
 
@@ -553,7 +724,7 @@ export const ProductionBoard = ({
         return;
       }
 
-      // Instead of fetching tasks, fetch the templates themselves
+      // IMPORTANT: For the Available Modules column, we only want to show data from prep_list_templates
       const { data, error } = await supabase
         .from("prep_list_templates")
         .select("*")
@@ -566,21 +737,43 @@ export const ProductionBoard = ({
       }
 
       if (data && data.length > 0) {
-        console.log(`Directly fetched ${data.length} templates`);
+        console.log(
+          `Directly fetched ${data.length} templates from prep_list_templates table`,
+        );
         console.log("First template sample:", JSON.stringify(data[0], null, 2));
+
+        // Check which modules are already assigned to this day
+        const tasksForDay = tasksByDay[selectedDay || ""] || [];
+        const assignedModuleIds = tasksForDay
+          .map((task) => task.template_id)
+          .filter(Boolean);
+
         // Convert templates to a format compatible with the modules display
+        // Include ALL relevant data from the template
         const templatesAsModules = data.map((template) => ({
           id: template.id,
           title: template.title,
           description: template.description || "",
           template_id: template.id, // Keep reference to template ID
-          estimated_time: 0, // Default value
+          estimated_time: template.estimated_time || 0,
           station: template.station || "",
-          sequence: 0, // Default value
+          sequence: template.sequence || 0,
+          required: true,
+          assigned: assignedModuleIds.includes(template.id), // Mark as assigned if already in the day
+          // Include additional data from the template
+          prep_system: template.prep_system,
+          par_level: template.par_level,
+          current_level: template.current_level,
+          amount_required: template.amount_required,
+          kitchen_station:
+            template.kitchen_station || template.kitchen_stations?.[0],
+          recipe_id: template.recipe_id,
+          requires_certification: template.requires_certification,
+          priority: template.priority || "medium",
         }));
         setAvailableModules(templatesAsModules);
       } else {
-        console.log("No templates found directly either");
+        console.log("No templates found in prep_list_templates table");
         setAvailableModules([]);
       }
       console.log("=== DIRECT MODULE FETCH COMPLETE ====");
@@ -591,33 +784,53 @@ export const ProductionBoard = ({
     }
   };
 
-  // Fetch tasks for a specific template
+  // This function is no longer used - we're only fetching from prep_list_templates for the Available Modules column
+  // Keeping it as a reference but modified to match our approach
   const fetchTasksForTemplate = async (templateId: string) => {
     try {
-      console.log(`Fetching tasks directly for template ID: ${templateId}`);
+      console.log(`Fetching template directly for template ID: ${templateId}`);
 
+      // IMPORTANT: For the Available Modules column, we only want to show data from prep_list_templates
       const { data, error } = await supabase
-        .from("prep_list_template_tasks")
+        .from("prep_list_templates")
         .select("*")
-        .eq("template_id", templateId)
-        .order("sequence", { ascending: true });
+        .eq("id", templateId)
+        .single();
 
       if (error) {
-        console.error(
-          `Error fetching tasks for template ${templateId}:`,
-          error,
-        );
+        console.error(`Error fetching template ${templateId}:`, error);
         return;
       }
 
-      if (data && data.length > 0) {
-        console.log(`Fetched ${data.length} tasks for template ${templateId}`);
-        setAvailableModules(data);
+      if (data) {
+        console.log(
+          `Fetched template ${templateId} from prep_list_templates table`,
+        );
+        // Convert template to a format compatible with the modules display
+        const templateAsModule = {
+          id: data.id,
+          title: data.title,
+          description: data.description || "",
+          template_id: data.id,
+          estimated_time: data.estimated_time || 0,
+          station: data.station || "",
+          sequence: data.sequence || 0,
+          required: true,
+          prep_system: data.prep_system,
+          par_level: data.par_level,
+          current_level: data.current_level,
+          amount_required: data.amount_required,
+          kitchen_station: data.kitchen_station || data.kitchen_stations?.[0],
+          recipe_id: data.recipe_id,
+          requires_certification: data.requires_certification,
+          priority: data.priority || "medium",
+        };
+        setAvailableModules([templateAsModule]);
       } else {
-        console.log(`No tasks found for template ${templateId}`);
+        console.log(`No template found for ID ${templateId}`);
       }
     } catch (err) {
-      console.error(`Error fetching tasks for template ${templateId}:`, err);
+      console.error(`Error fetching template ${templateId}:`, err);
     }
   };
 
@@ -673,6 +886,7 @@ export const ProductionBoard = ({
         return;
       }
 
+      // IMPORTANT: For the Available Modules column, we only want to show data from prep_list_templates
       // Now fetch the templates for these template IDs
       fetchModulesDirectly(templateIds);
       console.log("=== FETCH FROM PREP LIST IDS COMPLETE ====");
@@ -1180,9 +1394,15 @@ export const ProductionBoard = ({
         </div>
       ) : (
         <div
-          className={`${view === "day" && selectedDay ? "grid grid-cols-1 md:grid-cols-2 gap-4" : ""}`}
+          className={`${view === "day" && selectedDay ? "flex flex-col md:flex-row gap-[5%] w-full" : "w-full"}`}
         >
-          <div className={view === "day" && selectedDay ? "" : "w-full"}>
+          <div
+            className={
+              view === "day" && selectedDay
+                ? "w-full md:w-[60%] min-w-0 flex-shrink-0"
+                : "w-full"
+            }
+          >
             <KanbanBoard
               days={view === "week" ? weekDays : [selectedDate]}
               tasks={tasksByDay}
@@ -1191,11 +1411,15 @@ export const ProductionBoard = ({
               onDayClick={handleDayClick}
               onHeaderClick={view === "day" ? toggleView : undefined}
               isDayView={view === "day"}
+              onUpdatePrepSystem={handleUpdatePrepSystem}
+              onUpdateAmount={handleUpdateAmount}
+              onUpdateParLevel={handleUpdateParLevel}
+              onUpdateCurrentLevel={handleUpdateCurrentLevel}
             />
           </div>
 
           {view === "day" && selectedDay && (
-            <div className="bg-gray-800/30 rounded-lg border border-gray-700/50 p-4">
+            <div className="bg-gray-800/30 rounded-lg border border-gray-700/50 p-4 w-full md:w-[35%] min-w-0 flex-shrink-0">
               <h2 className="text-xl font-semibold text-white mb-4">
                 Available Modules
               </h2>
@@ -1227,28 +1451,34 @@ export const ProductionBoard = ({
                   {availableModules.map((module) => (
                     <div
                       key={module.id}
-                      className={`bg-gray-700/50 hover:bg-gray-700/70 rounded-lg p-3 cursor-pointer transition-colors border border-gray-600/50 ${processingModuleId === module.id ? "opacity-70 pointer-events-none" : ""}`}
+                      className={`bg-gray-700/50 hover:bg-gray-700/70 rounded-lg p-3 cursor-pointer transition-colors border border-gray-600/50 ${processingModuleId === module.id ? "opacity-70 pointer-events-none" : ""} ${module.assigned ? "opacity-50 border-gray-500/30" : ""}`}
                       onClick={(e) => {
                         e.preventDefault();
                         handleAddModule(module);
                       }}
                     >
                       <div className="flex justify-between items-start">
-                        <h3 className="text-white font-medium">
+                        <h3 className="text-xl text-white font-medium">
                           {module.title}
                         </h3>
                         <button
-                          className={`flex items-center gap-1 text-sm px-2 py-0.5 rounded ${processingModuleId === module.id ? "bg-gray-600/50 text-gray-400" : "bg-blue-500/10 text-blue-400 hover:text-blue-300"}`}
+                          className={`flex items-center gap-1 text-sm px-2 py-0.5 rounded ${processingModuleId === module.id ? "bg-gray-600/50 text-gray-400" : module.assigned ? "bg-gray-600/50 text-gray-400" : "bg-blue-500/10 text-blue-400 hover:text-blue-300"}`}
                           onClick={(e) => {
                             e.stopPropagation(); // Prevent the parent onClick from firing
                             handleAddModule(module);
                           }}
-                          disabled={processingModuleId === module.id}
+                          disabled={
+                            processingModuleId === module.id || module.assigned
+                          }
                         >
                           {processingModuleId === module.id ? (
                             <>
                               <Loader2 className="w-3 h-3 animate-spin" />
                               Adding...
+                            </>
+                          ) : module.assigned ? (
+                            <>
+                              <CheckCircle className="w-3 h-3" /> Added
                             </>
                           ) : (
                             <>
@@ -1271,6 +1501,11 @@ export const ProductionBoard = ({
                         {module.station && (
                           <span className="text-xs bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full">
                             {module.station}
+                          </span>
+                        )}
+                        {module.prep_system && (
+                          <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full">
+                            {module.prep_system.toUpperCase()}
                           </span>
                         )}
                       </div>

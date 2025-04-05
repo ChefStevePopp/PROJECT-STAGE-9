@@ -37,6 +37,16 @@ interface ProductionState {
     module: PrepListTemplateTask,
     dueDate: string,
   ) => Promise<PrepListTemplateTask | null>;
+  updateTaskPrepSystem: (
+    taskId: string,
+    system: "par" | "as_needed" | "scheduled_production" | "hybrid",
+  ) => Promise<void>;
+  updateTaskAmount: (taskId: string, amount: number) => Promise<void>;
+  updateTaskParLevel: (taskId: string, parLevel: number) => Promise<void>;
+  updateTaskCurrentLevel: (
+    taskId: string,
+    currentLevel: number,
+  ) => Promise<void>;
 }
 
 export const useProductionStore = create<ProductionState>((set, get) => ({
@@ -147,6 +157,9 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
     adminView?: boolean,
     prepListIds?: string[],
   ) => {
+    console.log(
+      "SIMPLIFIED: Starting fetchTemplateTasksByStatus with simplified approach",
+    );
     console.log("=== FETCH TEMPLATE TASKS START ====");
     console.log("Fetching template tasks with status:", status);
     console.log("Personal only filter:", personalOnly);
@@ -311,17 +324,32 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
         templateIds = templatesData.map((template) => template.id);
       }
 
-      // Build the query for template tasks
+      // IMPORTANT: We're only fetching from prep_list_template_tasks table for the Kanban board
       console.log(
-        "Building query for template tasks with template IDs:",
+        "Building query for prep_list_template_tasks with template IDs:",
         templateIds,
       );
-      // IMPORTANT: We're not filtering by template_id anymore to ensure all tasks show up
-      // This allows tasks created from modules to appear on the Kanban board
+
+      console.log(
+        "This data will be used for both the Kanban board AND available modules",
+      );
+
+      // Now we can filter by organization_id since we've added it to the table
+      console.log(
+        "Building query for prep_list_template_tasks with organization_id filter",
+      );
       let query = supabase
         .from("prep_list_template_tasks")
-        .select("*")
+        .select("*, template:prep_list_templates(*)")
         .eq("organization_id", organizationId);
+
+      console.log(`DEBUG: Filtering by organization_id: ${organizationId}`);
+
+      // If we have template IDs, filter by them
+      if (templateIds && templateIds.length > 0) {
+        console.log("Filtering tasks by template IDs:", templateIds);
+        query = query.in("template_id", templateIds);
+      }
 
       // Add personal filter if requested
       if (personalOnly) {
@@ -355,42 +383,114 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
       // Since prep_list_template_tasks doesn't have a completed field,
       // we'll treat all tasks as pending for now
       const tasks = data as PrepListTemplateTask[];
-      console.log(`Fetched ${tasks.length} template tasks`);
+      console.log(
+        `Fetched ${tasks.length} template tasks from prep_list_template_tasks table`,
+      );
       if (tasks.length > 0) {
         console.log("Sample task:", JSON.stringify(tasks[0], null, 2));
       } else {
         console.warn("No tasks found for the specified filters");
       }
 
-      // Only assign due dates to tasks that don't already have one
+      // Assign today's date to all tasks that don't have a due date
       console.log("Checking tasks for missing due dates...");
+      // ALWAYS use the user's local date, NEVER server time
       const today = new Date();
-      const modifiedTasks = tasks.map((task, index) => {
+      const userTimezoneOffset = today.getTimezoneOffset() * 60000;
+      const localDate = new Date(today.getTime() - userTimezoneOffset);
+      const todayStr = localDate.toISOString().split("T")[0];
+      console.log(`Using user's local date: ${todayStr} (NOT server time)`);
+
+      const modifiedTasks = tasks.map((task) => {
         // If the task already has a due_date, keep it
         if (task.due_date) {
           console.log(`Task ${task.id} already has due_date: ${task.due_date}`);
-          return task;
+        } else {
+          // Otherwise assign today's date
+          console.log(`Assigning today's date ${todayStr} to task ${task.id}`);
+          task.due_date = todayStr;
         }
 
-        // Otherwise assign a due date for demonstration
-        const dueDate = new Date(today);
-        dueDate.setDate(today.getDate() + (index % 7)); // Distribute across 7 days
-        console.log(
-          `Assigning due_date ${dueDate.toISOString().split("T")[0]} to task ${task.id}`,
-        );
+        // Copy prep system data from the template to the task if available
+        if (task.template) {
+          console.log(`Task ${task.id} has template data:`, task.template);
+          // Copy prep system data from template if not already set on the task
+          if (!task.prep_system && task.template.prep_system) {
+            task.prep_system = task.template.prep_system;
+          }
+          if (!task.par_level && task.template.par_levels) {
+            // Check if there's a par level for this specific task
+            const parLevel = task.template.par_levels[task.id];
+            if (parLevel) task.par_level = parLevel;
+          }
+          if (!task.kitchen_station && task.template.station) {
+            task.kitchen_station = task.template.station;
+          }
+          if (!task.kitchen_stations && task.template.kitchen_stations) {
+            task.kitchen_stations = task.template.kitchen_stations;
+          }
+          if (!task.kitchen_role && task.template.kitchen_role) {
+            task.kitchen_role = task.template.kitchen_role;
+          }
+          if (
+            !task.master_ingredient_id &&
+            task.template.master_ingredient_id
+          ) {
+            task.master_ingredient_id = task.template.master_ingredient_id;
+          }
+          if (!task.recipe_id && task.template.recipe_id) {
+            task.recipe_id = task.template.recipe_id;
+          }
 
-        return {
-          ...task,
-          due_date: dueDate.toISOString().split("T")[0],
-        };
+          // Remove the template object to avoid circular references
+          delete task.template;
+        } else {
+          console.log(`Task ${task.id} has no template data`);
+        }
+
+        return task;
       });
 
-      // Filter based on the requested status
-      const filteredTasks = status === "completed" ? [] : modifiedTasks;
-      console.log(`Final filtered tasks count: ${filteredTasks.length}`);
+      // Filter tasks by status - SIMPLIFIED
+      console.log(`Filtering tasks by status: ${status}`);
+      let filteredTasks = modifiedTasks;
+
+      // CRITICAL FIX: Log each task to see what we're working with
+      console.log("CRITICAL DEBUG: Tasks before filtering:");
+      modifiedTasks.forEach((task, index) => {
+        console.log(`Task ${index + 1}:`, JSON.stringify(task, null, 2));
+      });
+
+      // CRITICAL FIX: Skip status filtering to show all tasks
+      console.log("CRITICAL FIX: Skipping status filtering to show all tasks");
+      filteredTasks = modifiedTasks;
+
+      // CRITICAL FIX: Log the final filtered tasks
+      console.log(
+        "CRITICAL DEBUG: Final filtered tasks count:",
+        filteredTasks.length,
+      );
+      if (filteredTasks.length > 0) {
+        console.log(
+          "CRITICAL DEBUG: Sample task:",
+          JSON.stringify(filteredTasks[0], null, 2),
+        );
+      } else {
+        console.log("CRITICAL DEBUG: NO TASKS FOUND - THIS IS THE ISSUE");
+      }
+
+      console.log(
+        `Final filtered tasks count after status filtering: ${filteredTasks.length}`,
+      );
+      console.log(`Status filter applied: ${status}`);
 
       // Update state in a single operation
       set({ templateTasks: filteredTasks });
+
+      // Log the first few tasks for debugging
+      if (filteredTasks.length > 0) {
+        console.log("Sample tasks being loaded:", filteredTasks.slice(0, 3));
+      }
       console.log("=== FETCH TEMPLATE TASKS COMPLETE ====");
     } catch (error) {
       console.error(`Error fetching ${status} template tasks:`, error);
@@ -478,6 +578,35 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
     }
   },
 
+  fetchOrganizationSchedule: async () => {
+    try {
+      // Get organization_id from user context
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user?.user_metadata?.organizationId) {
+        throw new Error("No organization ID found");
+      }
+
+      const organizationId = userData.user.user_metadata.organizationId;
+
+      // Fetch organization settings
+      const { data, error } = await supabase
+        .from("operations_settings")
+        .select("team_schedule")
+        .eq("organization_id", organizationId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error fetching organization schedule:", error);
+        return null;
+      }
+
+      return data as OrganizationSchedule;
+    } catch (error) {
+      console.error("Error fetching organization schedule:", error);
+      return null;
+    }
+  },
+
   createTemplateTaskFromModule: async (module, dueDate) => {
     set({ isLoading: true, error: null });
     try {
@@ -507,22 +636,53 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
 
       if (!organizationId) throw new Error("No organization found for user");
 
-      // Create a new task based on the module template
+      // If module is a template (from the Available Modules column), fetch the full template data
+      let templateData = null;
+      if (module.template_id === module.id) {
+        console.log(
+          "Module appears to be a template, fetching full template data",
+        );
+        const { data, error } = await supabase
+          .from("prep_list_templates")
+          .select("*")
+          .eq("id", module.id)
+          .single();
+
+        if (!error && data) {
+          templateData = data;
+          console.log("Retrieved template data:", templateData);
+        }
+      }
+
+      // Create a new task based on the module template with ALL relevant data
       const newTask: Partial<PrepListTemplateTask> = {
         title: module.title,
-        description: module.description,
-        estimated_time: module.estimated_time,
-        station: module.station,
-        template_id: module.template_id,
-        sequence: module.sequence,
-        kitchen_station: module.kitchen_station,
+        description: module.description || "",
+        estimated_time: module.estimated_time || 0,
+        station: module.station || templateData?.station || "",
+        template_id: module.template_id || module.id,
+        sequence: module.sequence || 0,
+        kitchen_station:
+          module.kitchen_station || templateData?.kitchen_stations?.[0] || "",
         assignee_id: userData.user.id, // Assign to current user by default
         due_date: dueDate,
+        status: "pending",
         organization_id: organizationId,
-        // Do not include id field at all to let Supabase generate a new ID
+        // Include prep system data if available from the template
+        prep_system: templateData?.prep_system || "as_needed",
+        // Include PAR levels if available
+        par_level: templateData?.par_levels?.[module.id] || 0,
+        // Include recipe reference if available
+        recipe_id: module.recipe_id || templateData?.recipe_id || null,
+        // Include priority
+        priority: "medium",
+        // Include required certifications if available
+        requires_certification: templateData?.requires_certification || [],
+        // Include amount required if available
+        amount_required: templateData?.amount_required || 0,
       };
 
-      console.log("Creating new task from module:", newTask);
+      console.log("Creating new task from module with enhanced data:", newTask);
 
       // Insert the new task into the database
       const { data, error } = await supabase
@@ -546,6 +706,159 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
         isLoading: false,
       }));
 
-      console.log(`Added module ${module.title} to day ${dueDate}`);
+      console.log(
+        `Added module ${module.title} to day ${dueDate} with complete data`,
+      );
       return data as PrepListTemplateTask;
-    } catch
+    } catch (error) {
+      console.error("Error creating task from module:", error);
+      set({
+        error: error instanceof Error ? error.message : String(error),
+        isLoading: false,
+      });
+      return null;
+    }
+  },
+
+  updateTaskPrepSystem: async (taskId, system) => {
+    set({ isLoading: true, error: null });
+    try {
+      console.log(`Updating task ${taskId} prep system to ${system}`);
+
+      const { error } = await supabase
+        .from("prep_list_template_tasks")
+        .update({
+          prep_system: system,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", taskId);
+
+      if (error) throw error;
+
+      // Update local state
+      set((state) => ({
+        templateTasks: state.templateTasks.map((task) =>
+          task.id === taskId ? { ...task, prep_system: system } : task,
+        ),
+        isLoading: false,
+      }));
+
+      console.log(
+        `Successfully updated task ${taskId} prep system to ${system}`,
+      );
+    } catch (error) {
+      console.error("Error updating task prep system:", error);
+      set({
+        error: error instanceof Error ? error.message : String(error),
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  updateTaskAmount: async (taskId, amount) => {
+    set({ isLoading: true, error: null });
+    try {
+      console.log(`Updating task ${taskId} amount to ${amount}`);
+
+      const { error } = await supabase
+        .from("prep_list_template_tasks")
+        .update({
+          amount_required: amount,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", taskId);
+
+      if (error) throw error;
+
+      // Update local state
+      set((state) => ({
+        templateTasks: state.templateTasks.map((task) =>
+          task.id === taskId ? { ...task, amount_required: amount } : task,
+        ),
+        isLoading: false,
+      }));
+
+      console.log(`Successfully updated task ${taskId} amount to ${amount}`);
+    } catch (error) {
+      console.error("Error updating task amount:", error);
+      set({
+        error: error instanceof Error ? error.message : String(error),
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  updateTaskParLevel: async (taskId, parLevel) => {
+    set({ isLoading: true, error: null });
+    try {
+      console.log(`Updating task ${taskId} PAR level to ${parLevel}`);
+
+      const { error } = await supabase
+        .from("prep_list_template_tasks")
+        .update({
+          par_level: parLevel,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", taskId);
+
+      if (error) throw error;
+
+      // Update local state
+      set((state) => ({
+        templateTasks: state.templateTasks.map((task) =>
+          task.id === taskId ? { ...task, par_level: parLevel } : task,
+        ),
+        isLoading: false,
+      }));
+
+      console.log(
+        `Successfully updated task ${taskId} PAR level to ${parLevel}`,
+      );
+    } catch (error) {
+      console.error("Error updating task PAR level:", error);
+      set({
+        error: error instanceof Error ? error.message : String(error),
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  updateTaskCurrentLevel: async (taskId, currentLevel) => {
+    set({ isLoading: true, error: null });
+    try {
+      console.log(`Updating task ${taskId} current level to ${currentLevel}`);
+
+      const { error } = await supabase
+        .from("prep_list_template_tasks")
+        .update({
+          current_level: currentLevel,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", taskId);
+
+      if (error) throw error;
+
+      // Update local state
+      set((state) => ({
+        templateTasks: state.templateTasks.map((task) =>
+          task.id === taskId ? { ...task, current_level: currentLevel } : task,
+        ),
+        isLoading: false,
+      }));
+
+      console.log(
+        `Successfully updated task ${taskId} current level to ${currentLevel}`,
+      );
+    } catch (error) {
+      console.error("Error updating task current level:", error);
+      set({
+        error: error instanceof Error ? error.message : String(error),
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+}));

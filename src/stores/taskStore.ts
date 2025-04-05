@@ -8,6 +8,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   tasks: [],
   isLoading: false,
   error: null,
+  lotteryTasks: [], // Tasks available for lottery assignment
 
   fetchTasks: async () => {
     set({ isLoading: true, error: null });
@@ -174,7 +175,58 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   assignTask: async (id, assigneeId) => {
-    return get().updateTask(id, { assignee_id: assigneeId });
+    return get().updateTask(id, {
+      assignee_id: assigneeId,
+      assignment_type: "direct",
+    });
+  },
+
+  assignToStation: async (id, stationId) => {
+    return get().updateTask(id, {
+      kitchen_station_id: stationId,
+      assignment_type: "station", // Change to station assignment type
+      assignee_id: undefined, // Clear any direct assignee
+    });
+  },
+
+  setTaskForLottery: async (id) => {
+    const task = get().tasks.find((t) => t.id === id);
+    if (!task) return;
+
+    // Remove any direct assignment
+    const updates = {
+      assignment_type: "lottery",
+      assignee_id: undefined,
+      claimed_at: undefined,
+    };
+
+    await get().updateTask(id, updates);
+
+    // Update lottery tasks list
+    const updatedTask = get().tasks.find((t) => t.id === id);
+    if (updatedTask) {
+      set({
+        lotteryTasks: [
+          ...get().lotteryTasks.filter((t) => t.id !== id),
+          updatedTask,
+        ],
+      });
+    }
+  },
+
+  claimLotteryTask: async (id, userId) => {
+    const task = get().tasks.find((t) => t.id === id);
+    if (!task || task.assignment_type !== "lottery") return;
+
+    await get().updateTask(id, {
+      assignee_id: userId,
+      claimed_at: new Date().toISOString(),
+      claimed_by: userId,
+      assignment_type: "direct", // Change to direct assignment after claiming
+    });
+
+    // Remove from lottery tasks
+    set({ lotteryTasks: get().lotteryTasks.filter((t) => t.id !== id) });
   },
 
   completeTask: async (id, completedBy) => {
