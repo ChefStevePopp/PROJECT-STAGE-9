@@ -547,19 +547,7 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
                                     // Then update in database
                                     supabase
                                       .from("prep_list_template_tasks")
-                                      .update({
-                                        amount_required: totalAmount,
-                                        updated_at: new Date().toISOString(),
-                                        // Preserve other important fields
-                                        status: task.status || "pending",
-                                        priority: task.priority || "medium",
-                                        prep_system:
-                                          task.prep_system || "as_needed",
-                                        assignment_type: task.assignment_type,
-                                        lottery: task.lottery || false,
-                                        kitchen_station: task.kitchen_station,
-                                        assignee_id: task.assignee_id,
-                                      })
+                                      .update({ amount_required: totalAmount })
                                       .eq("id", task.id)
                                       .then(() => {
                                         console.log(
@@ -615,19 +603,7 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
                                     // Then update in database
                                     supabase
                                       .from("prep_list_template_tasks")
-                                      .update({
-                                        amount_required: units,
-                                        updated_at: new Date().toISOString(),
-                                        // Preserve other important fields
-                                        status: task.status || "pending",
-                                        priority: task.priority || "medium",
-                                        prep_system:
-                                          task.prep_system || "as_needed",
-                                        assignment_type: task.assignment_type,
-                                        lottery: task.lottery || false,
-                                        kitchen_station: task.kitchen_station,
-                                        assignee_id: task.assignee_id,
-                                      })
+                                      .update({ amount_required: units })
                                       .eq("id", task.id)
                                       .then(() => {
                                         console.log(
@@ -708,20 +684,7 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
                       // Then update in database
                       supabase
                         .from("prep_list_template_tasks")
-                        .update({
-                          priority: newPriority,
-                          updated_at: new Date().toISOString(),
-                          // Preserve other important fields
-                          status: task.status || "pending",
-                          prep_system: task.prep_system || "as_needed",
-                          assignment_type: task.assignment_type,
-                          lottery: task.lottery || false,
-                          kitchen_station: task.kitchen_station,
-                          assignee_id: task.assignee_id,
-                          amount_required: task.amount_required || 0,
-                          par_level: task.par_level || 0,
-                          current_level: task.current_level || 0,
-                        })
+                        .update({ priority: newPriority })
                         .eq("id", task.id)
                         .then(() => {
                           // Show success message
@@ -760,21 +723,7 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
 
                       supabase
                         .from("prep_list_template_tasks")
-                        .update({
-                          estimated_time: minutes,
-                          updated_at: new Date().toISOString(),
-                          // Preserve other important fields
-                          status: task.status || "pending",
-                          priority: task.priority || "medium",
-                          prep_system: task.prep_system || "as_needed",
-                          assignment_type: task.assignment_type,
-                          lottery: task.lottery || false,
-                          kitchen_station: task.kitchen_station,
-                          assignee_id: task.assignee_id,
-                          amount_required: task.amount_required || 0,
-                          par_level: task.par_level || 0,
-                          current_level: task.current_level || 0,
-                        })
+                        .update({ estimated_time: minutes })
                         .eq("id", task.id)
                         .then(() => {
                           // Show success message
@@ -1211,11 +1160,6 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
                           amount_required: task.amount_required || 0,
                           par_level: task.par_level || 0,
                           current_level: task.current_level || 0,
-                          assignment_type: task.assignment_type,
-                          lottery: task.lottery || false,
-                          kitchen_station: task.kitchen_station,
-                          assignee_id: task.assignee_id,
-                          updated_at: new Date().toISOString(),
                         })
                         .eq("id", task.id)
                         .then(({ error }) => {
@@ -1270,7 +1214,6 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
                           station: task.station,
                           assignment_type: task.assignment_type,
                           lottery: task.lottery || false,
-                          updated_at: new Date().toISOString(),
                         })
                         .eq("id", task.id)
                         .then(({ error }) => {

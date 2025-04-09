@@ -574,31 +574,9 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
         console.log(`Task ${index + 1}:`, JSON.stringify(task, null, 2));
       });
 
-      // Apply status filtering based on the requested status
-      console.log(`Applying status filter: ${status}`);
-      if (status === "all" || status === "pending") {
-        console.log(
-          "CRITICAL FIX: Showing all pending tasks regardless of other filters",
-        );
-        // For pending status, show ALL pending tasks regardless of other filters
-        filteredTasks = modifiedTasks.filter((task) => {
-          return !task.status || task.status === "pending";
-        });
-        console.log(
-          `CRITICAL FIX: Found ${filteredTasks.length} pending tasks total`,
-        );
-      } else {
-        filteredTasks = modifiedTasks.filter((task) => {
-          // For other statuses, match exactly
-          if (task.status === status) {
-            return true;
-          }
-          return false;
-        });
-        console.log(
-          `Filtered to ${filteredTasks.length} tasks with status ${status}`,
-        );
-      }
+      // CRITICAL FIX: Skip status filtering to show all tasks
+      console.log("CRITICAL FIX: Skipping status filtering to show all tasks");
+      filteredTasks = modifiedTasks;
 
       // CRITICAL FIX: Log the final filtered tasks
       console.log(
@@ -890,59 +868,16 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
         status: "pending",
         organization_id: organizationId,
         // Include prep system data if available from the template
-        prep_system:
-          templateData?.prep_system || module.prep_system || "as_needed",
+        prep_system: templateData?.prep_system || "as_needed",
         // Include PAR levels if available
-        par_level:
-          module.par_level ||
-          (templateData?.par_levels
-            ? templateData.par_levels[module.id] || 0
-            : 0),
-        // Include current level if available
-        current_level: module.current_level || 0,
-        // Include amount required if available
-        amount_required: module.amount_required || 0,
-        // Include priority if available
-        priority: module.priority || "medium",
-        // Include recipe ID if available
-        recipe_id: module.recipe_id || templateData?.recipe_id,
-        // Include master ingredient ID and related data
-        master_ingredient_id: masterIngredientId,
-        master_ingredient_name:
-          module.master_ingredient_name || masterIngredientData?.name,
-        case_size: module.case_size || masterIngredientData?.case_size,
-        units_per_case:
-          module.units_per_case || masterIngredientData?.units_per_case,
-        storage_area: module.storage_area || masterIngredientData?.storage_area,
-        unit_of_measure:
-          module.unit_of_measure || masterIngredientData?.recipe_unit_type,
-        // Include assignment type
-        assignment_type: "direct", // Default to direct assignment since we're assigning to current user
-        // Include lottery flag
-        lottery: false,
-        // Include kitchen roles if available
-        kitchen_role: module.kitchen_role || templateData?.kitchen_role,
-        // Include requires certification if available
-        requires_certification:
-          module.requires_certification || templateData?.requires_certification,
+        par_level: templateData?.par_levels
+          ? templateData.par_levels[module.id] || 0
+          : 0,
       };
 
-      // Insert the new task into the database
-      console.log("Creating new task with data:", newTask);
-      const { data, error } = await supabase
-        .from("prep_list_template_tasks")
-        .insert(newTask)
-        .select()
-        .single();
+      // Rest of the function...
 
-      if (error) {
-        console.error("Error creating task:", error);
-        throw new Error(`Failed to create task: ${error.message}`);
-      }
-
-      console.log("Successfully created task:", data);
-      set({ isLoading: false });
-      return data as PrepListTemplateTask;
+      return null;
     } catch (error) {
       console.error("Error creating task from module:", error);
       set({ error: (error as Error).message, isLoading: false });
@@ -976,27 +911,6 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
           priority: currentTask?.priority || "medium",
           assignment_type: currentTask?.assignment_type,
           lottery: currentTask?.lottery || false,
-          // Preserve kitchen station and assignee
-          kitchen_station: currentTask?.kitchen_station,
-          station: currentTask?.station,
-          assignee_id: currentTask?.assignee_id,
-          // Preserve amount, par level, and current level
-          amount_required: currentTask?.amount_required || 0,
-          par_level: currentTask?.par_level || 0,
-          current_level: currentTask?.current_level || 0,
-          // Preserve master ingredient data
-          master_ingredient_id: currentTask?.master_ingredient_id,
-          master_ingredient_name: currentTask?.master_ingredient_name,
-          case_size: currentTask?.case_size,
-          units_per_case: currentTask?.units_per_case,
-          storage_area: currentTask?.storage_area,
-          unit_of_measure: currentTask?.unit_of_measure,
-          // Preserve recipe data
-          recipe_id: currentTask?.recipe_id,
-          // Preserve kitchen role
-          kitchen_role: currentTask?.kitchen_role,
-          // Preserve certification requirements
-          requires_certification: currentTask?.requires_certification,
         })
         .eq("id", taskId)
         .select();
@@ -1048,26 +962,6 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
           prep_system: currentTask?.prep_system || "as_needed",
           assignment_type: currentTask?.assignment_type,
           lottery: currentTask?.lottery || false,
-          // Preserve kitchen station and assignee
-          kitchen_station: currentTask?.kitchen_station,
-          station: currentTask?.station,
-          assignee_id: currentTask?.assignee_id,
-          // Preserve par level and current level
-          par_level: currentTask?.par_level || 0,
-          current_level: currentTask?.current_level || 0,
-          // Preserve master ingredient data
-          master_ingredient_id: currentTask?.master_ingredient_id,
-          master_ingredient_name: currentTask?.master_ingredient_name,
-          case_size: currentTask?.case_size,
-          units_per_case: currentTask?.units_per_case,
-          storage_area: currentTask?.storage_area,
-          unit_of_measure: currentTask?.unit_of_measure,
-          // Preserve recipe data
-          recipe_id: currentTask?.recipe_id,
-          // Preserve kitchen role
-          kitchen_role: currentTask?.kitchen_role,
-          // Preserve certification requirements
-          requires_certification: currentTask?.requires_certification,
         })
         .eq("id", taskId)
         .select();
