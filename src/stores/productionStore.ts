@@ -371,9 +371,11 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
 
       // Execute the query with ordering
       console.log("Executing query for template tasks...");
-      const { data, error } = await query.order("sequence", {
-        ascending: true,
-      });
+      const { data, error } = await query
+        .select("*, template:prep_list_templates(*)")
+        .order("sequence", {
+          ascending: true,
+        });
 
       if (error) {
         console.error("Error executing template tasks query:", error);
@@ -401,6 +403,57 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
       const todayStr = localDate.toISOString().split("T")[0];
       console.log(`Using user's local date: ${todayStr} (NOT server time)`);
 
+      // Create a list of tasks that need master ingredient data
+      const tasksNeedingMasterIngredientData = tasks.filter(
+        (task) =>
+          task.master_ingredient_id &&
+          (!task.master_ingredient_name ||
+            !task.case_size ||
+            !task.units_per_case),
+      );
+
+      // If we have tasks that need master ingredient data, fetch it
+      let masterIngredientsData = {};
+      if (tasksNeedingMasterIngredientData.length > 0) {
+        const masterIngredientIds = tasksNeedingMasterIngredientData
+          .map((task) => task.master_ingredient_id)
+          .filter((id) => id); // Remove any null/undefined values
+
+        if (masterIngredientIds.length > 0) {
+          console.log(
+            "Fetching master ingredient data for tasks:",
+            masterIngredientIds,
+          );
+          const { data: ingredientsData, error: ingredientsError } =
+            await supabase
+              .from("master_ingredients_with_categories")
+              .select(
+                "id, name, case_size, units_per_case, storage_area, recipe_unit_type",
+              )
+              .in("id", masterIngredientIds);
+
+          if (ingredientsError) {
+            console.error(
+              "Error fetching master ingredients:",
+              ingredientsError,
+            );
+          } else if (ingredientsData) {
+            // Create a map of ingredient ID to ingredient data
+            masterIngredientsData = ingredientsData.reduce(
+              (acc, ingredient) => {
+                acc[ingredient.id] = ingredient;
+                return acc;
+              },
+              {},
+            );
+            console.log(
+              "Retrieved master ingredients data:",
+              masterIngredientsData,
+            );
+          }
+        }
+      }
+
       const modifiedTasks = tasks.map((task) => {
         // If the task already has a due_date, keep it
         if (task.due_date) {
@@ -409,6 +462,32 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
           // Otherwise assign today's date
           console.log(`Assigning today's date ${todayStr} to task ${task.id}`);
           task.due_date = todayStr;
+        }
+
+        // Ensure assignment data is properly set
+        if (task.assignee_id) {
+          console.log(`Task ${task.id} has assignee: ${task.assignee_id}`);
+          // Make sure assignment_type is set to direct if there's an assignee
+          if (!task.assignment_type || task.assignment_type !== "direct") {
+            task.assignment_type = "direct";
+            console.log(
+              `Setting assignment_type to direct for task ${task.id}`,
+            );
+          }
+        } else if (
+          task.kitchen_station &&
+          (!task.assignment_type || task.assignment_type !== "station")
+        ) {
+          // Make sure assignment_type is set to station if there's a kitchen_station
+          task.assignment_type = "station";
+          console.log(`Setting assignment_type to station for task ${task.id}`);
+        } else if (
+          task.lottery &&
+          (!task.assignment_type || task.assignment_type !== "lottery")
+        ) {
+          // Make sure assignment_type is set to lottery if lottery flag is true
+          task.assignment_type = "lottery";
+          console.log(`Setting assignment_type to lottery for task ${task.id}`);
         }
 
         // Copy prep system data from the template to the task if available
@@ -438,6 +517,10 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
           ) {
             task.master_ingredient_id = task.template.master_ingredient_id;
           }
+          // CRITICAL FIX: Also set prep_item_id to master_ingredient_id for backward compatibility
+          if (!task.prep_item_id && task.master_ingredient_id) {
+            task.prep_item_id = task.master_ingredient_id;
+          }
           if (!task.recipe_id && task.template.recipe_id) {
             task.recipe_id = task.template.recipe_id;
           }
@@ -446,6 +529,36 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
           delete task.template;
         } else {
           console.log(`Task ${task.id} has no template data`);
+        }
+
+        // Add master ingredient data if available
+        if (
+          task.master_ingredient_id &&
+          masterIngredientsData[task.master_ingredient_id]
+        ) {
+          const ingredientData =
+            masterIngredientsData[task.master_ingredient_id];
+          console.log(
+            `Adding master ingredient data to task ${task.id}:`,
+            ingredientData,
+          );
+
+          // Only set these if they're not already set
+          if (!task.master_ingredient_name) {
+            task.master_ingredient_name = ingredientData.name;
+          }
+          if (!task.case_size) {
+            task.case_size = ingredientData.case_size;
+          }
+          if (!task.units_per_case) {
+            task.units_per_case = ingredientData.units_per_case;
+          }
+          if (!task.storage_area) {
+            task.storage_area = ingredientData.storage_area;
+          }
+          if (!task.unit_of_measure) {
+            task.unit_of_measure = ingredientData.recipe_unit_type;
+          }
         }
 
         return task;
@@ -461,9 +574,31 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
         console.log(`Task ${index + 1}:`, JSON.stringify(task, null, 2));
       });
 
-      // CRITICAL FIX: Skip status filtering to show all tasks
-      console.log("CRITICAL FIX: Skipping status filtering to show all tasks");
-      filteredTasks = modifiedTasks;
+      // Apply status filtering based on the requested status
+      console.log(`Applying status filter: ${status}`);
+      if (status === "all" || status === "pending") {
+        console.log(
+          "CRITICAL FIX: Showing all pending tasks regardless of other filters",
+        );
+        // For pending status, show ALL pending tasks regardless of other filters
+        filteredTasks = modifiedTasks.filter((task) => {
+          return !task.status || task.status === "pending";
+        });
+        console.log(
+          `CRITICAL FIX: Found ${filteredTasks.length} pending tasks total`,
+        );
+      } else {
+        filteredTasks = modifiedTasks.filter((task) => {
+          // For other statuses, match exactly
+          if (task.status === status) {
+            return true;
+          }
+          return false;
+        });
+        console.log(
+          `Filtered to ${filteredTasks.length} tasks with status ${status}`,
+        );
+      }
 
       // CRITICAL FIX: Log the final filtered tasks
       console.log(
@@ -545,14 +680,74 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
   assignTemplateTask: async (taskId, assigneeId) => {
     set({ isLoading: true, error: null });
     try {
-      // Since there's no assignee_id field in prep_list_template_tasks,
-      // we'll just log this action for now
-      console.log(`Would assign task ${taskId} to ${assigneeId}`);
+      console.log(`Assigning task ${taskId} to ${assigneeId}`);
 
-      // In a real implementation, you might want to add an assignee_id field to the table
-      // or handle this differently
+      // Get the current task to preserve existing values
+      const { data: currentTask, error: fetchError } = await supabase
+        .from("prep_list_template_tasks")
+        .select("*")
+        .eq("id", taskId)
+        .single();
 
-      set({ isLoading: false });
+      if (fetchError) {
+        console.error("Error fetching current task data:", fetchError);
+        throw fetchError;
+      }
+
+      // Determine if this is a user ID or station name
+      const isUserId = assigneeId.length > 20; // User IDs are typically UUIDs
+
+      // Prepare update data with all necessary fields
+      const updateData = isUserId
+        ? {
+            assignment_type: "direct",
+            assignee_id: assigneeId,
+            kitchen_station: null,
+            station: null, // Also clear the station field
+            lottery: false,
+            updated_at: new Date().toISOString(),
+            status: currentTask?.status || "pending", // Preserve existing status
+            priority: currentTask?.priority || "medium", // Preserve existing priority
+            prep_system: currentTask?.prep_system || "as_needed", // Preserve existing prep system
+            amount_required: currentTask?.amount_required || 0, // Preserve amount
+            par_level: currentTask?.par_level || 0, // Preserve PAR level
+            current_level: currentTask?.current_level || 0, // Preserve current level
+          }
+        : {
+            assignment_type: "station",
+            kitchen_station: assigneeId,
+            station: assigneeId, // Also update the station field for backward compatibility
+            assignee_id: null,
+            lottery: false,
+            updated_at: new Date().toISOString(),
+            status: currentTask?.status || "pending", // Preserve existing status
+            priority: currentTask?.priority || "medium", // Preserve existing priority
+            prep_system: currentTask?.prep_system || "as_needed", // Preserve existing prep system
+            amount_required: currentTask?.amount_required || 0, // Preserve amount
+            par_level: currentTask?.par_level || 0, // Preserve PAR level
+            current_level: currentTask?.current_level || 0, // Preserve current level
+          };
+
+      const { data, error } = await supabase
+        .from("prep_list_template_tasks")
+        .update(updateData)
+        .eq("id", taskId)
+        .select();
+
+      if (error) throw error;
+
+      console.log(
+        `Successfully assigned task ${taskId} to ${assigneeId}`,
+        data,
+      );
+
+      // Update the task in the local state
+      set((state) => ({
+        templateTasks: state.templateTasks.map((task) =>
+          task.id === taskId ? { ...task, ...updateData } : task,
+        ),
+        isLoading: false,
+      }));
     } catch (error) {
       console.error("Error assigning template task:", error);
       set({ error: (error as Error).message, isLoading: false });
@@ -654,6 +849,32 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
         }
       }
 
+      // Fetch master ingredient data if available
+      let masterIngredientData = null;
+      const masterIngredientId =
+        module.master_ingredient_id || templateData?.master_ingredient_id;
+
+      if (masterIngredientId) {
+        console.log(
+          `Fetching master ingredient data for ID: ${masterIngredientId}`,
+        );
+        const { data: ingredientData, error: ingredientError } = await supabase
+          .from("master_ingredients_with_categories")
+          .select("*")
+          .eq("id", masterIngredientId)
+          .maybeSingle();
+
+        if (ingredientError) {
+          console.error("Error fetching master ingredient:", ingredientError);
+        } else if (ingredientData) {
+          masterIngredientData = ingredientData;
+          console.log(
+            "Retrieved master ingredient data:",
+            masterIngredientData,
+          );
+        }
+      }
+
       // Create a new task based on the module template with ALL relevant data
       const newTask: Partial<PrepListTemplateTask> = {
         title: module.title,
@@ -669,53 +890,62 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
         status: "pending",
         organization_id: organizationId,
         // Include prep system data if available from the template
-        prep_system: templateData?.prep_system || "as_needed",
+        prep_system:
+          templateData?.prep_system || module.prep_system || "as_needed",
         // Include PAR levels if available
-        par_level: templateData?.par_levels?.[module.id] || 0,
-        // Include recipe reference if available
-        recipe_id: module.recipe_id || templateData?.recipe_id || null,
-        // Include priority
-        priority: "medium",
-        // Include required certifications if available
-        requires_certification: templateData?.requires_certification || [],
+        par_level:
+          module.par_level ||
+          (templateData?.par_levels
+            ? templateData.par_levels[module.id] || 0
+            : 0),
+        // Include current level if available
+        current_level: module.current_level || 0,
         // Include amount required if available
-        amount_required: templateData?.amount_required || 0,
+        amount_required: module.amount_required || 0,
+        // Include priority if available
+        priority: module.priority || "medium",
+        // Include recipe ID if available
+        recipe_id: module.recipe_id || templateData?.recipe_id,
+        // Include master ingredient ID and related data
+        master_ingredient_id: masterIngredientId,
+        master_ingredient_name:
+          module.master_ingredient_name || masterIngredientData?.name,
+        case_size: module.case_size || masterIngredientData?.case_size,
+        units_per_case:
+          module.units_per_case || masterIngredientData?.units_per_case,
+        storage_area: module.storage_area || masterIngredientData?.storage_area,
+        unit_of_measure:
+          module.unit_of_measure || masterIngredientData?.recipe_unit_type,
+        // Include assignment type
+        assignment_type: "direct", // Default to direct assignment since we're assigning to current user
+        // Include lottery flag
+        lottery: false,
+        // Include kitchen roles if available
+        kitchen_role: module.kitchen_role || templateData?.kitchen_role,
+        // Include requires certification if available
+        requires_certification:
+          module.requires_certification || templateData?.requires_certification,
       };
 
-      console.log("Creating new task from module with enhanced data:", newTask);
-
       // Insert the new task into the database
+      console.log("Creating new task with data:", newTask);
       const { data, error } = await supabase
         .from("prep_list_template_tasks")
-        .insert([newTask])
+        .insert(newTask)
         .select()
         .single();
 
       if (error) {
-        console.error("Error creating task from module:", error);
+        console.error("Error creating task:", error);
         throw new Error(`Failed to create task: ${error.message}`);
       }
 
-      if (!data) {
-        throw new Error("No data returned after creating task");
-      }
-
-      // Update the local state with the new task
-      set((state) => ({
-        templateTasks: [...state.templateTasks, data as PrepListTemplateTask],
-        isLoading: false,
-      }));
-
-      console.log(
-        `Added module ${module.title} to day ${dueDate} with complete data`,
-      );
+      console.log("Successfully created task:", data);
+      set({ isLoading: false });
       return data as PrepListTemplateTask;
     } catch (error) {
       console.error("Error creating task from module:", error);
-      set({
-        error: error instanceof Error ? error.message : String(error),
-        isLoading: false,
-      });
+      set({ error: (error as Error).message, isLoading: false });
       return null;
     }
   },
@@ -723,142 +953,244 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
   updateTaskPrepSystem: async (taskId, system) => {
     set({ isLoading: true, error: null });
     try {
-      console.log(`Updating task ${taskId} prep system to ${system}`);
+      // Get the current task to preserve existing values
+      const { data: currentTask, error: fetchError } = await supabase
+        .from("prep_list_template_tasks")
+        .select("*")
+        .eq("id", taskId)
+        .single();
 
-      const { error } = await supabase
+      if (fetchError) {
+        console.error("Error fetching current task data:", fetchError);
+        throw fetchError;
+      }
+
+      // Update the prep system in the database
+      const { data, error } = await supabase
         .from("prep_list_template_tasks")
         .update({
           prep_system: system,
           updated_at: new Date().toISOString(),
+          // Preserve other important fields
+          status: currentTask?.status || "pending",
+          priority: currentTask?.priority || "medium",
+          assignment_type: currentTask?.assignment_type,
+          lottery: currentTask?.lottery || false,
+          // Preserve kitchen station and assignee
+          kitchen_station: currentTask?.kitchen_station,
+          station: currentTask?.station,
+          assignee_id: currentTask?.assignee_id,
+          // Preserve amount, par level, and current level
+          amount_required: currentTask?.amount_required || 0,
+          par_level: currentTask?.par_level || 0,
+          current_level: currentTask?.current_level || 0,
+          // Preserve master ingredient data
+          master_ingredient_id: currentTask?.master_ingredient_id,
+          master_ingredient_name: currentTask?.master_ingredient_name,
+          case_size: currentTask?.case_size,
+          units_per_case: currentTask?.units_per_case,
+          storage_area: currentTask?.storage_area,
+          unit_of_measure: currentTask?.unit_of_measure,
+          // Preserve recipe data
+          recipe_id: currentTask?.recipe_id,
+          // Preserve kitchen role
+          kitchen_role: currentTask?.kitchen_role,
+          // Preserve certification requirements
+          requires_certification: currentTask?.requires_certification,
         })
-        .eq("id", taskId);
+        .eq("id", taskId)
+        .select();
 
       if (error) throw error;
 
-      // Update local state
+      console.log(
+        `Successfully updated task ${taskId} prep system to ${system}`,
+        data,
+      );
+
+      // Update the task in the local state
       set((state) => ({
         templateTasks: state.templateTasks.map((task) =>
           task.id === taskId ? { ...task, prep_system: system } : task,
         ),
         isLoading: false,
       }));
-
-      console.log(
-        `Successfully updated task ${taskId} prep system to ${system}`,
-      );
     } catch (error) {
       console.error("Error updating task prep system:", error);
-      set({
-        error: error instanceof Error ? error.message : String(error),
-        isLoading: false,
-      });
-      throw error;
+      set({ error: (error as Error).message, isLoading: false });
     }
   },
 
   updateTaskAmount: async (taskId, amount) => {
     set({ isLoading: true, error: null });
     try {
-      console.log(`Updating task ${taskId} amount to ${amount}`);
+      // Get the current task to preserve existing values
+      const { data: currentTask, error: fetchError } = await supabase
+        .from("prep_list_template_tasks")
+        .select("*")
+        .eq("id", taskId)
+        .single();
 
-      const { error } = await supabase
+      if (fetchError) {
+        console.error("Error fetching current task data:", fetchError);
+        throw fetchError;
+      }
+
+      // Update the amount in the database
+      const { data, error } = await supabase
         .from("prep_list_template_tasks")
         .update({
           amount_required: amount,
           updated_at: new Date().toISOString(),
+          // Preserve other important fields
+          status: currentTask?.status || "pending",
+          priority: currentTask?.priority || "medium",
+          prep_system: currentTask?.prep_system || "as_needed",
+          assignment_type: currentTask?.assignment_type,
+          lottery: currentTask?.lottery || false,
+          // Preserve kitchen station and assignee
+          kitchen_station: currentTask?.kitchen_station,
+          station: currentTask?.station,
+          assignee_id: currentTask?.assignee_id,
+          // Preserve par level and current level
+          par_level: currentTask?.par_level || 0,
+          current_level: currentTask?.current_level || 0,
+          // Preserve master ingredient data
+          master_ingredient_id: currentTask?.master_ingredient_id,
+          master_ingredient_name: currentTask?.master_ingredient_name,
+          case_size: currentTask?.case_size,
+          units_per_case: currentTask?.units_per_case,
+          storage_area: currentTask?.storage_area,
+          unit_of_measure: currentTask?.unit_of_measure,
+          // Preserve recipe data
+          recipe_id: currentTask?.recipe_id,
+          // Preserve kitchen role
+          kitchen_role: currentTask?.kitchen_role,
+          // Preserve certification requirements
+          requires_certification: currentTask?.requires_certification,
         })
-        .eq("id", taskId);
+        .eq("id", taskId)
+        .select();
 
       if (error) throw error;
 
-      // Update local state
+      console.log(
+        `Successfully updated task ${taskId} amount to ${amount}`,
+        data,
+      );
+
+      // Update the task in the local state
       set((state) => ({
         templateTasks: state.templateTasks.map((task) =>
           task.id === taskId ? { ...task, amount_required: amount } : task,
         ),
         isLoading: false,
       }));
-
-      console.log(`Successfully updated task ${taskId} amount to ${amount}`);
     } catch (error) {
       console.error("Error updating task amount:", error);
-      set({
-        error: error instanceof Error ? error.message : String(error),
-        isLoading: false,
-      });
-      throw error;
+      set({ error: (error as Error).message, isLoading: false });
     }
   },
 
   updateTaskParLevel: async (taskId, parLevel) => {
     set({ isLoading: true, error: null });
     try {
-      console.log(`Updating task ${taskId} PAR level to ${parLevel}`);
+      // Get the current task to preserve existing values
+      const { data: currentTask, error: fetchError } = await supabase
+        .from("prep_list_template_tasks")
+        .select("*")
+        .eq("id", taskId)
+        .single();
 
-      const { error } = await supabase
+      if (fetchError) {
+        console.error("Error fetching current task data:", fetchError);
+        throw fetchError;
+      }
+
+      // Update the PAR level in the database
+      const { data, error } = await supabase
         .from("prep_list_template_tasks")
         .update({
           par_level: parLevel,
           updated_at: new Date().toISOString(),
+          // Preserve other important fields
+          status: currentTask?.status || "pending",
+          priority: currentTask?.priority || "medium",
+          prep_system: currentTask?.prep_system || "as_needed",
+          assignment_type: currentTask?.assignment_type,
+          lottery: currentTask?.lottery || false,
         })
-        .eq("id", taskId);
+        .eq("id", taskId)
+        .select();
 
       if (error) throw error;
 
-      // Update local state
+      console.log(
+        `Successfully updated task ${taskId} PAR level to ${parLevel}`,
+        data,
+      );
+
+      // Update the task in the local state
       set((state) => ({
         templateTasks: state.templateTasks.map((task) =>
           task.id === taskId ? { ...task, par_level: parLevel } : task,
         ),
         isLoading: false,
       }));
-
-      console.log(
-        `Successfully updated task ${taskId} PAR level to ${parLevel}`,
-      );
     } catch (error) {
       console.error("Error updating task PAR level:", error);
-      set({
-        error: error instanceof Error ? error.message : String(error),
-        isLoading: false,
-      });
-      throw error;
+      set({ error: (error as Error).message, isLoading: false });
     }
   },
 
   updateTaskCurrentLevel: async (taskId, currentLevel) => {
     set({ isLoading: true, error: null });
     try {
-      console.log(`Updating task ${taskId} current level to ${currentLevel}`);
+      // Get the current task to preserve existing values
+      const { data: currentTask, error: fetchError } = await supabase
+        .from("prep_list_template_tasks")
+        .select("*")
+        .eq("id", taskId)
+        .single();
 
-      const { error } = await supabase
+      if (fetchError) {
+        console.error("Error fetching current task data:", fetchError);
+        throw fetchError;
+      }
+
+      // Update the current level in the database
+      const { data, error } = await supabase
         .from("prep_list_template_tasks")
         .update({
           current_level: currentLevel,
           updated_at: new Date().toISOString(),
+          // Preserve other important fields
+          status: currentTask?.status || "pending",
+          priority: currentTask?.priority || "medium",
+          prep_system: currentTask?.prep_system || "as_needed",
+          assignment_type: currentTask?.assignment_type,
+          lottery: currentTask?.lottery || false,
         })
-        .eq("id", taskId);
+        .eq("id", taskId)
+        .select();
 
       if (error) throw error;
 
-      // Update local state
+      console.log(
+        `Successfully updated task ${taskId} current level to ${currentLevel}`,
+        data,
+      );
+
+      // Update the task in the local state
       set((state) => ({
         templateTasks: state.templateTasks.map((task) =>
           task.id === taskId ? { ...task, current_level: currentLevel } : task,
         ),
         isLoading: false,
       }));
-
-      console.log(
-        `Successfully updated task ${taskId} current level to ${currentLevel}`,
-      );
     } catch (error) {
       console.error("Error updating task current level:", error);
-      set({
-        error: error instanceof Error ? error.message : String(error),
-        isLoading: false,
-      });
-      throw error;
+      set({ error: (error as Error).message, isLoading: false });
     }
   },
 }));

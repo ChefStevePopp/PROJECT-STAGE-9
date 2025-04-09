@@ -30,13 +30,17 @@ export const useProductionData = (
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [cateringEvents, setCateringEvents] = useState<any[]>([]);
 
-  // Force refresh when component mounts - removed filter dependencies to show all tasks
+  // Force refresh when component mounts - include essential filter dependencies
   useEffect(() => {
-    console.log("Component mounted, refreshing data to show ALL tasks");
+    console.log("Component mounted, refreshing data with current filters");
     refreshData();
   }, [
     selectedDate,
-    // Removed filter dependencies to show all tasks regardless of filters
+    filters.status,
+    filters.personalOnly,
+    filters.kitchenStation,
+    filters.adminView,
+    filters.prepListIds,
   ]);
 
   // Fetch organization schedule and tasks on component mount
@@ -142,13 +146,17 @@ export const useProductionData = (
                   );
                 }
 
-                // Simplified to fetch ALL tasks without filtering
+                // Use the filters provided in the component props
                 await fetchTemplateTasksByStatus(
-                  "all", // Show all statuses
-                  false, // Don't filter by personal tasks
-                  undefined, // Don't filter by kitchen station
-                  true, // Use admin view to see everything
-                  undefined, // Don't filter by prep list IDs
+                  filters.status === "pending" ||
+                    filters.status === "in_progress" ||
+                    filters.status === "completed"
+                    ? filters.status
+                    : "all", // Use status from filters or default to all
+                  filters.personalOnly, // Use personal filter from props
+                  filters.kitchenStation, // Use kitchen station filter from props
+                  filters.adminView, // Use admin view setting from props
+                  filters.prepListIds, // Use prep list IDs from props
                 );
                 console.log("Template tasks fetched successfully");
               } catch (err) {
@@ -381,13 +389,17 @@ export const useProductionData = (
       // Fetch data in parallel to reduce loading time
       await Promise.all([
         fetchTemplates(),
-        // Simplified to fetch ALL tasks without filtering
+        // Use the filters provided in the component props
         fetchTemplateTasksByStatus(
-          "all", // Show all statuses
-          false, // Don't filter by personal tasks
-          undefined, // Don't filter by kitchen station
-          true, // Use admin view to see everything
-          undefined, // Don't filter by prep list IDs
+          filters.status === "pending" ||
+            filters.status === "in_progress" ||
+            filters.status === "completed"
+            ? filters.status
+            : "all", // Use status from filters or default to all
+          filters.personalOnly, // Use personal filter from props
+          filters.kitchenStation, // Use kitchen station filter from props
+          filters.adminView, // Use admin view setting from props
+          filters.prepListIds, // Use prep list IDs from props
         ),
       ]);
 

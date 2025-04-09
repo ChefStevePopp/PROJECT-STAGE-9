@@ -426,3 +426,19 @@ select::-ms-expand {
     opacity: 1;
   }
 }
+
+/* Task updated animation */
+.task-updated {
+  animation: pulseGreen 1.5s ease-in-out;
+  border-color: #10b981 !important;
+}
+
+@keyframes pulseGreen {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.4);
+  }
+}

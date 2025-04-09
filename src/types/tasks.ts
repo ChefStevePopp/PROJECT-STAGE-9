@@ -24,6 +24,7 @@ export interface Task {
   prep_list_id?: string; // Reference to a specific prep list instance
   sequence?: number; // Order in the prep list
   assignment_type?: "direct" | "lottery" | "station"; // Whether this task is directly assigned, available for lottery, or assigned to a station
+  lottery?: boolean; // Whether this task is available for lottery
   requires_certification?: string[]; // List of certification IDs required to perform this task
   claimed_at?: string; // When the task was claimed in lottery mode
   claimed_by?: string; // Who claimed the task in lottery mode
@@ -34,6 +35,12 @@ export interface Task {
   permission_level?: "all" | "station" | "assigned"; // Who can view this task
   status?: "pending" | "in_progress" | "completed"; // Current status of the task
   template_id?: string; // Reference to the template this task was created from
+  master_ingredient_id?: string; // Reference to a master ingredient
+  master_ingredient_name?: string; // Name of the master ingredient
+  case_size?: string; // Case size from master ingredient
+  units_per_case?: string; // Units per case from master ingredient
+  storage_area?: string; // Storage area from master ingredient
+  unit_of_measure?: string; // Unit of measure from master ingredient
 }
 
 export interface TaskStore {
