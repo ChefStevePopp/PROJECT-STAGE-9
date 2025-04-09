@@ -7,6 +7,7 @@ import {
   CheckCircle,
   AlertCircle,
   ListChecks,
+  CalendarClock,
 } from "lucide-react";
 
 interface TaskCardProps {
@@ -14,6 +15,7 @@ interface TaskCardProps {
   onComplete: (taskId: string) => void;
   onMoveToInProgress: (taskId: string) => void;
   isCompleted?: boolean;
+  onToggleAutoAdvance?: (taskId: string, autoAdvance: boolean) => void;
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({
@@ -21,6 +23,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onComplete,
   onMoveToInProgress,
   isCompleted = false,
+  onToggleAutoAdvance,
 }) => {
   // Format the estimated time
   const formatTime = (minutes: number) => {
@@ -90,31 +93,52 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         </div>
       ) : null}
 
-      <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-700">
-        {!isCompleted ? (
-          <button
-            onClick={() => onMoveToInProgress(task.id)}
-            className="flex items-center gap-1 text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded hover:bg-blue-500/30 transition-colors"
-          >
-            <ListChecks className="w-3 h-3" />
-            Add to Prep List
-          </button>
-        ) : isInProgress ? (
-          <div className="flex items-center gap-1 text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded">
-            <AlertCircle className="w-3 h-3" />
-            In Progress
+      <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-gray-700">
+        {/* Auto-advance toggle */}
+        {onToggleAutoAdvance && (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1 text-xs text-gray-400">
+              <CalendarClock className="w-3 h-3 text-blue-400" />
+              <span>Auto-advance to next day</span>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={task.auto_advance || false}
+                onChange={(e) => onToggleAutoAdvance(task.id, e.target.checked)}
+              />
+              <div className="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500/50"></div>
+            </label>
           </div>
-        ) : (
-          <div></div>
         )}
 
-        <button
-          onClick={() => onComplete(task.id)}
-          className="flex items-center gap-1 text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded hover:bg-green-500/30 transition-colors"
-        >
-          <CheckCircle className="w-3 h-3" />
-          Complete
-        </button>
+        <div className="flex justify-between items-center">
+          {!isCompleted ? (
+            <button
+              onClick={() => onMoveToInProgress(task.id)}
+              className="flex items-center gap-1 text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded hover:bg-blue-500/30 transition-colors"
+            >
+              <ListChecks className="w-3 h-3" />
+              Add to Prep List
+            </button>
+          ) : isInProgress ? (
+            <div className="flex items-center gap-1 text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded">
+              <AlertCircle className="w-3 h-3" />
+              In Progress
+            </div>
+          ) : (
+            <div></div>
+          )}
+
+          <button
+            onClick={() => onComplete(task.id)}
+            className="flex items-center gap-1 text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded hover:bg-green-500/30 transition-colors"
+          >
+            <CheckCircle className="w-3 h-3" />
+            Complete
+          </button>
+        </div>
       </div>
     </div>
   );

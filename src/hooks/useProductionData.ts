@@ -259,11 +259,36 @@ export const useProductionData = (
       // Convert all template tasks to regular tasks and put them on the selected day
       const regularTasks = templateTasks.map((task) => {
         console.log(`CRITICAL DEBUG: Processing task ${task.id}:`, task);
+
+        // Calculate days late if the task is pending and has a due date in the past
+        let daysLate = 0;
+        let isLate = false;
+        if ((task.status === "pending" || !task.status) && task.due_date) {
+          const dueDate = new Date(task.due_date);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0); // Reset time to start of day
+          dueDate.setHours(0, 0, 0, 0); // Reset time to start of day
+
+          if (dueDate < today) {
+            const timeDiff = today.getTime() - dueDate.getTime();
+            daysLate = Math.floor(timeDiff / (1000 * 3600 * 24));
+            isLate = daysLate > 0;
+            console.log(`Task ${task.id} is ${daysLate} days late`);
+          }
+        }
+
+        // Automatically set priority to high for late tasks
+        const taskPriority = isLate
+          ? "high"
+          : task.priority
+            ? task.priority.toString()
+            : "medium";
+
         return {
           id: task.id,
           title: task.title || "Untitled Task", // Provide fallback for title
           description: task.description || "",
-          priority: task.priority ? task.priority.toString() : "medium", // Convert numeric priority to string
+          priority: taskPriority, // Set high priority for late tasks
           estimated_time: task.estimated_time || 0,
           station: task.station || task.kitchen_station || "", // Try both station fields
           assignee_id: task.assignee_id,
@@ -282,6 +307,10 @@ export const useProductionData = (
           kitchen_role: task.kitchen_role,
           master_ingredient_id: task.master_ingredient_id,
           recipe_id: task.recipe_id,
+          // Add late information
+          isLate: isLate,
+          daysLate: daysLate,
+          status: task.status || "pending", // Ensure status is preserved
         };
       });
 

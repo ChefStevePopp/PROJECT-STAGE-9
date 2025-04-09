@@ -26,6 +26,8 @@ import {
   Save,
   RefreshCw,
   Check,
+  CalendarClock,
+  Calendar,
 } from "lucide-react";
 
 interface SortableTaskCardProps {
@@ -74,6 +76,10 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
   const [isUpdated, setIsUpdated] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
+  const [autoAdvance, setAutoAdvance] = useState<boolean>(
+    task.auto_advance !== false,
+  );
+  const [dueDate, setDueDate] = useState<string>(task.due_date || "");
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({ id });
   const { getUserName } = useUserNameMapping();
@@ -243,15 +249,15 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
 
     switch (system) {
       case "par":
-        return "bg-blue-500/20 text-blue-300";
+        return "bg-blue-500/20 text-blue-300 border border-blue-500/50";
       case "as_needed":
-        return "bg-amber-500/20 text-amber-300";
+        return "bg-amber-500/20 text-amber-300 border border-amber-500/50";
       case "scheduled_production":
-        return "bg-purple-500/20 text-purple-300";
+        return "bg-purple-500/20 text-purple-300 border border-purple-500/50";
       case "hybrid":
-        return "bg-green-500/20 text-green-300";
+        return "bg-green-500/20 text-green-300 border border-green-500/50";
       default:
-        return "bg-gray-500/20 text-gray-300";
+        return "bg-gray-500/20 text-gray-300 border border-gray-500/50";
     }
   };
 
@@ -281,12 +287,19 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
           {task.prep_system && (
             <span
               className={`ml-2 px-2 py-0.5 text-xs rounded-full ${getPrepSystemColor(task.prep_system)}`}
+              key={`prep-system-badge-${task.prep_system}-${isUpdated ? "updated" : "normal"}`}
             >
               {getPrepSystemDisplay(task.prep_system)}
             </span>
           )}
         </div>
         <div className="flex items-center gap-2">
+          {/* Late badge */}
+          {task.isLate && (
+            <span className="px-2 py-0.5 text-xs rounded-full bg-red-500 text-white font-bold">
+              {task.daysLate} {task.daysLate === 1 ? "Day" : "Days"} Late
+            </span>
+          )}
           {task.priority && (
             <span
               className={`px-2 py-0.5 text-xs rounded-full ${getPriorityColor(task.priority)}`}
@@ -413,6 +426,9 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
                 masterIngredientData?.units_per_case ||
                 "undefined"}
             </div>
+            <div>
+              auto_advance: {task.auto_advance !== false ? "true" : "false"}
+            </div>
           </div>
 
           {task.requires_certification &&
@@ -433,45 +449,307 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
                 </span>
               </div>
 
+              {/* Auto-advance toggle */}
+              <div className="flex items-center justify-between mb-4 bg-gray-700/30 p-2 rounded border border-gray-600">
+                <div className="flex items-center gap-1 text-xs text-gray-300">
+                  <CalendarClock className="w-3 h-3 text-blue-400" />
+                  <span>Auto-advance to next day if not completed</span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={autoAdvance}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      const newValue = e.target.checked;
+                      setAutoAdvance(newValue);
+                      setIsUpdated(true);
+
+                      // Update in database
+                      supabase
+                        .from("prep_list_template_tasks")
+                        .update({ auto_advance: newValue })
+                        .eq("id", task.id)
+                        .then(({ error }) => {
+                          if (error) {
+                            console.error(
+                              "Error updating auto-advance setting:",
+                              error,
+                            );
+                            setAutoAdvance(!newValue); // Revert on error
+                          } else {
+                            console.log(`Updated auto-advance to ${newValue}`);
+                            task.auto_advance = newValue; // Update local state
+
+                            // Show visual feedback
+                            const taskElement = document.querySelector(
+                              `[data-task-id="${task.id}"]`,
+                            );
+                            if (taskElement) {
+                              taskElement.classList.add("task-updated");
+                              setTimeout(
+                                () =>
+                                  taskElement.classList.remove("task-updated"),
+                                3000,
+                              );
+                            }
+                          }
+                          setTimeout(() => setIsUpdated(false), 3000);
+                        });
+                    }}
+                  />
+                  <div className="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500/50"></div>
+                </label>
+              </div>
+
               {/* Prep System Section */}
-              <div className="mb-4">
-                <div className="text-xs text-gray-400 font-medium mb-2">
-                  Prep System
+              <div className="mb-4 bg-gray-800/70 p-3 rounded border border-gray-700">
+                <div className="text-xs text-white font-medium mb-2">
+                  Prep System Selection
                 </div>
                 {onUpdatePrepSystem && (
-                  <PrepSystemSelector
-                    taskId={task.id}
-                    currentSystem={task.prep_system || "as_needed"}
-                    onSelectSystem={onUpdatePrepSystem}
-                    onUpdateAmount={onUpdateAmount}
-                    onUpdatePar={onUpdatePar}
-                    onUpdateCurrent={onUpdateCurrent}
-                    masterIngredientId={task.master_ingredient_id}
-                  />
+                  <div className="flex flex-col gap-2">
+                    {/* Prep System Tabs */}
+                    <div className="flex w-full border-b border-gray-700 mb-2 bg-gray-800/50 rounded-t overflow-hidden">
+                      <button
+                        className={`py-2 px-4 text-xs font-medium flex-1 ${task.prep_system === "as_needed" ? "bg-amber-500/20 text-amber-400 border-b-2 border-amber-400" : "text-gray-400 hover:bg-gray-700/50"}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onUpdatePrepSystem(task.id, "as_needed");
+                          // Force re-render
+                          setIsUpdated(true);
+                          setTimeout(() => setIsUpdated(false), 1000);
+                        }}
+                      >
+                        As-Needed
+                      </button>
+                      <button
+                        className={`py-2 px-4 text-xs font-medium flex-1 ${task.prep_system === "par" ? "bg-blue-500/20 text-blue-400 border-b-2 border-blue-400" : "text-gray-400 hover:bg-gray-700/50"}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onUpdatePrepSystem(task.id, "par");
+                          // Force re-render
+                          setIsUpdated(true);
+                          setTimeout(() => setIsUpdated(false), 1000);
+                        }}
+                      >
+                        PAR System
+                      </button>
+                      <button
+                        className={`py-2 px-4 text-xs font-medium flex-1 ${task.prep_system === "scheduled_production" ? "bg-purple-500/20 text-purple-400 border-b-2 border-purple-400" : "text-gray-400 hover:bg-gray-700/50"}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onUpdatePrepSystem(task.id, "scheduled_production");
+                          // Force re-render
+                          setIsUpdated(true);
+                          setTimeout(() => setIsUpdated(false), 1000);
+                        }}
+                      >
+                        Task Scheduler
+                      </button>
+                    </div>
+                  </div>
                 )}
 
                 {/* Prep System Details */}
                 {task.prep_system && (
-                  <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-gray-600/50">
+                  <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-gray-600/50">
                     <div className="flex items-center gap-2 text-xs text-gray-400">
                       <Layers className="w-3 h-3" />
                       <span className="font-medium">
                         Prep system: {getPrepSystemDisplay(task.prep_system)}
                       </span>
+                      {/* Visual indicator for active prep system */}
+                      <span
+                        className={`ml-2 px-2 py-0.5 text-xs rounded-full ${getPrepSystemColor(task.prep_system)}`}
+                      >
+                        {getPrepSystemDisplay(task.prep_system)}
+                      </span>
                     </div>
 
                     {task.prep_system === "par" && (
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full">
-                          PAR: {task.par_level || 0}
-                        </span>
-                        <span className="bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">
-                          Current: {task.current_level || 0}
-                        </span>
-                        {task.amount_required && (
-                          <span className="bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full">
-                            Need: {task.amount_required}
-                          </span>
+                      <div className="flex flex-col gap-2 mt-1 w-full">
+                        {task.master_ingredient_id ? (
+                          <div className="bg-blue-500/20 text-blue-300 p-2 rounded border border-blue-500/30">
+                            <div className="text-xs font-medium mb-1">
+                              {task.master_ingredient_name ||
+                                masterIngredientData?.name ||
+                                masterIngredientData?.product ||
+                                `Ingredient ID: ${task.master_ingredient_id}`}
+                            </div>
+                            <div className="text-xs text-blue-200/70 mb-2">
+                              Case size:{" "}
+                              {task.case_size ||
+                                masterIngredientData?.case_size ||
+                                "N/A"}
+                              , Units per case:{" "}
+                              {task.units_per_case ||
+                                masterIngredientData?.units_per_case ||
+                                "N/A"}
+                            </div>
+                            {(task.storage_area ||
+                              masterIngredientData?.storage_area) && (
+                              <div className="text-xs text-blue-200/70 mb-2">
+                                Storage area:{" "}
+                                {task.storage_area ||
+                                  masterIngredientData?.storage_area}
+                              </div>
+                            )}
+                            <div className="grid grid-cols-3 gap-2">
+                              <div className="flex flex-col">
+                                <label className="text-xs text-blue-200/70">
+                                  PAR Level
+                                </label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={task.par_level || 0}
+                                  placeholder="0"
+                                  className="w-full bg-gray-700/50 border border-blue-500/30 rounded px-2 py-1 text-white text-xs"
+                                  onChange={(e) => {
+                                    const parLevel =
+                                      parseInt(e.target.value) || 0;
+
+                                    // Update local state immediately for UI feedback
+                                    task.par_level = parLevel;
+                                    setIsUpdated(true);
+
+                                    // Calculate amount required based on PAR - current
+                                    const currentLevel =
+                                      task.current_level || 0;
+                                    const amountRequired = Math.max(
+                                      0,
+                                      parLevel - currentLevel,
+                                    );
+                                    task.amount_required = amountRequired;
+
+                                    // Then update in database
+                                    supabase
+                                      .from("prep_list_template_tasks")
+                                      .update({
+                                        par_level: parLevel,
+                                        amount_required: amountRequired,
+                                      })
+                                      .eq("id", task.id)
+                                      .then(() => {
+                                        console.log(
+                                          `Updated PAR level to ${parLevel}`,
+                                        );
+                                        setTimeout(
+                                          () => setIsUpdated(false),
+                                          3000,
+                                        );
+                                      })
+                                      .catch((error) => {
+                                        console.error(
+                                          "Error updating PAR level:",
+                                          error,
+                                        );
+                                      });
+
+                                    // Also call the handlers if provided
+                                    if (onUpdatePar) {
+                                      onUpdatePar(task.id, parLevel);
+                                    }
+                                    if (onUpdateAmount) {
+                                      onUpdateAmount(task.id, amountRequired);
+                                    }
+                                  }}
+                                />
+                              </div>
+                              <div className="flex flex-col">
+                                <label className="text-xs text-blue-200/70">
+                                  Current Level
+                                </label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={task.current_level || 0}
+                                  placeholder="0"
+                                  className="w-full bg-gray-700/50 border border-blue-500/30 rounded px-2 py-1 text-white text-xs"
+                                  onChange={(e) => {
+                                    const currentLevel =
+                                      parseInt(e.target.value) || 0;
+
+                                    // Update local state immediately for UI feedback
+                                    task.current_level = currentLevel;
+                                    setIsUpdated(true);
+
+                                    // Calculate amount required based on PAR - current
+                                    const parLevel = task.par_level || 0;
+                                    const amountRequired = Math.max(
+                                      0,
+                                      parLevel - currentLevel,
+                                    );
+                                    task.amount_required = amountRequired;
+
+                                    // Then update in database
+                                    supabase
+                                      .from("prep_list_template_tasks")
+                                      .update({
+                                        current_level: currentLevel,
+                                        amount_required: amountRequired,
+                                      })
+                                      .eq("id", task.id)
+                                      .then(() => {
+                                        console.log(
+                                          `Updated current level to ${currentLevel}`,
+                                        );
+                                        setTimeout(
+                                          () => setIsUpdated(false),
+                                          3000,
+                                        );
+                                      })
+                                      .catch((error) => {
+                                        console.error(
+                                          "Error updating current level:",
+                                          error,
+                                        );
+                                      });
+
+                                    // Also call the handlers if provided
+                                    if (onUpdateCurrent) {
+                                      onUpdateCurrent(task.id, currentLevel);
+                                    }
+                                    if (onUpdateAmount) {
+                                      onUpdateAmount(task.id, amountRequired);
+                                    }
+                                  }}
+                                />
+                              </div>
+                              <div className="flex flex-col">
+                                <label className="text-xs text-blue-200/70">
+                                  Need to Prep
+                                </label>
+                                <div className="w-full bg-gray-700/50 border border-blue-500/30 rounded px-2 py-1 text-white text-xs flex items-center justify-center font-medium">
+                                  {task.amount_required || 0}
+                                </div>
+                              </div>
+                            </div>
+                            {task.amount_required > 0 && (
+                              <div className="text-xs text-blue-300 mt-2">
+                                Total to prep: {task.amount_required}{" "}
+                                {task.unit_of_measure ||
+                                  masterIngredientData?.unit_of_measure ||
+                                  "units"}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full">
+                              PAR: {task.par_level || 0}
+                            </span>
+                            <span className="bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">
+                              Current: {task.current_level || 0}
+                            </span>
+                            {task.amount_required && (
+                              <span className="bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full">
+                                Need: {task.amount_required}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                     )}
@@ -651,9 +929,28 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
                     )}
 
                     {task.prep_system === "scheduled_production" && (
-                      <span className="bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full mt-1">
-                        Scheduled
-                      </span>
+                      <div className="flex flex-col gap-2 mt-1 w-full">
+                        <div className="bg-purple-500/20 text-purple-300 p-2 rounded border border-purple-500/30">
+                          <div className="text-xs font-medium mb-2">
+                            Task Scheduler
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <div className="flex items-center gap-2">
+                              <CalendarClock className="w-3 h-3 text-purple-400" />
+                              <span className="text-xs">
+                                Due date: {task.due_date || "Not set"}
+                              </span>
+                            </div>
+                            {task.amount_required > 0 && (
+                              <div className="flex items-center gap-2">
+                                <span className="bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full">
+                                  Amount: {task.amount_required}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     )}
 
                     {task.prep_system === "hybrid" && task.amount_required && (
@@ -667,6 +964,88 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
 
               {/* Task Planning Section */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                {/* Due Date Selector */}
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">
+                    Due Date
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        const newDueDate = e.target.value;
+                        setDueDate(newDueDate);
+                        setIsUpdated(true);
+
+                        // Update due_date in database
+                        supabase
+                          .from("prep_list_template_tasks")
+                          .update({ due_date: newDueDate })
+                          .eq("id", task.id)
+                          .then(({ error }) => {
+                            if (error) {
+                              console.error("Error updating due date:", error);
+                            } else {
+                              console.log(`Updated due date to ${newDueDate}`);
+                              // Update local task state
+                              task.due_date = newDueDate;
+
+                              // If prep system is not already set to scheduled_production and a due date is set,
+                              // ask the user if they want to change the prep system
+                              if (
+                                newDueDate &&
+                                task.prep_system !== "scheduled_production" &&
+                                onUpdatePrepSystem
+                              ) {
+                                if (
+                                  confirm(
+                                    "Would you like to change the prep system to Scheduled Production?",
+                                  )
+                                ) {
+                                  onUpdatePrepSystem(
+                                    task.id,
+                                    "scheduled_production",
+                                  );
+                                }
+                              }
+
+                              // Show visual feedback
+                              const taskElement = document.querySelector(
+                                `[data-task-id="${task.id}"]`,
+                              );
+                              if (taskElement) {
+                                taskElement.classList.add("task-updated");
+                                setTimeout(
+                                  () =>
+                                    taskElement.classList.remove(
+                                      "task-updated",
+                                    ),
+                                  3000,
+                                );
+                              }
+                            }
+                            setTimeout(() => setIsUpdated(false), 3000);
+                          });
+                      }}
+                      className="w-full bg-gray-700/50 border border-gray-600 rounded px-2 py-1 text-white text-xs"
+                    />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (dueDate && onUpdatePrepSystem) {
+                          onUpdatePrepSystem(task.id, "scheduled_production");
+                        }
+                      }}
+                      className="flex items-center gap-1 text-xs bg-purple-500/20 text-purple-300 px-2 py-1 rounded hover:bg-purple-500/30 transition-colors"
+                      title="Set as Scheduled Production"
+                    >
+                      <Calendar className="w-3 h-3" />
+                      Schedule
+                    </button>
+                  </div>
+                </div>
                 {/* Priority Selector */}
                 <div>
                   <label className="text-xs text-gray-400 block mb-1">
@@ -837,6 +1216,7 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
                             amount_required: task.amount_required || 0, // Preserve amount required
                             par_level: task.par_level || 0, // Preserve PAR level
                             current_level: task.current_level || 0, // Preserve current level
+                            auto_advance: autoAdvance, // Preserve auto-advance setting
                           })
                           .eq("id", task.id)
                           .then(({ error, data }) => {
@@ -961,6 +1341,7 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
                             amount_required: task.amount_required || 0, // Preserve amount required
                             par_level: task.par_level || 0, // Preserve PAR level
                             current_level: task.current_level || 0, // Preserve current level
+                            auto_advance: autoAdvance, // Preserve auto-advance setting
                           })
                           .eq("id", task.id)
                           .then(({ error, data }) => {
@@ -1069,6 +1450,7 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
                           amount_required: task.amount_required || 0, // Preserve amount required
                           par_level: task.par_level || 0, // Preserve PAR level
                           current_level: task.current_level || 0, // Preserve current level
+                          auto_advance: autoAdvance, // Preserve auto-advance setting
                         })
                         .eq("id", task.id)
                         .then(({ error, data }) => {
@@ -1160,6 +1542,8 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
                           amount_required: task.amount_required || 0,
                           par_level: task.par_level || 0,
                           current_level: task.current_level || 0,
+                          auto_advance: autoAdvance,
+                          due_date: dueDate || null,
                         })
                         .eq("id", task.id)
                         .then(({ error }) => {
@@ -1214,6 +1598,8 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
                           station: task.station,
                           assignment_type: task.assignment_type,
                           lottery: task.lottery || false,
+                          auto_advance: autoAdvance,
+                          due_date: dueDate || null,
                         })
                         .eq("id", task.id)
                         .then(({ error }) => {

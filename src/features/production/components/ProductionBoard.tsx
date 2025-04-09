@@ -43,6 +43,8 @@ export const ProductionBoard = ({
     updateTaskAmount,
     updateTaskParLevel,
     updateTaskCurrentLevel,
+    toggleTaskAutoAdvance,
+    advanceTasksDueDate,
   } = useProductionStore();
   const { settings, fetchSettings } = useOperationsStore();
   const { prepLists, fetchPrepLists } = usePrepListStore();
@@ -90,10 +92,15 @@ export const ProductionBoard = ({
       console.log("Initial data loaded");
       console.log("Templates loaded:", templates);
       console.log("Prep lists loaded:", prepLists);
+
+      // Advance tasks with auto_advance flag set to true
+      console.log("Checking for tasks that need to be advanced...");
+      await advanceTasksDueDate();
+      console.log("Task advancement check completed");
     };
 
     loadInitialData();
-  }, [fetchSettings, fetchTemplates, fetchPrepLists]);
+  }, [fetchSettings, fetchTemplates, fetchPrepLists, advanceTasksDueDate]);
 
   // Debug effect to log templates whenever they change
   useEffect(() => {
@@ -414,6 +421,7 @@ export const ProductionBoard = ({
     system: "par" | "as_needed" | "scheduled_production" | "hybrid",
   ) => {
     try {
+      console.log(`Updating task ${taskId} prep system to ${system}`);
       await updateTaskPrepSystem(taskId, system);
 
       // Update local state
@@ -422,13 +430,22 @@ export const ProductionBoard = ({
 
         // Find which day contains this task
         Object.keys(newTasksByDay).forEach((day) => {
-          newTasksByDay[day] = newTasksByDay[day].map((task) =>
-            task.id === taskId ? { ...task, prep_system: system } : task,
-          );
+          newTasksByDay[day] = newTasksByDay[day].map((task) => {
+            if (task.id === taskId) {
+              console.log(
+                `Updated task ${taskId} prep system from ${task.prep_system} to ${system}`,
+              );
+              return { ...task, prep_system: system };
+            }
+            return task;
+          });
         });
 
         return newTasksByDay;
       });
+
+      // Force refresh data to ensure UI updates
+      setTimeout(() => refreshData(), 100);
 
       toast.success(`Updated prep system to ${system.toUpperCase()}`);
       return true;
@@ -524,6 +541,41 @@ export const ProductionBoard = ({
     } catch (error) {
       console.error("Error updating current level:", error);
       toast.error("Failed to update current level");
+      return false;
+    }
+  };
+
+  // Handle toggle auto advance
+  const handleToggleAutoAdvance = async (
+    taskId: string,
+    autoAdvance: boolean,
+  ) => {
+    try {
+      await toggleTaskAutoAdvance(taskId, autoAdvance);
+
+      // Update local state
+      setTasksByDay((prev) => {
+        const newTasksByDay = { ...prev };
+
+        // Find which day contains this task
+        Object.keys(newTasksByDay).forEach((day) => {
+          newTasksByDay[day] = newTasksByDay[day].map((task) =>
+            task.id === taskId ? { ...task, auto_advance: autoAdvance } : task,
+          );
+        });
+
+        return newTasksByDay;
+      });
+
+      toast.success(
+        autoAdvance
+          ? "Task will automatically advance to the next day if not completed"
+          : "Auto-advance disabled for this task",
+      );
+      return true;
+    } catch (error) {
+      console.error("Error toggling auto advance:", error);
+      toast.error("Failed to update auto-advance setting");
       return false;
     }
   };
@@ -1415,6 +1467,7 @@ export const ProductionBoard = ({
               onUpdateAmount={handleUpdateAmount}
               onUpdateParLevel={handleUpdateParLevel}
               onUpdateCurrentLevel={handleUpdateCurrentLevel}
+              onToggleAutoAdvance={handleToggleAutoAdvance}
             />
           </div>
 

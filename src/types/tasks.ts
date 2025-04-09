@@ -41,6 +41,10 @@ export interface Task {
   units_per_case?: string; // Units per case from master ingredient
   storage_area?: string; // Storage area from master ingredient
   unit_of_measure?: string; // Unit of measure from master ingredient
+  isLate?: boolean; // Whether this task is late
+  daysLate?: number; // Number of days this task is late
+  is_catering_event?: boolean; // Whether this task is a catering event
+  auto_advance?: boolean; // Whether this task should automatically advance to the next day if not completed
 }
 
 export interface TaskStore {
@@ -83,6 +87,7 @@ export interface PrepListTemplate {
   master_ingredient_id?: string; // Reference to an associated master ingredient
   kitchen_role?: string; // Reference to a kitchen role
   kitchen_stations?: string[]; // Kitchen stations that have access to this template
+  auto_advance?: boolean; // Whether tasks from this template should automatically advance to the next day if not completed
 }
 
 export interface PrepListTemplateTask {
@@ -110,6 +115,7 @@ export interface PrepListTemplateTask {
   organization_id?: string; // Reference to the organization this task belongs to
   due_date?: string; // Due date for this task
   status?: string; // Status of the task (pending, in_progress, completed)
+  auto_advance?: boolean; // Whether this task should automatically advance to the next day if not completed
 }
 
 export interface PrepList {

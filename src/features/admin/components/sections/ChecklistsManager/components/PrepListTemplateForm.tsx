@@ -64,6 +64,7 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
     master_ingredient_id: "",
     kitchen_role: "",
     kitchen_stations: [],
+    auto_advance: false,
   });
 
   // Search states
@@ -180,6 +181,7 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
         master_ingredient_id: selectedTemplate.master_ingredient_id || "",
         kitchen_role: selectedTemplate.kitchen_role || "",
         kitchen_stations: selectedTemplate.kitchen_stations || [],
+        auto_advance: selectedTemplate.auto_advance || false,
       });
 
       // Set search fields based on selected values
@@ -769,6 +771,32 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
           </div>
 
           <div className="md:col-span-2">
+            <div className="flex items-center mb-4">
+              <input
+                type="checkbox"
+                id="auto_advance"
+                name="auto_advance"
+                checked={formData.auto_advance || false}
+                onChange={(e) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    auto_advance: e.target.checked,
+                  }));
+                }}
+                className="mr-2 h-4 w-4 rounded border-gray-700 bg-gray-800 text-blue-500 focus:ring-blue-500"
+              />
+              <label
+                htmlFor="auto_advance"
+                className="text-sm font-medium text-gray-400 flex items-center gap-1"
+              >
+                <Clock className="w-3 h-3 text-blue-400" />
+                Auto-advance task to next day if not completed
+                <span className="ml-2 text-xs text-gray-500">
+                  (Task will automatically move to the current date if it was
+                  due in the past)
+                </span>
+              </label>
+            </div>
             <label className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-1">
               <Gauge className="w-3 h-3 text-blue-400" />
               Prep System

@@ -47,6 +47,11 @@ interface ProductionState {
     taskId: string,
     currentLevel: number,
   ) => Promise<void>;
+  toggleTaskAutoAdvance: (
+    taskId: string,
+    autoAdvance: boolean,
+  ) => Promise<void>;
+  advanceTasksDueDate: () => Promise<void>;
 }
 
 export const useProductionStore = create<ProductionState>((set, get) => ({
@@ -243,59 +248,76 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
             "No prep lists found for the provided IDs:",
             prepListIds,
           );
-          set({ templateTasks: [] });
-          return;
+
+          // CRITICAL FIX: Instead of returning empty, try to use the IDs directly as template IDs
+          console.log(
+            "Attempting to use provided IDs directly as template IDs",
+          );
+          templateIds = prepListIds;
+        } else {
+          console.log(
+            "Fetched prep lists for template IDs:",
+            JSON.stringify(prepListsData, null, 2),
+          );
+
+          // Extract all template IDs (from both template_id field and template_ids array)
+          templateIds = prepListsData
+            .flatMap((prepList) => {
+              const ids = [];
+              if (prepList.template_id) {
+                console.log(
+                  `Prep list ${prepList.id} has template_id: ${prepList.template_id}`,
+                );
+                ids.push(prepList.template_id);
+              }
+              if (
+                prepList.template_ids &&
+                Array.isArray(prepList.template_ids)
+              ) {
+                console.log(
+                  `Prep list ${prepList.id} has template_ids array: ${JSON.stringify(prepList.template_ids)}`,
+                );
+                ids.push(...prepList.template_ids);
+              }
+
+              if (ids.length === 0) {
+                console.warn(
+                  `Prep list ${prepList.id} has no template IDs (neither template_id nor template_ids array)`,
+                );
+              }
+
+              return ids;
+            })
+            .filter((id) => {
+              if (!id) {
+                console.warn("Filtered out null/undefined template ID");
+                return false;
+              }
+              return true;
+            }); // Remove any null/undefined values
+
+          console.log(
+            "Final extracted template IDs after filtering:",
+            templateIds,
+          );
         }
 
-        console.log(
-          "Fetched prep lists for template IDs:",
-          JSON.stringify(prepListsData, null, 2),
-        );
-
-        // Extract all template IDs (from both template_id field and template_ids array)
-        templateIds = prepListsData
-          .flatMap((prepList) => {
-            const ids = [];
-            if (prepList.template_id) {
-              console.log(
-                `Prep list ${prepList.id} has template_id: ${prepList.template_id}`,
-              );
-              ids.push(prepList.template_id);
-            }
-            if (prepList.template_ids && Array.isArray(prepList.template_ids)) {
-              console.log(
-                `Prep list ${prepList.id} has template_ids array: ${JSON.stringify(prepList.template_ids)}`,
-              );
-              ids.push(...prepList.template_ids);
-            }
-
-            if (ids.length === 0) {
-              console.warn(
-                `Prep list ${prepList.id} has no template IDs (neither template_id nor template_ids array)`,
-              );
-            }
-
-            return ids;
-          })
-          .filter((id) => {
-            if (!id) {
-              console.warn("Filtered out null/undefined template ID");
-              return false;
-            }
-            return true;
-          }); // Remove any null/undefined values
-
-        console.log(
-          "Final extracted template IDs after filtering:",
-          templateIds,
-        );
+        console.log("Extracted template IDs from prep lists:", templateIds);
 
         console.log("Extracted template IDs from prep lists:", templateIds);
 
         if (templateIds.length === 0) {
           console.warn("No template IDs found in the selected prep lists");
-          set({ templateTasks: [] });
-          return;
+          console.log(
+            "Attempting to use provided IDs directly as template IDs",
+          );
+          templateIds = prepListIds;
+
+          if (templateIds.length === 0) {
+            console.warn("No template IDs available after fallback attempt");
+            set({ templateTasks: [] });
+            return;
+          }
         }
       } else {
         // Otherwise, get all templates for this organization
@@ -868,16 +890,55 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
         status: "pending",
         organization_id: organizationId,
         // Include prep system data if available from the template
-        prep_system: templateData?.prep_system || "as_needed",
+        prep_system:
+          module.prep_system || templateData?.prep_system || "as_needed",
         // Include PAR levels if available
-        par_level: templateData?.par_levels
-          ? templateData.par_levels[module.id] || 0
-          : 0,
+        par_level:
+          module.par_level ||
+          (templateData?.par_levels
+            ? templateData.par_levels[module.id] || 0
+            : 0),
+        // Include additional fields from module or template
+        priority: module.priority || templateData?.priority || "medium",
+        required: module.required !== undefined ? module.required : true,
+        assignment_type: "direct", // Directly assigned to current user
+        kitchen_role: module.kitchen_role || templateData?.kitchen_role || "",
+        amount_required: module.amount_required || 0,
+        current_level: module.current_level || 0,
+        recipe_id: module.recipe_id || templateData?.recipe_id || null,
+        master_ingredient_id: masterIngredientId || null,
       };
 
-      // Rest of the function...
+      // Add master ingredient data if available
+      if (masterIngredientData) {
+        newTask.master_ingredient_name = masterIngredientData.name;
+        newTask.case_size = masterIngredientData.case_size;
+        newTask.units_per_case = masterIngredientData.units_per_case;
+        newTask.storage_area = masterIngredientData.storage_area;
+        newTask.unit_of_measure = masterIngredientData.recipe_unit_type;
+      }
 
-      return null;
+      console.log("Creating new task with data:", newTask);
+
+      // Insert the new task into the database
+      const { data, error } = await supabase
+        .from("prep_list_template_tasks")
+        .insert(newTask)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error inserting task into database:", error);
+        throw new Error(`Failed to insert task: ${error.message}`);
+      }
+
+      if (!data) {
+        throw new Error("No data returned from task creation");
+      }
+
+      console.log("Successfully created new task:", data);
+      set({ isLoading: false });
+      return data as PrepListTemplateTask;
     } catch (error) {
       console.error("Error creating task from module:", error);
       set({ error: (error as Error).message, isLoading: false });
@@ -888,6 +949,8 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
   updateTaskPrepSystem: async (taskId, system) => {
     set({ isLoading: true, error: null });
     try {
+      console.log(`Store: Updating task ${taskId} prep system to ${system}`);
+
       // Get the current task to preserve existing values
       const { data: currentTask, error: fetchError } = await supabase
         .from("prep_list_template_tasks")
@@ -899,6 +962,8 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
         console.error("Error fetching current task data:", fetchError);
         throw fetchError;
       }
+
+      console.log(`Current task data:`, currentTask);
 
       // Update the prep system in the database
       const { data, error } = await supabase
@@ -923,12 +988,27 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
       );
 
       // Update the task in the local state
-      set((state) => ({
-        templateTasks: state.templateTasks.map((task) =>
-          task.id === taskId ? { ...task, prep_system: system } : task,
-        ),
-        isLoading: false,
-      }));
+      set((state) => {
+        const updatedTasks = state.templateTasks.map((task) => {
+          if (task.id === taskId) {
+            console.log(
+              `Updating task in store from ${task.prep_system} to ${system}`,
+            );
+            return { ...task, prep_system: system };
+          }
+          return task;
+        });
+
+        console.log(`Updated ${updatedTasks.length} tasks in store`);
+        return {
+          templateTasks: updatedTasks,
+          isLoading: false,
+        };
+      });
+
+      // Force a refresh of templates to ensure UI updates
+      const { fetchTemplates } = get();
+      setTimeout(() => fetchTemplates(), 100);
     } catch (error) {
       console.error("Error updating task prep system:", error);
       set({ error: (error as Error).message, isLoading: false });
@@ -1084,6 +1164,175 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
       }));
     } catch (error) {
       console.error("Error updating task current level:", error);
+      set({ error: (error as Error).message, isLoading: false });
+    }
+  },
+
+  toggleTaskAutoAdvance: async (taskId, autoAdvance) => {
+    set({ isLoading: true, error: null });
+    try {
+      // Get the current task to preserve existing values
+      const { data: currentTask, error: fetchError } = await supabase
+        .from("prep_list_template_tasks")
+        .select("*")
+        .eq("id", taskId)
+        .single();
+
+      if (fetchError) {
+        console.error("Error fetching current task data:", fetchError);
+        throw fetchError;
+      }
+
+      // Update the auto_advance flag in the database
+      const { data, error } = await supabase
+        .from("prep_list_template_tasks")
+        .update({
+          auto_advance: autoAdvance,
+          updated_at: new Date().toISOString(),
+          // Preserve other important fields
+          status: currentTask?.status || "pending",
+          priority: currentTask?.priority || "medium",
+          prep_system: currentTask?.prep_system || "as_needed",
+          assignment_type: currentTask?.assignment_type,
+          lottery: currentTask?.lottery || false,
+        })
+        .eq("id", taskId)
+        .select();
+
+      if (error) throw error;
+
+      console.log(
+        `Successfully ${autoAdvance ? "enabled" : "disabled"} auto-advance for task ${taskId}`,
+        data,
+      );
+
+      // Update the task in the local state
+      set((state) => ({
+        templateTasks: state.templateTasks.map((task) =>
+          task.id === taskId ? { ...task, auto_advance: autoAdvance } : task,
+        ),
+        isLoading: false,
+      }));
+    } catch (error) {
+      console.error("Error toggling task auto-advance:", error);
+      set({ error: (error as Error).message, isLoading: false });
+    }
+  },
+
+  advanceTasksDueDate: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      // Get organization_id from user context
+      const { data: userData, error: userError } =
+        await supabase.auth.getUser();
+      if (userError) {
+        console.error("Error fetching user data:", userError);
+        throw new Error(`Authentication error: ${userError.message}`);
+      }
+
+      if (!userData.user?.user_metadata?.organizationId) {
+        console.error("No organization ID found in user metadata");
+        throw new Error("No organization ID found");
+      }
+
+      const organizationId = userData.user.user_metadata.organizationId;
+      console.log(
+        `Checking tasks to advance for organization: ${organizationId}`,
+      );
+
+      // Get all tasks with auto_advance set to true that aren't completed
+      const { data: tasksToAdvance, error: fetchError } = await supabase
+        .from("prep_list_template_tasks")
+        .select("*")
+        .eq("auto_advance", true)
+        .eq("organization_id", organizationId)
+        .neq("status", "completed");
+
+      if (fetchError) {
+        console.error("Error fetching tasks to advance:", fetchError);
+        throw fetchError;
+      }
+
+      if (!tasksToAdvance || tasksToAdvance.length === 0) {
+        console.log("No tasks to advance");
+        set({ isLoading: false });
+        return;
+      }
+
+      console.log(
+        `Found ${tasksToAdvance.length} tasks with auto-advance enabled`,
+      );
+
+      // Get today's date in ISO format (YYYY-MM-DD)
+      // ALWAYS use the user's local date, NEVER server time
+      const today = new Date();
+      const userTimezoneOffset = today.getTimezoneOffset() * 60000;
+      const localDate = new Date(today.getTime() - userTimezoneOffset);
+      const todayStr = localDate.toISOString().split("T")[0];
+      console.log(`Using user's local date: ${todayStr} for task advancement`);
+
+      // Filter tasks that need to be advanced (due date is in the past)
+      const tasksNeedingAdvancement = tasksToAdvance.filter((task) => {
+        return task.due_date && task.due_date < todayStr;
+      });
+
+      if (tasksNeedingAdvancement.length === 0) {
+        console.log(
+          "No tasks need advancement - all tasks are current or future-dated",
+        );
+        set({ isLoading: false });
+        return;
+      }
+
+      console.log(
+        `Advancing ${tasksNeedingAdvancement.length} tasks to ${todayStr}`,
+      );
+
+      // Update each task's due date to today
+      const updatePromises = tasksNeedingAdvancement.map((task) => {
+        console.log(
+          `Advancing task ${task.id} (${task.title}) from ${task.due_date} to ${todayStr}`,
+        );
+        return supabase
+          .from("prep_list_template_tasks")
+          .update({
+            due_date: todayStr,
+            updated_at: new Date().toISOString(),
+            // Add a note to the task description that it was auto-advanced
+            description: task.description
+              ? `${task.description}\n[Auto-advanced from ${task.due_date} to ${todayStr}]`
+              : `[Auto-advanced from ${task.due_date} to ${todayStr}]`,
+          })
+          .eq("id", task.id);
+      });
+
+      await Promise.all(updatePromises);
+
+      // Update the tasks in the local state
+      set((state) => ({
+        templateTasks: state.templateTasks.map((task) => {
+          if (
+            task.auto_advance &&
+            task.due_date &&
+            task.due_date < todayStr &&
+            task.status !== "completed"
+          ) {
+            return {
+              ...task,
+              due_date: todayStr,
+              description: task.description
+                ? `${task.description}\n[Auto-advanced from ${task.due_date} to ${todayStr}]`
+                : `[Auto-advanced from ${task.due_date} to ${todayStr}]`,
+            };
+          }
+          return task;
+        }),
+        isLoading: false,
+      }));
+
+      console.log("Successfully advanced tasks to today");
+    } catch (error) {
+      console.error("Error advancing tasks:", error);
       set({ error: (error as Error).message, isLoading: false });
     }
   },
