@@ -12,13 +12,21 @@ import {
 import { useTaskStore } from "@/stores/taskStore";
 import { Task } from "@/types/tasks";
 import { TeamMember } from "@/features/team/types";
+import { SortableTaskCard } from "@/features/production/components/SortableTaskCard";
 
 interface TaskListProps {
   tasks: Task[];
   teamMembers: TeamMember[];
+  onTaskAssign?: (taskId: string, assigneeId: string) => Promise<void>;
+  onTaskSetForLottery?: (taskId: string) => Promise<void>;
 }
 
-export const TaskList: React.FC<TaskListProps> = ({ tasks, teamMembers }) => {
+export const TaskList: React.FC<TaskListProps> = ({
+  tasks,
+  teamMembers,
+  onTaskAssign,
+  onTaskSetForLottery,
+}) => {
   const { updateTask, deleteTask } = useTaskStore();
 
   const handleToggleComplete = async (task: Task) => {
@@ -38,7 +46,8 @@ export const TaskList: React.FC<TaskListProps> = ({ tasks, teamMembers }) => {
     }
   };
 
-  const getAssigneeName = (assigneeId: string) => {
+  const getAssigneeName = (assigneeId: string | null) => {
+    if (!assigneeId) return "Unassigned";
     const member = teamMembers.find((m) => m.id === assigneeId);
     return member ? `${member.first_name} ${member.last_name}` : "Unassigned";
   };

@@ -8,7 +8,10 @@ import { SortableTaskCard } from "./SortableTaskCard";
 import { Task } from "@/types/tasks";
 import { format, isToday, parseISO } from "date-fns";
 
+type ColumnType = "today" | "adjacent" | "overflow";
+
 interface TaskColumnProps {
+  showAdminView?: boolean;
   day: string;
   tasks: Task[];
   onTaskComplete: (taskId: string) => void;
@@ -27,6 +30,9 @@ interface TaskColumnProps {
     taskId: string,
     currentLevel: number,
   ) => Promise<void>;
+  className?: string;
+  columnType?: ColumnType;
+  showAdminView?: boolean;
 }
 
 export const TaskColumn: React.FC<TaskColumnProps> = ({
@@ -42,7 +48,9 @@ export const TaskColumn: React.FC<TaskColumnProps> = ({
   onUpdateAmount,
   onUpdateParLevel,
   onUpdateCurrentLevel,
-  className,
+  className = "",
+  columnType = "overflow",
+  showAdminView = false,
 }) => {
   // DEBUG: Log the tasks for this column
   // console.log(`TaskColumn for ${day} rendering with ${tasks.length} tasks`);
@@ -65,7 +73,7 @@ export const TaskColumn: React.FC<TaskColumnProps> = ({
   return (
     <div
       ref={setNodeRef}
-      className={`card p-4 h-full min-h-[500px] ${isCurrentDay ? "border-2 border-primary-500" : ""}`}
+      className={`card p-4 h-full min-h-[500px] ${isCurrentDay ? "border-2 border-primary-500" : ""} ${columnType === "today" ? "bg-gray-800" : columnType === "adjacent" ? "bg-gray-900/90" : "bg-gray-900/70"} ${className}`}
     >
       <div
         className={
@@ -98,12 +106,34 @@ export const TaskColumn: React.FC<TaskColumnProps> = ({
                   id={`${task.id}:${day}:${tasks.indexOf(task)}`}
                   task={task}
                   onComplete={onTaskComplete}
-                  onAssign={onTaskAssign}
-                  onSetForLottery={onTaskSetForLottery}
+                  onAssign={
+                    onTaskAssign ||
+                    (async (taskId, assigneeId) => {
+                      console.error(
+                        "No onAssign handler provided to TaskColumn",
+                      );
+                      return Promise.reject(
+                        new Error("No onAssign handler provided"),
+                      );
+                    })
+                  }
+                  onSetForLottery={
+                    onTaskSetForLottery ||
+                    (async (taskId) => {
+                      console.error(
+                        "No onSetForLottery handler provided to TaskColumn",
+                      );
+                      return Promise.reject(
+                        new Error("No onSetForLottery handler provided"),
+                      );
+                    })
+                  }
                   onUpdatePrepSystem={onUpdatePrepSystem}
                   onUpdateAmount={onUpdateAmount}
                   onUpdatePar={onUpdateParLevel}
                   onUpdateCurrent={onUpdateCurrentLevel}
+                  showAdminView={showAdminView}
+                  isDayView={isDayView}
                 />
               );
             })

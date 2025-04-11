@@ -260,20 +260,25 @@ export const useProductionData = (
       const regularTasks = templateTasks.map((task) => {
         console.log(`CRITICAL DEBUG: Processing task ${task.id}:`, task);
 
-        // Calculate days late if the task is pending and has a due date in the past
+        // Calculate days late based on created_at date, not due_date
         let daysLate = 0;
         let isLate = false;
-        if ((task.status === "pending" || !task.status) && task.due_date) {
-          const dueDate = new Date(task.due_date);
+
+        // FIXED: Always check created_at date to determine if task is late
+        if (task.created_at) {
+          const createdDate = new Date(task.created_at);
           const today = new Date();
           today.setHours(0, 0, 0, 0); // Reset time to start of day
-          dueDate.setHours(0, 0, 0, 0); // Reset time to start of day
+          createdDate.setHours(0, 0, 0, 0); // Reset time to start of day
 
-          if (dueDate < today) {
-            const timeDiff = today.getTime() - dueDate.getTime();
+          // If task was created before today, it's late by that many days
+          if (createdDate < today) {
+            const timeDiff = today.getTime() - createdDate.getTime();
             daysLate = Math.floor(timeDiff / (1000 * 3600 * 24));
             isLate = daysLate > 0;
-            console.log(`Task ${task.id} is ${daysLate} days late`);
+            console.log(
+              `Task ${task.id} is ${daysLate} days late since creation on ${task.created_at}`,
+            );
           }
         }
 
@@ -311,6 +316,7 @@ export const useProductionData = (
           isLate: isLate,
           daysLate: daysLate,
           status: task.status || "pending", // Ensure status is preserved
+          created_at: task.created_at, // Preserve created_at date
         };
       });
 
@@ -335,6 +341,28 @@ export const useProductionData = (
         );
 
         if (matchingDay) {
+          // Calculate days late based on created_at date, not due_date
+          let daysLate = 0;
+          let isLate = false;
+
+          // FIXED: Always check created_at date to determine if task is late
+          if (task.created_at) {
+            const createdDate = new Date(task.created_at);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // Reset time to start of day
+            createdDate.setHours(0, 0, 0, 0); // Reset time to start of day
+
+            // If task was created before today, it's late by that many days
+            if (createdDate < today) {
+              const timeDiff = today.getTime() - createdDate.getTime();
+              daysLate = Math.floor(timeDiff / (1000 * 3600 * 24));
+              isLate = daysLate > 0;
+              console.log(
+                `Task ${task.id} is ${daysLate} days late since creation on ${task.created_at}`,
+              );
+            }
+          }
+
           // Create a regular task
           const regularTask: Task = {
             id: task.id,
@@ -359,6 +387,10 @@ export const useProductionData = (
             kitchen_role: task.kitchen_role,
             master_ingredient_id: task.master_ingredient_id,
             recipe_id: task.recipe_id,
+            // Add late information
+            isLate: isLate,
+            daysLate: daysLate,
+            created_at: task.created_at, // Preserve created_at date
           };
 
           // Add to the matching day

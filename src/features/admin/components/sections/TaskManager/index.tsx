@@ -19,6 +19,7 @@ import { TaskList } from "./components/TaskList";
 import { TaskFilters } from "./components/TaskFilters";
 import { TaskStats } from "./components/TaskStats";
 import { LoadingLogo } from "@/features/shared/components";
+import toast from "react-hot-toast";
 
 export const TaskManager: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -34,7 +35,15 @@ export const TaskManager: React.FC = () => {
     priority: "all",
   });
 
-  const { tasks, isLoading, error, fetchTasks } = useTaskStore();
+  const {
+    tasks,
+    isLoading,
+    error,
+    fetchTasks,
+    assignTask,
+    assignToStation,
+    setTaskForLottery,
+  } = useTaskStore();
   const { members, fetchTeamMembers } = useTeamStore();
   const { currentSchedule, fetchCurrentSchedule } = useScheduleStore();
 
@@ -158,7 +167,32 @@ export const TaskManager: React.FC = () => {
       />
 
       {/* Task List */}
-      <TaskList tasks={filteredTasks} teamMembers={members} />
+      <TaskList
+        tasks={filteredTasks}
+        teamMembers={members}
+        onTaskAssign={async (taskId, assigneeId) => {
+          try {
+            await assignTask(taskId, assigneeId);
+            toast.success("Task assigned successfully");
+            return Promise.resolve();
+          } catch (error) {
+            console.error("Error assigning task:", error);
+            toast.error("Failed to assign task");
+            return Promise.reject(error);
+          }
+        }}
+        onTaskSetForLottery={async (taskId) => {
+          try {
+            await setTaskForLottery(taskId);
+            toast.success("Task added to lottery pool");
+            return Promise.resolve();
+          } catch (error) {
+            console.error("Error setting task for lottery:", error);
+            toast.error("Failed to add task to lottery pool");
+            return Promise.reject(error);
+          }
+        }}
+      />
 
       {/* Create Task Modal */}
       <CreateTaskModal

@@ -32,6 +32,8 @@ export interface Task {
   par_level?: number; // Target quantity for PAR-based tasks
   current_level?: number; // Current quantity for PAR-based tasks
   amount_required?: number; // Amount required to be prepared
+  cases_required?: number; // Number of full cases required
+  units_required?: number; // Number of individual units required (in addition to cases)
   permission_level?: "all" | "station" | "assigned"; // Who can view this task
   status?: "pending" | "in_progress" | "completed"; // Current status of the task
   template_id?: string; // Reference to the template this task was created from
@@ -41,6 +43,7 @@ export interface Task {
   units_per_case?: string; // Units per case from master ingredient
   storage_area?: string; // Storage area from master ingredient
   unit_of_measure?: string; // Unit of measure from master ingredient
+  prep_unit_measure?: string; // Unit of measure for prep tasks
   isLate?: boolean; // Whether this task is late
   daysLate?: number; // Number of days this task is late
   is_catering_event?: boolean; // Whether this task is a catering event

@@ -1031,57 +1031,175 @@ export type Database = {
       }
       prep_list_template_tasks: {
         Row: {
+          amount_required: number | null
+          assignee_id: string | null
+          assignee_station: string | null
+          assignment_type: string | null
+          auto_advance: boolean | null
+          case_size: string | null
+          cases: number | null
+          completed_at: string | null
           created_at: string
           current_level: number | null
           description: string | null
+          due_date: string | null
           estimated_time: number | null
           id: string
+          kitchen_station: string | null
+          lottery: boolean | null
+          master_ingredient_id: string | null
+          master_ingredient_name: string | null
+          measurement_type: string | null
+          on_hand: number | null
+          organization_id: string | null
           par_level: number | null
+          paused_at: string | null
           prep_item_id: string | null
+          prep_system: string | null
+          prep_unit_measure: string | null
+          priority: string | null
+          quantity: number | null
           recipe_id: string | null
           required: boolean
           schedule_days: number[] | null
           sequence: number
+          started_at: string | null
           station: string | null
+          status: string | null
+          storage_area: string | null
+          team_member_role: string | null
           template_id: string
           title: string
+          total_pause_time: number | null
+          unit: string | null
+          unit_of_measure: string | null
+          units: number | null
+          units_per_case: string | null
           updated_at: string
         }
         Insert: {
+          amount_required?: number | null
+          assignee_id?: string | null
+          assignee_station?: string | null
+          assignment_type?: string | null
+          auto_advance?: boolean | null
+          case_size?: string | null
+          cases?: number | null
+          completed_at?: string | null
           created_at?: string
           current_level?: number | null
           description?: string | null
+          due_date?: string | null
           estimated_time?: number | null
           id?: string
+          kitchen_station?: string | null
+          lottery?: boolean | null
+          master_ingredient_id?: string | null
+          master_ingredient_name?: string | null
+          measurement_type?: string | null
+          on_hand?: number | null
+          organization_id?: string | null
           par_level?: number | null
+          paused_at?: string | null
           prep_item_id?: string | null
+          prep_system?: string | null
+          prep_unit_measure?: string | null
+          priority?: string | null
+          quantity?: number | null
           recipe_id?: string | null
           required?: boolean
           schedule_days?: number[] | null
           sequence: number
+          started_at?: string | null
           station?: string | null
+          status?: string | null
+          storage_area?: string | null
+          team_member_role?: string | null
           template_id: string
           title: string
+          total_pause_time?: number | null
+          unit?: string | null
+          unit_of_measure?: string | null
+          units?: number | null
+          units_per_case?: string | null
           updated_at?: string
         }
         Update: {
+          amount_required?: number | null
+          assignee_id?: string | null
+          assignee_station?: string | null
+          assignment_type?: string | null
+          auto_advance?: boolean | null
+          case_size?: string | null
+          cases?: number | null
+          completed_at?: string | null
           created_at?: string
           current_level?: number | null
           description?: string | null
+          due_date?: string | null
           estimated_time?: number | null
           id?: string
+          kitchen_station?: string | null
+          lottery?: boolean | null
+          master_ingredient_id?: string | null
+          master_ingredient_name?: string | null
+          measurement_type?: string | null
+          on_hand?: number | null
+          organization_id?: string | null
           par_level?: number | null
+          paused_at?: string | null
           prep_item_id?: string | null
+          prep_system?: string | null
+          prep_unit_measure?: string | null
+          priority?: string | null
+          quantity?: number | null
           recipe_id?: string | null
           required?: boolean
           schedule_days?: number[] | null
           sequence?: number
+          started_at?: string | null
           station?: string | null
+          status?: string | null
+          storage_area?: string | null
+          team_member_role?: string | null
           template_id?: string
           title?: string
+          total_pause_time?: number | null
+          unit?: string | null
+          unit_of_measure?: string | null
+          units?: number | null
+          units_per_case?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "prep_list_template_tasks_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "organization_team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prep_list_template_tasks_master_ingredient_id_fkey"
+            columns: ["master_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "master_ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prep_list_template_tasks_master_ingredient_id_fkey"
+            columns: ["master_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "master_ingredients_with_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prep_list_template_tasks_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "prep_list_template_tasks_prep_item_id_fkey"
             columns: ["prep_item_id"]
@@ -1115,6 +1233,7 @@ export type Database = {
       prep_list_templates: {
         Row: {
           advance_days: number | null
+          auto_advance: boolean | null
           category: string
           created_at: string
           created_by: string | null
@@ -1136,6 +1255,7 @@ export type Database = {
         }
         Insert: {
           advance_days?: number | null
+          auto_advance?: boolean | null
           category: string
           created_at?: string
           created_by?: string | null
@@ -1157,6 +1277,7 @@ export type Database = {
         }
         Update: {
           advance_days?: number | null
+          auto_advance?: boolean | null
           category?: string
           created_at?: string
           created_by?: string | null
@@ -3035,10 +3156,7 @@ export type Database = {
     }
     Functions: {
       generate_unique_item_code: {
-        Args: {
-          org_id: string
-          base_code: string
-        }
+        Args: { org_id: string; base_code: string }
         Returns: string
       }
       update_vendor_price_changes_invoice_dates: {
@@ -3071,27 +3189,29 @@ export type Database = {
   }
 }
 
-type PublicSchema = Database[Extract<keyof Database, "public">]
+type DefaultSchema = Database[Extract<keyof Database, "public">]
 
 export type Tables<
-  PublicTableNameOrOptions extends
-    | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-        Database[PublicTableNameOrOptions["schema"]]["Views"])
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
-        PublicSchema["Views"])
-    ? (PublicSchema["Tables"] &
-        PublicSchema["Views"])[PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -3099,20 +3219,22 @@ export type Tables<
     : never
 
 export type TablesInsert<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
     | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Insert: infer I
       }
       ? I
@@ -3120,20 +3242,22 @@ export type TablesInsert<
     : never
 
 export type TablesUpdate<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
     | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Update: infer U
       }
       ? U
@@ -3141,21 +3265,23 @@ export type TablesUpdate<
     : never
 
 export type Enums<
-  PublicEnumNameOrOptions extends
-    | keyof PublicSchema["Enums"]
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
     | { schema: keyof Database },
-  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = PublicEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
-    ? PublicSchema["Enums"][PublicEnumNameOrOptions]
+> = DefaultSchemaEnumNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof PublicSchema["CompositeTypes"]
+    | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof Database },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof Database
@@ -3164,6 +3290,31 @@ export type CompositeTypes<
     : never = never,
 > = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
   ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
-    ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      activity_type: [
+        "login",
+        "logout",
+        "recipe_created",
+        "recipe_updated",
+        "recipe_deleted",
+        "inventory_updated",
+        "team_member_added",
+        "team_member_updated",
+        "team_member_removed",
+        "role_changed",
+        "settings_updated",
+        "task_created",
+        "task_updated",
+        "task_deleted",
+        "task_completed",
+        "task_assigned",
+      ],
+    },
+  },
+} as const

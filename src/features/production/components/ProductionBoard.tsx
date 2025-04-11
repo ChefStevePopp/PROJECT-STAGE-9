@@ -52,7 +52,7 @@ export const ProductionBoard = ({
   const [selectedDate, setSelectedDate] = useState<string>(
     format(new Date(), "yyyy-MM-dd"),
   );
-  const [view, setView] = useState<"week" | "day">("week");
+  const [view, setView] = useState<"week" | "day" | "config">("week");
   const [selectedPrepLists, setSelectedPrepLists] = useState<string[]>(() => {
     // Try to get saved prep lists from local storage
     const savedPrepLists = localStorage.getItem("selectedPrepLists");
@@ -75,7 +75,6 @@ export const ProductionBoard = ({
     status: "pending" as "pending" | "in_progress" | "completed",
     personalOnly: false,
     kitchenStation: "",
-    adminView: false,
     showCateringEvents: true,
     prepListIds: [] as string[],
   });
@@ -400,6 +399,35 @@ export const ProductionBoard = ({
 
   // Handle completing a task
   const handleCompleteTask = async (taskId: string) => {
+    // First, find the task to update its isLate and daysLate properties
+    let taskToComplete: Task | undefined;
+    let dayOfTask: string | undefined;
+
+    // Find the task in tasksByDay
+    Object.entries(tasksByDay).forEach(([day, tasks]) => {
+      const foundTask = tasks.find((t) => t.id === taskId);
+      if (foundTask) {
+        taskToComplete = foundTask;
+        dayOfTask = day;
+      }
+    });
+
+    if (taskToComplete) {
+      // Clear the isLate and daysLate properties
+      taskToComplete.isLate = false;
+      taskToComplete.daysLate = 0;
+
+      // Update the task in the database with these changes
+      await supabase
+        .from("prep_list_template_tasks")
+        .update({
+          isLate: false,
+          daysLate: 0,
+        })
+        .eq("id", taskId);
+    }
+
+    // Complete the task using the existing function
     await completeTemplateTask(taskId);
 
     // Update local state by removing the completed task
@@ -607,13 +635,7 @@ export const ProductionBoard = ({
     }));
   };
 
-  // Toggle admin view
-  const toggleAdminView = () => {
-    setFilters((prev) => ({
-      ...prev,
-      adminView: !prev.adminView,
-    }));
-  };
+  // Admin view is now always enabled by default
 
   // Toggle catering events
   const toggleCateringEvents = () => {
@@ -623,12 +645,30 @@ export const ProductionBoard = ({
     }));
   };
 
-  // Toggle between week and day view
+  // Toggle between week, day, and config views
   const toggleView = () => {
-    setView(view === "week" ? "day" : "week");
-    if (view === "day") {
+    if (view === "week") {
+      setView("day");
+    } else if (view === "day") {
+      setView("config");
+      // Make sure we have a selected day for config view
+      if (!selectedDay) {
+        setSelectedDay(selectedDate);
+      }
+    } else {
+      setView("week");
       setSelectedDay(null);
     }
+    console.log(
+      "View toggled to:",
+      view === "week" ? "day" : view === "day" ? "config" : "week",
+    );
+    // Debug the current state after toggle
+    console.log(
+      "Current view:",
+      view === "week" ? "day" : view === "day" ? "config" : "week",
+    );
+    console.log("Selected day:", selectedDay || selectedDate);
   };
 
   // Handle day click to switch to day view
@@ -636,7 +676,9 @@ export const ProductionBoard = ({
     console.log("=== DAY CLICK HANDLER START ====");
     setSelectedDate(day);
     setSelectedDay(day);
-    setView("day");
+    setView("config"); // Always set to config view when clicking a day
+    console.log("View set to config after day click");
+    console.log("Selected day set to:", day);
 
     // CRITICAL FIX: Do NOT clear prepListIds when switching to day view
     // This was causing the tasks to disappear
@@ -645,7 +687,6 @@ export const ProductionBoard = ({
       status: "pending",
       personalOnly: false,
       kitchenStation: "",
-      adminView: true, // CRITICAL FIX: Set adminView to true to bypass filters
       showCateringEvents: true,
       // Keep existing prepListIds
     }));
@@ -1134,7 +1175,7 @@ export const ProductionBoard = ({
 
                   // If in week view, switch to day view to show modules
                   if (view === "week") {
-                    setView("day");
+                    setView("config");
                     setSelectedDay(selectedDate);
                   }
 
@@ -1257,14 +1298,7 @@ export const ProductionBoard = ({
               <HandPlatter className="w-5 h-5" />
             </button>
 
-            {/* Admin View Toggle */}
-            <button
-              onClick={toggleAdminView}
-              title="Admin View"
-              className={`p-1.5 rounded-lg ${filters.adminView ? "bg-purple-500/30 text-purple-300 border border-purple-500/50" : "bg-gray-800/50 text-gray-400 border border-gray-700"}`}
-            >
-              <CheckSquare className="w-5 h-5" />
-            </button>
+            {/* Admin View button removed */}
 
             {/* Prep List Filter Toggle - Show in both views */}
             <button
@@ -1285,12 +1319,18 @@ export const ProductionBoard = ({
           <button
             onClick={toggleView}
             title={
-              view === "week" ? "Switch to Day View" : "Switch to Week View"
+              view === "week"
+                ? "Switch to Day View"
+                : view === "day"
+                  ? "Switch to Config View"
+                  : "Switch to Week View"
             }
             className="p-1.5 rounded-lg bg-gray-800/50 text-gray-300 border border-gray-700 hover:bg-gray-700/50"
           >
             {view === "week" ? (
               <LayoutList className="w-5 h-5" />
+            ) : view === "day" ? (
+              <Coffee className="w-5 h-5" />
             ) : (
               <LayoutGrid className="w-5 h-5" />
             )}
@@ -1446,11 +1486,11 @@ export const ProductionBoard = ({
         </div>
       ) : (
         <div
-          className={`${view === "day" && selectedDay ? "flex flex-col md:flex-row gap-[5%] w-full" : "w-full"}`}
+          className={`${(view === "day" || view === "config") && selectedDay ? "flex flex-col md:flex-row gap-[5%] w-full" : "w-full"}`}
         >
           <div
             className={
-              view === "day" && selectedDay
+              (view === "day" || view === "config") && selectedDay
                 ? "w-full md:w-[60%] min-w-0 flex-shrink-0"
                 : "w-full"
             }
@@ -1460,9 +1500,123 @@ export const ProductionBoard = ({
               tasks={tasksByDay}
               onTaskMove={handleTaskMove}
               onTaskComplete={handleCompleteTask}
+              onTaskAssign={async (taskId, assigneeId) => {
+                try {
+                  // First, get the current task to know its current assignment type
+                  const { data: currentTask, error: fetchError } =
+                    await supabase
+                      .from("prep_list_template_tasks")
+                      .select("*")
+                      .eq("id", taskId)
+                      .single();
+
+                  if (fetchError) {
+                    console.error("Error fetching current task:", fetchError);
+                    throw fetchError;
+                  }
+
+                  // If assigneeId looks like a station name (not a UUID), treat it as a station assignment
+                  if (
+                    assigneeId &&
+                    assigneeId.length < 36 &&
+                    !assigneeId.includes("-")
+                  ) {
+                    await updateTaskDueDate(taskId, selectedDate); // Ensure due date is set
+                    const { error } = await supabase
+                      .from("prep_list_template_tasks")
+                      .update({
+                        assignment_type: "station",
+                        assignee_station: assigneeId,
+                        station: assigneeId,
+                        assignee_id: null,
+                        lottery: false,
+                      })
+                      .eq("id", taskId);
+
+                    if (error) throw error;
+                    toast.success(`Assigned to station: ${assigneeId}`);
+
+                    // Log the transition if it's changing from another assignment type
+                    if (
+                      currentTask.assignment_type &&
+                      currentTask.assignment_type !== "station"
+                    ) {
+                      console.log(
+                        `Task ${taskId} changed from ${currentTask.assignment_type} to station assignment`,
+                      );
+                    }
+                  } else {
+                    // It's a team member assignment - check if this is a team member accepting a station/lottery task
+                    const isAcceptingTask =
+                      currentTask.assignment_type === "station" ||
+                      currentTask.assignment_type === "lottery" ||
+                      currentTask.lottery === true;
+
+                    await updateTaskDueDate(taskId, selectedDate); // Ensure due date is set
+                    const { error } = await supabase
+                      .from("prep_list_template_tasks")
+                      .update({
+                        assignment_type: "direct",
+                        assignee_id: assigneeId,
+                        assignee_station: null,
+                        station: null,
+                        lottery: false,
+                      })
+                      .eq("id", taskId);
+
+                    if (error) throw error;
+
+                    // Show appropriate success message based on whether task was accepted
+                    if (isAcceptingTask) {
+                      toast.success("Task accepted and assigned to you");
+                      console.log(
+                        `Task ${taskId} accepted by team member ${assigneeId} from ${currentTask.assignment_type || "unassigned"} status`,
+                      );
+                    } else {
+                      toast.success("Task assigned to team member");
+                    }
+                  }
+
+                  // Force refresh data to ensure UI updates
+                  setTimeout(() => refreshData(), 100);
+                  return Promise.resolve();
+                } catch (error) {
+                  console.error("Error assigning task:", error);
+                  toast.error("Failed to assign task");
+                  return Promise.reject(error);
+                }
+              }}
+              onTaskSetForLottery={async (taskId) => {
+                try {
+                  await updateTaskDueDate(taskId, selectedDate); // Ensure due date is set
+                  const { error } = await supabase
+                    .from("prep_list_template_tasks")
+                    .update({
+                      assignment_type: "lottery",
+                      lottery: true,
+                      assignee_id: null,
+                      assignee_station: null,
+                      station: null,
+                    })
+                    .eq("id", taskId);
+
+                  if (error) throw error;
+                  toast.success("Task added to lottery pool");
+
+                  // Force refresh data to ensure UI updates
+                  setTimeout(() => refreshData(), 100);
+                  return Promise.resolve();
+                } catch (error) {
+                  console.error("Error setting task for lottery:", error);
+                  toast.error("Failed to add task to lottery pool");
+                  return Promise.reject(error);
+                }
+              }}
               onDayClick={handleDayClick}
-              onHeaderClick={view === "day" ? toggleView : undefined}
-              isDayView={view === "day"}
+              onHeaderClick={
+                view === "day" || view === "config" ? toggleView : undefined
+              }
+              isDayView={view === "day" || view === "config"}
               onUpdatePrepSystem={handleUpdatePrepSystem}
               onUpdateAmount={handleUpdateAmount}
               onUpdateParLevel={handleUpdateParLevel}
@@ -1471,7 +1625,7 @@ export const ProductionBoard = ({
             />
           </div>
 
-          {view === "day" && selectedDay && (
+          {view === "config" && selectedDay && (
             <div className="bg-gray-800/30 rounded-lg border border-gray-700/50 p-4 w-full md:w-[35%] min-w-0 flex-shrink-0">
               <h2 className="text-xl font-semibold text-white mb-4">
                 Available Modules

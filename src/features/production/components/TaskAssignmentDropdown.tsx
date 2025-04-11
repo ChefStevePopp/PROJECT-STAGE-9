@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { User, Users, ChevronDown } from "lucide-react";
 import { useUserNameMapping } from "@/hooks/useUserNameMapping";
 import { supabase } from "@/lib/supabase";
+import toast from "react-hot-toast";
 
 interface TaskAssignmentDropdownProps {
   taskId: string;
@@ -63,9 +64,21 @@ export const TaskAssignmentDropdown: React.FC<TaskAssignmentDropdownProps> = ({
   const handleAssign = async (memberId: string) => {
     setIsLoading(true);
     try {
+      // Check if this is a team member accepting a station/lottery task
+      const isAcceptingTask =
+        assignmentType === "station" || assignmentType === "lottery";
+
       await onAssign(taskId, memberId);
+
+      // Show appropriate toast message
+      if (isAcceptingTask) {
+        toast.success("Task accepted and assigned to you");
+      } else {
+        toast.success("Task assigned successfully");
+      }
     } catch (error) {
       console.error("Error assigning task:", error);
+      toast.error("Failed to assign task");
     } finally {
       setIsLoading(false);
       setIsOpen(false);
