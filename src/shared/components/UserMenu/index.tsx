@@ -104,7 +104,6 @@ export const UserMenu: React.FC = () => {
             <div className="text-xs text-gray-500">{organization.name}</div>
           )}
         </div>
-        <ChefHat className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" />
       </button>
 
       {/* Dropdown Menu */}

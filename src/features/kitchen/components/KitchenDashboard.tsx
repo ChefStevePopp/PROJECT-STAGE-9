@@ -155,19 +155,7 @@ export const KitchenDashboard: React.FC = () => {
               </Tooltip>
             </div>
           </div>
-          <div className="flex flex-col items-end">
-            <div className="text-xl font-medium text-white">
-              {new Date().toLocaleTimeString()}
-            </div>
-            <div className="text-sm text-gray-400">
-              {new Date().toLocaleDateString("en-US", {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
-            </div>
-          </div>
+          {/* Clock section removed */}
         </div>
 
         {/* Main Content Grid */}
