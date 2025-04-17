@@ -232,6 +232,7 @@ export const useProductionData = (
     );
     console.log("SUPER SIMPLIFIED: Current view days:", weekDays);
     console.log("SUPER SIMPLIFIED: Raw template tasks:", templateTasks);
+    console.log("SUPER SIMPLIFIED: Current filters:", filters);
 
     // Create task map once and update it efficiently
     const taskMap: Record<string, Task[]> = {};
@@ -247,17 +248,39 @@ export const useProductionData = (
       JSON.stringify(templateTasks, null, 2),
     );
 
+    // Filter out completed tasks if the filter is set to 'pending' or 'in_progress'
+    const filteredTasks = templateTasks.filter((task) => {
+      // If we're looking for completed tasks, only include completed ones
+      if (filters.status === "completed") {
+        return task.status === "completed";
+      }
+      // If we're looking for in_progress tasks, only include those
+      else if (filters.status === "in_progress") {
+        return task.status === "in_progress";
+      }
+      // If we're looking for pending tasks, exclude completed ones
+      else if (filters.status === "pending") {
+        return task.status !== "completed";
+      }
+      // Default case (all tasks)
+      return true;
+    });
+
+    console.log(
+      `CRITICAL DEBUG: After filtering for status '${filters.status}', tasks count: ${filteredTasks.length}`,
+    );
+
     const isDayView = weekDays.length === 1;
     const selectedDay = weekDays[0]; // First day in the array
 
     // For day view, put ALL tasks on the selected day
     if (isDayView) {
       console.log(
-        `CRITICAL FIX: Day view detected - putting ALL ${templateTasks.length} tasks on ${selectedDay}`,
+        `CRITICAL FIX: Day view detected - putting ${filteredTasks.length} filtered tasks on ${selectedDay}`,
       );
 
       // Convert all template tasks to regular tasks and put them on the selected day
-      const regularTasks = templateTasks.map((task) => {
+      const regularTasks = filteredTasks.map((task) => {
         console.log(`CRITICAL DEBUG: Processing task ${task.id}:`, task);
 
         // Calculate days late based on created_at date, not due_date
@@ -330,7 +353,7 @@ export const useProductionData = (
     else {
       console.log("SIMPLIFIED: Week view - organizing tasks by due date");
 
-      templateTasks.forEach((task) => {
+      filteredTasks.forEach((task) => {
         // Get or default the due date
         const dueDate = task.due_date || selectedDate;
         const dueDateClean = dueDate.split("T")[0];
@@ -437,6 +460,7 @@ export const useProductionData = (
     cateringEvents,
     filters.showCateringEvents,
     filters.prepListIds,
+    filters.status, // Add status to dependencies to re-run when it changes
   ]);
 
   // Define refreshData function outside of the return to make it available to other effects

@@ -157,8 +157,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                   showAdminView={showAdminView}
                   columnType={columnType}
                   className={`
-                    ${columnType === "today" ? "w-[40%] min-w-[350px] flex-shrink-0" : ""}
-                    ${columnType === "adjacent" ? "w-[30%] min-w-[250px] flex-shrink-0" : ""}
+                    ${columnType === "today" ? "w-[50%] min-w-[350px] flex-shrink-0" : ""}
+                    ${columnType === "adjacent" ? "w-[25%] min-w-[250px] flex-shrink-0" : ""}
                     ${columnType === "overflow" ? "min-w-[220px] flex-shrink-0" : ""}
                   `}
                 />

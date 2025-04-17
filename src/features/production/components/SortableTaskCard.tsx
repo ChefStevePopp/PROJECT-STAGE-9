@@ -357,8 +357,8 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
                 {getPrepSystemDisplay(task.prep_system)}
               </span>
             )}
-            {/* Late badge - Always show if task is late */}
-            {isDayView && task.isLate && (
+            {/* Late badge - Only show if task is late and days late is greater than 0 */}
+            {isDayView && task.isLate && task.daysLate > 0 && (
               <span className="px-2 py-0.5 text-xs rounded-full bg-rose-500/30 text-rose-300 font-bold border border-rose-500/50 shadow-sm">
                 {task.daysLate} {task.daysLate === 1 ? "Day" : "Days"} Late
               </span>
@@ -417,7 +417,7 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
             )}
 
           {/* Task Configuration - Expandable section */}
-          <div className="flex flex-col gap-3 mt-3 pt-3 border-t border-gray-700">
+          <div className="card p-6 flex flex-col gap-3 mt-3 pt-3 border-gray-700 bg-slate-900/40">
             {/* Configuration Header */}
             <div
               className="expandable-kanban-header p-2 rounded-md"
@@ -428,7 +428,7 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
             >
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-gray-300">
-                  Configuration
+                  Prep Task Configuration
                 </span>
               </div>
               {isExpanded.config ? (

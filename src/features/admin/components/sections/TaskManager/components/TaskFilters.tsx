@@ -8,12 +8,14 @@ interface TaskFiltersProps {
     station: string;
     assignee: string;
     priority: string;
+    source: string;
   };
   setFilterOptions: React.Dispatch<
     React.SetStateAction<{
       station: string;
       assignee: string;
       priority: string;
+      source: string;
     }>
   >;
 }
@@ -35,6 +37,7 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({
 
   const kitchenStations = settings?.kitchen_stations || [];
   const priorities = ["high", "medium", "low"];
+  const sources = ["prep_list", "catering", "manual", "production"];
 
   return (
     <div className="bg-gray-800/50 rounded-lg p-4">
@@ -66,7 +69,7 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({
 
       {/* Expanded Filters */}
       {isFiltersOpen && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
           {/* Station Filter */}
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-1">
@@ -126,6 +129,28 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({
               {priorities.map((priority) => (
                 <option key={priority} value={priority}>
                   {priority.charAt(0).toUpperCase() + priority.slice(1)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Source Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-1">
+              Source
+            </label>
+            <select
+              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+              value={filterOptions.source}
+              onChange={(e) =>
+                setFilterOptions({ ...filterOptions, source: e.target.value })
+              }
+            >
+              <option value="all">All Sources</option>
+              {sources.map((source) => (
+                <option key={source} value={source}>
+                  {source.charAt(0).toUpperCase() +
+                    source.slice(1).replace("_", " ")}
                 </option>
               ))}
             </select>

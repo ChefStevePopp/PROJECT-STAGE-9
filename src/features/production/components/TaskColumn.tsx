@@ -6,7 +6,7 @@ import {
 } from "@dnd-kit/sortable";
 import { SortableTaskCard } from "./SortableTaskCard";
 import { Task } from "@/types/tasks";
-import { format, isToday, parseISO } from "date-fns";
+import { format, isToday, parseISO, differenceInDays } from "date-fns";
 
 type ColumnType = "today" | "adjacent" | "overflow";
 
@@ -52,8 +52,6 @@ export const TaskColumn: React.FC<TaskColumnProps> = ({
   columnType = "overflow",
   showAdminView = false,
 }) => {
-  // DEBUG: Log the tasks for this column
-  // console.log(`TaskColumn for ${day} rendering with ${tasks.length} tasks`);
   const { setNodeRef } = useDroppable({
     id: `column:${day}`,
   });
@@ -62,10 +60,35 @@ export const TaskColumn: React.FC<TaskColumnProps> = ({
   const formattedDay = format(date, "EEE");
   const formattedDate = format(date, "MMM d");
   const isCurrentDay = isToday(date);
+  const today = new Date();
+
+  // Process tasks to add calculated fields and clean up descriptions
+  const processedTasks = tasks.map((task) => {
+    // Calculate days late if the task is not completed and past due date
+    const dueDate = task.due_date
+      ? new Date(task.due_date)
+      : new Date(task.created_at);
+    const isLate = !task.completed && dueDate < today;
+    const daysLate = isLate ? differenceInDays(today, dueDate) : 0;
+
+    // Clean up description by removing auto-advance messages
+    const cleanedDescription = task.description
+      ? task.description.replace(/\s*\[Auto-advanced from.*?\]/g, "")
+      : task.description;
+
+    return {
+      ...task,
+      isLate,
+      daysLate,
+      description: cleanedDescription,
+    };
+  });
 
   // Create a list of task IDs for SortableContext
   // Ensure each ID is unique by adding an index to prevent duplicates
-  const taskIds = tasks.map((task, index) => `${task.id}:${day}:${index}`);
+  const taskIds = processedTasks.map(
+    (task, index) => `${task.id}:${day}:${index}`,
+  );
 
   // Determine which click handler to use
   const handleHeaderClick = isDayView ? onHeaderClick : onDayClick;
@@ -88,7 +111,7 @@ export const TaskColumn: React.FC<TaskColumnProps> = ({
         <div className="flex justify-between items-center px-2">
           <span>{formattedDay}</span>
           <span className="text-sm bg-gray-700 px-2 py-0.5 rounded-full">
-            {tasks.length}
+            {processedTasks.length}
           </span>
         </div>
         <div className="text-sm text-gray-400 text-left px-2">
@@ -97,13 +120,12 @@ export const TaskColumn: React.FC<TaskColumnProps> = ({
       </div>
       <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
         <div className="space-y-3 max-h-[calc(100vh-250px)] overflow-y-auto pr-2">
-          {tasks.length > 0 ? (
-            tasks.map((task) => {
-              // console.log(`Rendering task in column ${day}:`, task);
+          {processedTasks.length > 0 ? (
+            processedTasks.map((task) => {
               return (
                 <SortableTaskCard
-                  key={`${task.id}:${day}:${tasks.indexOf(task)}`}
-                  id={`${task.id}:${day}:${tasks.indexOf(task)}`}
+                  key={`${task.id}:${day}:${processedTasks.indexOf(task)}`}
+                  id={`${task.id}:${day}:${processedTasks.indexOf(task)}`}
                   task={task}
                   onComplete={onTaskComplete}
                   onAssign={

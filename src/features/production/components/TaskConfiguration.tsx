@@ -1,7 +1,18 @@
 import React, { useState } from "react";
 import { Task } from "@/types/tasks";
 import { supabase } from "@/lib/supabase";
-import { Layers, RefreshCw, Check, Save, CalendarClock } from "lucide-react";
+import {
+  Layers,
+  RefreshCw,
+  Check,
+  Save,
+  BrainCog,
+  Utensils,
+  Calculator,
+  ClipboardCheck,
+  Trash2,
+  CalendarClock,
+} from "lucide-react";
 import { TaskScheduler } from "./TaskScheduler";
 import toast from "react-hot-toast";
 
@@ -137,25 +148,31 @@ export const TaskConfiguration: React.FC<TaskConfigurationProps> = ({
   };
 
   // Save unit of measure to database
-  const saveUnitOfMeasure = () => {
+  const saveUnitOfMeasure = async () => {
     setIsUpdated(true);
 
     // Update task object with current state value
     task.unit_of_measure = unitOfMeasure;
 
-    // Update in database
-    supabase
-      .from("prep_list_template_tasks")
-      .update({ unit_of_measure: unitOfMeasure })
-      .eq("id", task.id)
-      .then(() => {
-        toast.success(`Unit updated to: ${unitOfMeasure}`);
-        setTimeout(() => setIsUpdated(false), 3000);
-      })
-      .catch((error) => {
+    try {
+      // Update in database
+      const { error } = await supabase
+        .from("prep_list_template_tasks")
+        .update({ prep_unit_measure: unitOfMeasure })
+        .eq("id", task.id);
+
+      if (error) {
         console.error("Error updating unit of measure:", error);
         toast.error("Failed to update unit");
-      });
+        return;
+      }
+
+      toast.success(`Unit updated to: ${unitOfMeasure}`);
+      setTimeout(() => setIsUpdated(false), 3000);
+    } catch (error) {
+      console.error("Error updating unit of measure:", error);
+      toast.error("Failed to update unit");
+    }
   };
 
   // Reset unit of measure to original value
@@ -174,11 +191,22 @@ export const TaskConfiguration: React.FC<TaskConfigurationProps> = ({
     <div className="flex flex-col gap-3 mt-3 pt-3 border-t border-gray-700">
       {/* Task Configuration - Comprehensive section with all task details */}
       <div className="bg-gray-800/50 p-3 rounded border border-gray-700 mb-3">
-        <div className="text-xs text-gray-400 font-medium mb-2">
-          Task Configuration
-          <span className="block text-xs text-gray-500 font-normal mt-1">
-            Set task details, priority, and production requirements
+        <div className="mb-2">
+          <div className="text-sm text-gray-200 font-medium pl-2">
+            Prep List Systems
+          </div>
+          <span className="block text-xs text-gray-400 font-normal mt-1 mb-2 p-2">
+            A Prep List System, or Prep System, is a way to calculate the amount
+            of production required for a certain item in a certain time period.
+            It is based on how your kitchen and team work, but most tasks will
+            fall between As-Needed and a PAR Inventory System.
           </span>
+          <div className="flex items-center gap-2 p-2 text-xs text-gray-400 bg-slate-700/30  border border-gray-500/30 rounded-lg">
+            <BrainCog className="text-primary-400/40 w-6 h-6 text-bold" />
+            <span className="font-medium text-m text-gray-300">
+              Default Prep System: {getPrepSystemDisplay(task.prep_system)}
+            </span>
+          </div>
         </div>
 
         {/* Prep System Section */}
@@ -189,7 +217,7 @@ export const TaskConfiguration: React.FC<TaskConfigurationProps> = ({
           {/* Always show the tabs, regardless of onUpdatePrepSystem */}
           <div className="flex flex-col gap-2">
             {/* Prep System Tabs */}
-            <div className="flex space-x-2 mb-4">
+            <div className="flex space-x-2 mb-2 p-2">
               <button
                 type="button"
                 className={`tab ${task.prep_system === "as_needed" ? "active amber" : "amber"}`}
@@ -290,19 +318,6 @@ export const TaskConfiguration: React.FC<TaskConfigurationProps> = ({
 
           {/* Prep System Details - Always show but conditionally render content */}
           <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-gray-600/50">
-            <div className="flex items-center gap-2 text-xs text-gray-400">
-              <Layers className="w-3 h-3" />
-              <span className="font-medium">
-                Prep system: {getPrepSystemDisplay(task.prep_system)}
-              </span>
-              {/* Visual indicator for active prep system */}
-              <span
-                className={`ml-2 px-2 py-0.5 text-xs rounded-full ${getPrepSystemColor(task.prep_system)}`}
-              >
-                {getPrepSystemDisplay(task.prep_system)}
-              </span>
-            </div>
-
             {/* PAR System Content */}
             {task.prep_system === "par" && (
               <div className="flex flex-col gap-2 mt-1 w-full">
@@ -496,14 +511,28 @@ export const TaskConfiguration: React.FC<TaskConfigurationProps> = ({
             {task.prep_system === "as_needed" && (
               <div className="flex flex-col gap-2 mt-1 w-full">
                 {task.master_ingredient_id ? (
-                  <div className="bg-amber-500/20 text-amber-300 p-2 rounded border border-amber-500/30">
-                    <div className="text-xs font-medium mb-1">
+                  <div className="bg-slate-900/40 text-primary-400/80 p-3 rounded border border-primary-500/30">
+                    <div className="flex items-center mb-3">
+                      <div className="w-8 h-8 flex items-center justify-center bg-amber-400/30 rounded-full border border-amber-300/50 mr-2">
+                        <Utensils className="w-5 h-5 text-amber-400" />
+                      </div>
+                      <span className="text-m text-white pl-1 p-1 font-medium">
+                        What Are We Preparing?
+                      </span>
+                    </div>
+                    <div className="text-xs text-primary-200/70 mb-1">
+                      Master Ingredient Name
+                    </div>
+                    <div className="text-sm bg-gray-800/50 text-gray-200 border border-primary-400/30 font-medium mb-3 p-2">
                       {task.master_ingredient_name ||
                         masterIngredientData?.name ||
                         masterIngredientData?.product ||
                         `Ingredient ID: ${task.master_ingredient_id}`}
                     </div>
-                    <div className="text-xs text-amber-200/70 mb-2">
+                    <div className="text-xs text-primary-200/70 mb-1">
+                      Case Size | Units Per Case
+                    </div>
+                    <div className="text-sm bg-gray-800/50 text-gray-200 border border-primary-400/30 font-medium mb-3 p-2">
                       Case size:{" "}
                       {task.case_size ||
                         masterIngredientData?.case_size ||
@@ -513,9 +542,25 @@ export const TaskConfiguration: React.FC<TaskConfigurationProps> = ({
                         masterIngredientData?.units_per_case ||
                         "N/A"}
                     </div>
-                    <div className="grid grid-cols-3 gap-2 mb-3">
+                    <div className="text-xs text-primary-200/70 mb-1">
+                      Storage Area
+                    </div>
+                    <div className="text-sm bg-gray-800/50 text-gray-200 border border-primary-400/30 font-medium mb-6 p-2">
+                      {task.storage_area || masterIngredientData?.storage_area}
+                    </div>
+                    <div className="flex items-center mb-3">
+                      <div className="w-8 h-8 flex items-center justify-center bg-amber-400/30 rounded-full border border-amber-300/50 mr-2">
+                        <Calculator className="w-5 h-5 text-amber-400" />
+                      </div>
+                      <span className="text-m text-white pl-1 p-1 font-medium">
+                        How Much Are We Preparing?
+                      </span>
+                    </div>
+
+                    {/* Case, Units and Preparation Unit Input Section */}
+                    <div className="grid grid-cols-4 gap-2 mb-3">
                       <div className="flex flex-col">
-                        <label className="text-xs text-amber-200/70">
+                        <label className="text-xs text-primary-200/70 mb-1">
                           # of Cases
                         </label>
                         <input
@@ -523,7 +568,7 @@ export const TaskConfiguration: React.FC<TaskConfigurationProps> = ({
                           min="0"
                           value={task.cases || 0}
                           placeholder="0"
-                          className="w-full bg-gray-700/50 border border-amber-500/30 rounded px-2 py-1 text-white text-xs"
+                          className="w-full bg-gray-700/50 border border-primary-500/30 rounded px-2 py-1 text-white text-xs"
                           onChange={(e) => {
                             const cases = parseInt(e.target.value) || 0;
 
@@ -568,7 +613,7 @@ export const TaskConfiguration: React.FC<TaskConfigurationProps> = ({
                         />
                       </div>
                       <div className="flex flex-col">
-                        <label className="text-xs text-amber-200/70">
+                        <label className="text-xs text-primary-200/70 mb-1">
                           # of Units
                         </label>
                         <input
@@ -576,7 +621,7 @@ export const TaskConfiguration: React.FC<TaskConfigurationProps> = ({
                           min="0"
                           value={task.units || 0}
                           placeholder="0"
-                          className="w-full bg-gray-700/50 border border-amber-500/30 rounded px-2 py-1 text-white text-xs"
+                          className="w-full bg-gray-700/50 border border-primary-500/30 rounded px-2 py-1 text-white text-xs"
                           onChange={(e) => {
                             const units = parseInt(e.target.value) || 0;
 
@@ -621,59 +666,23 @@ export const TaskConfiguration: React.FC<TaskConfigurationProps> = ({
                         />
                       </div>
                       <div className="flex flex-col">
-                        <label className="text-xs text-amber-200/70">
+                        <label className="text-xs text-primary-200/70 mb-1">
                           Total Units
                         </label>
-                        <div className="w-full bg-gray-700/50 border border-amber-500/30 rounded px-2 py-1 text-white text-xs flex items-center justify-center font-medium">
+                        <div className="w-full bg-gray-800/50 border border-primary-500/30 rounded px-2 py-1 text-white text-xs flex items-center justify-center font-medium">
                           {task.amount_required || 0}
                         </div>
                       </div>
-                    </div>
-                    {(task.storage_area ||
-                      masterIngredientData?.storage_area) && (
-                      <div className="text-xs text-amber-200/70 mb-2">
-                        Storage area:{" "}
-                        {task.storage_area ||
-                          masterIngredientData?.storage_area}
-                      </div>
-                    )}
-                    {task.amount_required > 0 && (
-                      <div className="text-xs font-medium text-amber-300 mb-2 bg-amber-500/10 p-2 rounded border border-amber-500/20">
-                        <span className="block mb-1">
-                          Cases and Units needed in total:
-                        </span>
-                        <span className="text-sm font-bold">
-                          {task.amount_required}{" "}
-                          {task.unit_of_measure ||
-                            masterIngredientData?.unit_of_measure ||
-                            "units"}
-                        </span>
-                        {task.cases > 0 && task.units > 0 && (
-                          <span className="ml-1 block mt-1 text-amber-200/80">
-                            ({task.cases} case
-                            {task.cases !== 1 ? "s" : ""} + {task.units} unit
-                            {task.units !== 1 ? "s" : ""})
-                          </span>
-                        )}
-                        {task.cases > 0 && !task.units && (
-                          <span className="ml-1 block mt-1 text-amber-200/80">
-                            ({task.cases} case
-                            {task.cases !== 1 ? "s" : ""})
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2">
                       <div className="flex flex-col">
-                        <label className="text-xs text-amber-200/70">
-                          Amount Needed
+                        <label className="text-xs text-primary-200/70 mb-1">
+                          Manual Override
                         </label>
                         <input
                           type="number"
                           min="0"
                           value={task.amount_required || 0}
                           placeholder="0"
-                          className="w-full bg-gray-700/50 border border-amber-500/30 rounded px-2 py-1 text-white text-xs"
+                          className="w-full bg-gray-700/50 border border-primary-500/30 rounded px-2 py-1 text-white text-xs"
                           onChange={(e) => {
                             const amount = parseInt(e.target.value) || 0;
 
@@ -701,16 +710,21 @@ export const TaskConfiguration: React.FC<TaskConfigurationProps> = ({
                           }}
                         />
                       </div>
-                      <div className="flex flex-col ml-2">
-                        <label className="text-xs text-amber-200/70">
-                          Unit
+                    </div>
+
+                    {/* Unit of Measure Input */}
+                    <div className="flex gap-2 items-center mb-4">
+                      <div className="flex flex-col flex-grow">
+                        <label className="text-xs text-primary-200/70 mb-1">
+                          Preparation Unit of Measure
                         </label>
                         <div className="flex items-center gap-1">
                           <input
                             type="text"
                             maxLength={25}
                             value={unitOfMeasure}
-                            className="w-full bg-gray-700/50 border border-amber-500/30 rounded px-2 py-1 text-white text-xs"
+                            placeholder="e.g., gallons, pieces, lbs"
+                            className="w-full bg-gray-700/50 border border-primary-500/30 rounded px-2 py-1 text-white text-xs"
                             onChange={(e) => {
                               // Only update local state, don't save to database yet
                               setUnitOfMeasure(e.target.value);
@@ -718,19 +732,152 @@ export const TaskConfiguration: React.FC<TaskConfigurationProps> = ({
                           />
                           <button
                             type="button"
-                            className="p-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded"
+                            className="flex items-center gap-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded px-2 py-1 text-xs"
                             onClick={saveUnitOfMeasure}
                           >
                             <Save className="w-3 h-3" />
+                            Save
                           </button>
                           <button
                             type="button"
-                            className="p-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded"
+                            className="flex items-center gap-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded px-2 py-1 text-xs"
                             onClick={resetUnitOfMeasure}
                           >
                             <RefreshCw className="w-3 h-3" />
+                            Reset
                           </button>
                         </div>
+                      </div>
+                    </div>
+
+                    {/* Prep Summary and Confirmation Section */}
+                    <div className="flex items-center mb-3 mt-4">
+                      <div className="w-8 h-8 flex items-center justify-center bg-emerald-500/30 rounded-full border border-emerald-300/50 mr-2">
+                        <ClipboardCheck className="w-5 h-5 text-emerald-400" />
+                      </div>
+                      <span className="text-m text-white pl-1 p-1 font-medium">
+                        Prep Summary & Confirmation
+                      </span>
+                    </div>
+
+                    {/* Summary Box */}
+                    <div className="text-xs font-medium text-emerald-300 mb-4 p-3 rounded border border-emerald-500/20">
+                      <span className="block mb-1 text-gray-400">
+                        Please confirm the following prep requirements:
+                      </span>
+
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        <div>
+                          <span className="text-emerald-200/70">
+                            Total Amount Needed:
+                          </span>
+                          <span className="text-sm font-bold ml-2 text-white">
+                            {task.amount_required || 0}{" "}
+                            {unitOfMeasure ||
+                              task.unit_of_measure ||
+                              masterIngredientData?.unit_of_measure ||
+                              "units"}
+                          </span>
+                        </div>
+
+                        <div>
+                          <span className="text-emerald-200/70">
+                            You Need To Source:
+                          </span>
+                          {task.cases > 0 && task.units > 0 && (
+                            <span className="text-sm font-bold ml-2 text-white">
+                              ({task.cases} case
+                              {task.cases !== 1 ? "s" : ""} + {task.units} unit
+                              {task.units !== 1 ? "s" : ""})
+                            </span>
+                          )}
+                          {task.cases > 0 && !task.units && (
+                            <span className="text-emerald-200/80">
+                              ({task.cases} case
+                              {task.cases !== 1 ? "s" : ""})
+                            </span>
+                          )}
+                          {!task.cases && task.units > 0 && (
+                            <span className="text-emerald-200/80">
+                              ({task.units} unit
+                              {task.units !== 1 ? "s" : ""})
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex justify-center mt-3">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Update task in database with current values
+                            setIsUpdating(true);
+                            supabase
+                              .from("prep_list_template_tasks")
+                              .update({
+                                title: task.title,
+                                description: task.description,
+                                priority: task.priority || "medium",
+                                estimated_time: task.estimated_time || 0,
+                                prep_system: task.prep_system || "as_needed",
+                                amount_required: task.amount_required || 0,
+                                cases: task.cases || 0,
+                                units: task.units || 0,
+                                par_level: task.par_level || 0,
+                                current_level: task.current_level || 0,
+                                assignee_id: task.assignee_id,
+                                kitchen_station: task.kitchen_station,
+                                station: task.station,
+                                assignment_type: task.assignment_type,
+                                lottery: task.lottery || false,
+                                auto_advance: autoAdvance,
+                                due_date: dueDate || null,
+                                prep_unit_measure: unitOfMeasure, // Use the state value here
+                              })
+                              .eq("id", task.id)
+                              .then(({ error }) => {
+                                setIsUpdating(false);
+                                if (error) {
+                                  console.error("Error updating task:", error);
+                                  toast.error("Failed to update task");
+                                } else {
+                                  console.log("Task updated successfully");
+                                  setIsUpdated(true);
+                                  toast.success("Task updated successfully");
+                                  // Reset the updated flag after 3 seconds
+                                  setTimeout(() => setIsUpdated(false), 3000);
+                                  // Show visual feedback on the task card
+                                  const taskElement = document.querySelector(
+                                    `[data-task-id="${task.id}"]`,
+                                  );
+                                  if (taskElement) {
+                                    taskElement.classList.add("task-updated");
+                                    setTimeout(
+                                      () =>
+                                        taskElement.classList.remove(
+                                          "task-updated",
+                                        ),
+                                      3000,
+                                    );
+                                  }
+                                }
+                              });
+                          }}
+                          disabled={isUpdating}
+                          className={`flex items-center gap-2 text-xs px-4 py-2 rounded transition-colors ${isUpdating ? "bg-gray-500/20 text-gray-400 cursor-not-allowed" : "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"}`}
+                        >
+                          {isUpdating ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                              Updating Task...
+                            </>
+                          ) : (
+                            <>
+                              <RefreshCw className="w-4 h-4" />
+                              Confirm & Update Task
+                            </>
+                          )}
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -745,7 +892,6 @@ export const TaskConfiguration: React.FC<TaskConfigurationProps> = ({
                 )}
               </div>
             )}
-
             {/* Scheduled Production System Content */}
             {task.prep_system === "scheduled_production" && (
               <div className="flex flex-col gap-2 mt-1 w-full">
@@ -796,7 +942,6 @@ export const TaskConfiguration: React.FC<TaskConfigurationProps> = ({
           }}
         />
       </div>
-
       {/* Action Buttons */}
       <div className="bg-gray-800/50 p-3 rounded border border-gray-700">
         <div className="flex justify-between">
@@ -839,7 +984,7 @@ export const TaskConfiguration: React.FC<TaskConfigurationProps> = ({
                     current_level: task.current_level || 0,
                     auto_advance: autoAdvance,
                     due_date: dueDate || null,
-                    unit_of_measure: unitOfMeasure, // Use the state value here
+                    prep_unit_measure: unitOfMeasure, // Use the state value here
                   })
                   .eq("id", task.id)
                   .then(({ error }) => {
@@ -900,7 +1045,7 @@ export const TaskConfiguration: React.FC<TaskConfigurationProps> = ({
                     lottery: task.lottery || false,
                     auto_advance: autoAdvance,
                     due_date: dueDate || null,
-                    unit_of_measure: unitOfMeasure, // Use the state value here
+                    prep_unit_measure: unitOfMeasure, // Use the state value here
                   })
                   .eq("id", task.id)
                   .then(({ error }) => {

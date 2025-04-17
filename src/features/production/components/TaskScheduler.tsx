@@ -193,11 +193,13 @@ export const TaskScheduler: React.FC<TaskSchedulerProps> = ({
   };
 
   return (
-    <div className="bg-gray-800/50 p-3 rounded border border-gray-700 mb-3">
-      <div className="text-xs text-gray-400 font-medium mb-2">
-        Task Scheduling
-        <span className="block text-xs text-gray-500 font-normal mt-1">
-          Set due date, priority, and time requirements
+    <div className="bg-slate-900/40 text-primary-400/80 p-2 rounded border border-primary-500/30">
+      <div className="flex items-center mb-3 mt-4">
+        <div className="w-8 h-8 flex items-center justify-center bg-emerald-500/30 rounded-full border border-emerald-300/50 mr-2">
+          <CalendarClock className="w-5 h-5 text-emerald-400" />
+        </div>
+        <span className="text-m text-white pl-1 p-1 font-medium">
+          Prep Summary & Confirmation
         </span>
       </div>
 

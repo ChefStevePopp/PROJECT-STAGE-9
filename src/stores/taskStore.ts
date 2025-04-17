@@ -106,6 +106,23 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       set({ tasks: [...get().tasks, data] });
     } catch (error) {
       console.error("Error creating task:", error);
+
+      // Check for foreign key constraint violation
+      if (
+        error.message &&
+        error.message.includes("violates foreign key constraint")
+      ) {
+        if (
+          error.message.includes("prep_list_template_tasks_assignee_id_fkey")
+        ) {
+          const friendlyError = new Error(
+            "This task already exists on the prep list",
+          );
+          set({ error: friendlyError.message });
+          throw friendlyError;
+        }
+      }
+
       set({ error: "Failed to create task" });
       throw error;
     } finally {

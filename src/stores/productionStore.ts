@@ -36,6 +36,7 @@ interface ProductionState {
   createTemplateTaskFromModule: (
     module: PrepListTemplateTask,
     dueDate: string,
+    assigningTeamMemberId?: string,
   ) => Promise<PrepListTemplateTask | null>;
   updateTaskPrepSystem: (
     taskId: string,
@@ -802,7 +803,11 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
     }
   },
 
-  createTemplateTaskFromModule: async (module, dueDate) => {
+  createTemplateTaskFromModule: async (
+    module,
+    dueDate,
+    assigningTeamMemberId?: string,
+  ) => {
     set({ isLoading: true, error: null });
     try {
       const { data: userData } = await supabase.auth.getUser();
@@ -876,7 +881,9 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
       }
 
       // Create a new task based on the module template with ALL relevant data
+      // IMPORTANT: Do NOT include assignee_id to avoid foreign key constraint issues
       const newTask: Partial<PrepListTemplateTask> = {
+        assigning_team_member_id: assigningTeamMemberId, // Add the assigning team member ID if provided
         title: module.title,
         description: module.description || "",
         estimated_time: module.estimated_time || 0,
@@ -885,7 +892,7 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
         sequence: module.sequence || 0,
         kitchen_station:
           module.kitchen_station || templateData?.kitchen_stations?.[0] || "",
-        assignee_id: userData.user.id, // Assign to current user by default
+        // Remove assignee_id completely to avoid foreign key constraint issues
         due_date: dueDate,
         status: "pending",
         organization_id: organizationId,
@@ -901,7 +908,7 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
         // Include additional fields from module or template
         priority: module.priority || templateData?.priority || "medium",
         required: module.required !== undefined ? module.required : true,
-        assignment_type: "direct", // Directly assigned to current user
+        assignment_type: "station", // Changed from direct to station since we're not setting assignee_id
         kitchen_role: module.kitchen_role || templateData?.kitchen_role || "",
         amount_required: module.amount_required || 0,
         current_level: module.current_level || 0,

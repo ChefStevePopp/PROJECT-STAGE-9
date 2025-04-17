@@ -138,6 +138,23 @@ export const TaskList: React.FC<TaskListProps> = ({
                   <span>Due: {formatDueDate(task.due_date)}</span>
                 </div>
 
+                {task.isLate && (
+                  <div className="flex items-center gap-1 text-rose-400">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span>
+                      {task.daysLate} {task.daysLate === 1 ? "day" : "days"}{" "}
+                      late
+                    </span>
+                  </div>
+                )}
+
+                {task.completed && task.completed_at && (
+                  <div className="flex items-center gap-1 text-green-400">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Completed: {formatDueDate(task.completed_at)}</span>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-1 text-gray-400">
                   <Clock className="w-3.5 h-3.5" />
                   <span>Est. {formatEstimatedTime(task.estimated_time)}</span>
@@ -146,6 +163,12 @@ export const TaskList: React.FC<TaskListProps> = ({
                 {task.station && (
                   <div className="px-2 py-0.5 bg-primary-500/20 text-primary-400 rounded-full">
                     {task.station}
+                  </div>
+                )}
+
+                {task.source && (
+                  <div className="px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded-full">
+                    {task.source_name || task.source}
                   </div>
                 )}
               </div>

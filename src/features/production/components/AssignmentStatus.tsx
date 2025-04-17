@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { Task } from "@/types/tasks";
 import { useUserNameMapping } from "@/hooks/useUserNameMapping";
 import { supabase } from "@/lib/supabase";
+import { logActivity } from "@/lib/activity-logger";
+import { useAuth } from "@/hooks/useAuth";
 import {
   User,
   MapPin,
@@ -29,6 +31,7 @@ export const AssignmentStatus: React.FC<AssignmentStatusProps> = ({
 }) => {
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
   const { getUserName } = useUserNameMapping();
+  const { user, organization } = useAuth();
   const [isRunning, setIsRunning] = useState(task.status === "in_progress");
   const [isPaused, setIsPaused] = useState(false);
   const [isStopped, setIsStopped] = useState(false);
@@ -93,6 +96,25 @@ export const AssignmentStatus: React.FC<AssignmentStatusProps> = ({
       task.station = null;
       task.lottery = false;
 
+      // Log the task acceptance activity
+      if (organization?.id && user?.id) {
+        await logActivity({
+          organization_id: organization.id,
+          user_id: user.id,
+          activity_type: "task_accepted",
+          details: {
+            task_id: task.id,
+            task_title: task.title,
+            user_name:
+              user.user_metadata?.firstName +
+              " " +
+              user.user_metadata?.lastName,
+            previous_assignment: task.assignment_type || "unassigned",
+            new_assignment: "direct",
+          },
+        });
+      }
+
       toast.success("Task accepted and assigned to you");
     } catch (error) {
       console.error("Error accepting task:", error);
@@ -126,6 +148,28 @@ export const AssignmentStatus: React.FC<AssignmentStatusProps> = ({
           setIsRunning(false);
         } else {
           task.status = "in_progress";
+
+          // Log the task started activity
+          if (organization?.id && user?.id) {
+            logActivity({
+              organization_id: organization.id,
+              user_id: user.id,
+              activity_type: "task_started",
+              details: {
+                task_id: task.id,
+                task_title: task.title,
+                user_name:
+                  user.user_metadata?.firstName +
+                  " " +
+                  user.user_metadata?.lastName,
+                previous_status: task.status || "pending",
+                new_status: "in_progress",
+              },
+            }).catch((err) =>
+              console.error("Error logging task started activity:", err),
+            );
+          }
+
           toast.success("Task started");
         }
       });
@@ -177,7 +221,31 @@ export const AssignmentStatus: React.FC<AssignmentStatusProps> = ({
               setIsPaused(false);
               setIsRunning(true);
             } else {
+              const previousStatus = task.status || "in_progress";
               task.status = "pending";
+
+              // Log the task paused activity
+              if (organization?.id && user?.id) {
+                logActivity({
+                  organization_id: organization.id,
+                  user_id: user.id,
+                  activity_type: "task_paused",
+                  details: {
+                    task_id: task.id,
+                    task_title: task.title,
+                    user_name:
+                      user.user_metadata?.firstName +
+                      " " +
+                      user.user_metadata?.lastName,
+                    previous_status: previousStatus,
+                    new_status: "pending",
+                    pause_time: pauseTime,
+                  },
+                }).catch((err) =>
+                  console.error("Error logging task paused activity:", err),
+                );
+              }
+
               toast.success("Task paused");
             }
           });

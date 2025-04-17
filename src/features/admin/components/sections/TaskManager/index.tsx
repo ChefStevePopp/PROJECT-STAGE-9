@@ -14,12 +14,14 @@ import {
 import { useTaskStore } from "@/stores/taskStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useScheduleStore } from "@/stores/scheduleStore";
+import { usePrepListTemplateStore } from "@/stores/prepListTemplateStore";
 import { CreateTaskModal } from "./components/CreateTaskModal";
 import { TaskList } from "./components/TaskList";
 import { TaskFilters } from "./components/TaskFilters";
 import { TaskStats } from "./components/TaskStats";
 import { LoadingLogo } from "@/features/shared/components";
 import toast from "react-hot-toast";
+import { Task, PrepListTemplateTask } from "@/types/tasks";
 
 export const TaskManager: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -33,33 +35,114 @@ export const TaskManager: React.FC = () => {
     station: "all",
     assignee: "all",
     priority: "all",
+    source: "all",
   });
 
   const {
-    tasks,
-    isLoading,
-    error,
+    tasks: regularTasks,
+    isLoading: tasksLoading,
+    error: tasksError,
     fetchTasks,
     assignTask,
     assignToStation,
     setTaskForLottery,
   } = useTaskStore();
+
+  const {
+    templates,
+    isLoading: templatesLoading,
+    error: templatesError,
+    fetchTemplates,
+  } = usePrepListTemplateStore();
+
   const { members, fetchTeamMembers } = useTeamStore();
   const { currentSchedule, fetchCurrentSchedule } = useScheduleStore();
+
+  // Combined tasks from both sources
+  const [combinedTasks, setCombinedTasks] = useState<Task[]>([]);
+  const isLoading = tasksLoading || templatesLoading;
+  const error = tasksError || templatesError;
 
   useEffect(() => {
     const loadData = async () => {
       await Promise.all([
         fetchTasks(),
+        fetchTemplates(),
         fetchTeamMembers(),
         fetchCurrentSchedule(),
       ]);
     };
     loadData();
-  }, [fetchTasks, fetchTeamMembers, fetchCurrentSchedule]);
+  }, [fetchTasks, fetchTemplates, fetchTeamMembers, fetchCurrentSchedule]);
+
+  // Combine and transform tasks from both sources
+  useEffect(() => {
+    if (!regularTasks || !templates) return;
+
+    // Process regular tasks
+    const processedRegularTasks = regularTasks.map((task) => {
+      // Calculate days late if the task is not completed and past due date
+      const dueDate = new Date(task.due_date);
+      const today = new Date();
+      const isLate = !task.completed && dueDate < today;
+      const daysLate = isLate
+        ? Math.floor(
+            (today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24),
+          )
+        : 0;
+
+      return {
+        ...task,
+        source: task.source || "manual",
+        source_name: task.source_name || "Manual Entry",
+        isLate,
+        daysLate,
+      };
+    });
+
+    // Process template tasks and convert them to regular Task format
+    const templateTasks: Task[] = [];
+
+    templates.forEach((template) => {
+      if (!template.tasks) return;
+
+      template.tasks.forEach((templateTask: PrepListTemplateTask) => {
+        // Convert PrepListTemplateTask to Task format
+        const convertedTask: Task = {
+          id: templateTask.id,
+          organization_id: templateTask.organization_id || "",
+          title: templateTask.title,
+          description: templateTask.description || "",
+          due_date: templateTask.due_date || new Date().toISOString(),
+          assignee_id: templateTask.assignee_id,
+          station: templateTask.station || templateTask.kitchen_station,
+          kitchen_station_id: "",
+          kitchen_station: templateTask.kitchen_station,
+          priority: "medium",
+          estimated_time: templateTask.estimated_time || 0,
+          completed: false,
+          source: "prep_list_template",
+          source_name: template.title,
+          source_id: template.id,
+          prep_list_template_id: template.id,
+          sequence: templateTask.sequence,
+          recipe_id: templateTask.recipe_id,
+          prep_unit_measure: templateTask.prep_unit_measure,
+          amount_required: templateTask.amount_required,
+          cases_required: templateTask.cases_required,
+          units_required: templateTask.units_required,
+        };
+
+        templateTasks.push(convertedTask);
+      });
+    });
+
+    // Combine both sources
+    setCombinedTasks([...processedRegularTasks, ...templateTasks]);
+  }, [regularTasks, templates]);
 
   // Filter tasks based on active tab and filter options
-  const filteredTasks = tasks.filter((task) => {
+  const filteredTasks = combinedTasks.filter((task) => {
     // Filter by tab (date status)
     const taskDate = new Date(task.due_date).toISOString().split("T")[0];
     const today = new Date().toISOString().split("T")[0];
@@ -84,6 +167,8 @@ export const TaskManager: React.FC = () => {
       filterOptions.priority !== "all" &&
       task.priority !== filterOptions.priority
     )
+      return false;
+    if (filterOptions.source !== "all" && task.source !== filterOptions.source)
       return false;
 
     return true;

@@ -25,6 +25,17 @@ export const Header: React.FC<{
     ROUTES.KITCHEN.PRODUCTION,
   );
 
+  // Load Adobe Fonts (Typekit) for ChefLife branding
+  useEffect(() => {
+    if (!document.getElementById("typekit-fonts")) {
+      const link = document.createElement("link");
+      link.id = "typekit-fonts";
+      link.rel = "stylesheet";
+      link.href = "https://use.typekit.net/lij2klc.css";
+      document.head.appendChild(link);
+    }
+  }, []);
+
   // Update time every minute
   useEffect(() => {
     const timer = setInterval(() => {
@@ -109,7 +120,7 @@ export const Header: React.FC<{
       >
         <div className="mx-auto px-4 sm:px-6 lg:px-8 max-w-screen-2xl">
           <div className="flex items-center justify-between h-16">
-            {/* Logo */}
+            {/* ChefLife Logo */}
             <div className="flex items-center">
               <button
                 onClick={() => navigate(ROUTES.KITCHEN.DASHBOARD)}
@@ -117,12 +128,36 @@ export const Header: React.FC<{
               >
                 <img
                   src="https://www.restaurantconsultants.ca/wp-content/uploads/2023/03/cropped-AI-CHEF-BOT.png"
-                  alt="KITCHEN AI"
-                  className="w-8 h-8 rounded-lg"
+                  alt="ChefLife"
+                  className="w-8 h-8"
                 />
-                <span className="text-lg font-semibold text-white">
-                  KITCHEN AI
-                </span>
+                <div className="flex flex-col">
+                  <span className="flex items-baseline">
+                    <span
+                      style={{
+                        fontFamily: "rockwell, serif",
+                        fontWeight: 700,
+                        color: "white",
+                      }}
+                      className="text-lg"
+                    >
+                      CHEF
+                    </span>
+                    <span
+                      style={{
+                        fontFamily: "satisfy, cursive",
+                        fontWeight: 400,
+                        color: "#3b82f6",
+                      }}
+                      className="text-lg ml-0.5"
+                    >
+                      Life
+                    </span>
+                  </span>
+                  <span className="text-xs text-gray-400 -mt-1">
+                    Behind Every Great Restaurant
+                  </span>
+                </div>
               </button>
             </div>
 
@@ -147,8 +182,6 @@ export const Header: React.FC<{
                   </div>
                 )}
               </button>
-
-              {/* Removed Prep List Filter from Header - Now handled in ProductionBoard */}
 
               {/* Desktop User Menu */}
               {!isMobile && <UserMenu />}
@@ -176,12 +209,36 @@ export const Header: React.FC<{
               <div className="flex items-center gap-3">
                 <img
                   src="https://www.restaurantconsultants.ca/wp-content/uploads/2023/03/cropped-AI-CHEF-BOT.png"
-                  alt="KITCHEN AI"
-                  className="w-8 h-8 rounded-lg"
+                  alt="ChefLife"
+                  className="w-8 h-8"
                 />
-                <span className="text-lg font-semibold text-white">
-                  KITCHEN AI
-                </span>
+                <div className="flex flex-col">
+                  <span className="flex items-baseline">
+                    <span
+                      style={{
+                        fontFamily: "rockwell, serif",
+                        fontWeight: 700,
+                        color: "white",
+                      }}
+                      className="text-lg"
+                    >
+                      CHEF
+                    </span>
+                    <span
+                      style={{
+                        fontFamily: "satisfy, cursive",
+                        fontWeight: 400,
+                        color: "#3b82f6",
+                      }}
+                      className="text-lg ml-0.5"
+                    >
+                      Life
+                    </span>
+                  </span>
+                  <span className="text-xs text-gray-400 -mt-1">
+                    Behind Every Great Restaurant
+                  </span>
+                </div>
               </div>
               <button
                 onClick={() => setIsMenuOpen(false)}

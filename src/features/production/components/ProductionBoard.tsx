@@ -18,6 +18,7 @@ import {
 import { useProductionStore } from "@/stores/productionStore";
 import { useOperationsStore } from "@/stores/operationsStore";
 import { usePrepListStore } from "@/stores/prepListStore";
+import { useAuth } from "@/hooks/useSimplifiedAuth";
 import { format, parseISO } from "date-fns";
 import { Task, PrepListTemplate, PrepListTemplateTask } from "@/types/tasks";
 import { KanbanBoard } from "./KanbanBoard";
@@ -82,6 +83,53 @@ export const ProductionBoard = ({
   const [processingModuleId, setProcessingModuleId] = useState<string | null>(
     null,
   );
+  const [selectedAssignee, setSelectedAssignee] = useState<string>("");
+  const [teamMembers, setTeamMembers] = useState<
+    Array<{ id: string; name: string; role: string }>
+  >([]);
+
+  // Fetch all team members without filtering
+  useEffect(() => {
+    const fetchTeamMembers = async () => {
+      try {
+        // Get organization_id from user context
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData.user?.user_metadata?.organizationId) {
+          console.error("No organization ID found");
+          return;
+        }
+
+        const organizationId = userData.user.user_metadata.organizationId;
+
+        // Fetch all team members without filtering by role
+        const { data, error } = await supabase
+          .from("organization_team_members")
+          .select("id, user_id, name, role, kitchen_role")
+          .eq("organization_id", organizationId);
+
+        if (error) {
+          console.error("Error fetching team members:", error);
+          return;
+        }
+
+        if (data && data.length > 0) {
+          // Format team members for dropdown
+          const formattedMembers = data.map((member) => ({
+            id: member.user_id,
+            name: member.name || `Team Member ${member.id.substring(0, 4)}`,
+            role: member.kitchen_role || member.role, // Prefer kitchen_role, fall back to role
+          }));
+
+          setTeamMembers(formattedMembers);
+          console.log("Fetched all team members:", formattedMembers.length);
+        }
+      } catch (error) {
+        console.error("Error in fetchTeamMembers:", error);
+      }
+    };
+
+    fetchTeamMembers();
+  }, []);
 
   // Fetch operations settings, templates, and prep lists on component mount
   useEffect(() => {
@@ -144,7 +192,14 @@ export const ProductionBoard = ({
           console.log(
             `Found ${modulesFromTemplates.length} modules from templates after update`,
           );
-          setAvailableModules(modulesFromTemplates);
+          // Clean up auto-advance messages before setting modules
+          const cleanedModules = modulesFromTemplates.map((module) => ({
+            ...module,
+            description: module.description
+              ? module.description.replace(/\s*\[Auto-advanced from.*?\]/g, "")
+              : "",
+          }));
+          setAvailableModules(cleanedModules);
         } else if (templateIds.length > 0) {
           // If no modules found but we have template IDs, fetch directly
           console.log(
@@ -246,11 +301,12 @@ export const ProductionBoard = ({
         tasksForDay,
       );
 
-      const assignedModuleIds = tasksForDay
-        .map((task) => task.template_id)
+      // Use task titles instead of IDs to identify assigned modules
+      const assignedModuleTitles = tasksForDay
+        .map((task) => task.title)
         .filter(Boolean);
 
-      console.log("Assigned module IDs:", assignedModuleIds);
+      console.log("Assigned module titles:", assignedModuleTitles);
       console.log(
         "Available modules before update:",
         availableModules.map((m) => ({
@@ -260,24 +316,42 @@ export const ProductionBoard = ({
         })),
       );
 
-      // Update assigned status for modules
+      // Update assigned status for modules based on title matching
       setAvailableModules((prevModules) => {
+        // First mark assigned status
         const updated = prevModules.map((module) => ({
           ...module,
-          assigned: assignedModuleIds.includes(module.template_id || module.id),
+          assigned: assignedModuleTitles.includes(module.title),
         }));
+
+        // Then filter out duplicates, keeping assigned ones first
+        const uniqueTitles = new Set();
+        const uniqueModules = updated
+          // Sort so assigned modules come first
+          .sort((a, b) => (a.assigned === b.assigned ? 0 : a.assigned ? -1 : 1))
+          .filter((module) => {
+            if (uniqueTitles.has(module.title)) {
+              return false;
+            }
+            uniqueTitles.add(module.title);
+            return true;
+          });
+
         console.log(
           "Available modules after update:",
-          updated.map((m) => ({
+          uniqueModules.map((m) => ({
             id: m.id,
             title: m.title,
             assigned: m.assigned,
           })),
         );
-        return updated;
+        return uniqueModules;
       });
     }
   }, [tasksByDay, selectedDay]);
+
+  // Get the current user from the useAuth hook at the component level
+  const { user } = useAuth();
 
   // Handle adding a module to a day
   const handleAddModule = async (
@@ -299,17 +373,85 @@ export const ProductionBoard = ({
       return;
     }
 
+    // Check if any task with the same title already exists for this day
+    const tasksForDay = tasksByDay[selectedDay || ""] || [];
+    const existingTask = tasksForDay.find(
+      (task) => task.title === module.title,
+    );
+    if (existingTask) {
+      toast.info(
+        <div className="flex items-center gap-2">
+          <CheckCircle className="w-4 h-4 text-blue-400" />
+          <span>{module.title} is already assigned to this day</span>
+        </div>,
+      );
+      return;
+    }
+
+    // Also check if we're about to add a duplicate module that might not be marked as assigned yet
+    const duplicateModule = availableModules.find(
+      (m) => m.title === module.title && m.id !== module.id && m.assigned,
+    );
+    if (duplicateModule) {
+      toast.info(
+        <div className="flex items-center gap-2">
+          <CheckCircle className="w-4 h-4 text-blue-400" />
+          <span>
+            {module.title} is already assigned to this day (duplicate module)
+          </span>
+        </div>,
+      );
+      return;
+    }
+
     try {
       setProcessingModuleId(module.id);
       console.log("Adding module to day:", module, selectedDay);
 
-      // Create a copy of the module without the id to prevent duplicate key issues
-      const moduleCopy = { ...module };
-      delete moduleCopy.id; // Remove the id to let Supabase generate a new one
+      // Get the current user's email from auth context
+      const userEmail = user?.email;
+      let validAssigneeId = null;
 
-      console.log("Creating new task from module copy:", moduleCopy);
+      // Don't try to set assignee_id at all when creating a new task
+      // This avoids the foreign key constraint issue
+
+      // Create a new task based on the module template
+      // Important: We need to create a clean object without any properties that might cause FK constraint issues
+      // and ensure we're creating a new row with a new ID each time
+      const newTaskData = {
+        title: module.title,
+        description: module.description
+          ? module.description.replace(/\s*\[Auto-advanced from.*?\]/g, "")
+          : "",
+        template_id: module.template_id, // Keep reference to the original template
+        sequence: module.sequence || 0,
+        estimated_time: module.estimated_time || 0,
+        station: module.station || null,
+        kitchen_station: module.kitchen_station || null,
+        recipe_id: module.recipe_id || null,
+        required: module.required !== undefined ? module.required : true,
+        prep_system: module.prep_system || "as_needed",
+        par_level: module.par_level || null,
+        current_level: module.current_level || null,
+        amount_required: module.amount_required || null,
+        priority: module.priority || "low",
+
+        due_date: selectedDay, // Set the due date to the selected day
+        // Don't set assignee_id at all to avoid foreign key constraint issues
+        assignee_station: null,
+        // Generate a completely new UUID for each task instance
+        // This ensures we don't load data from previous instances
+        id: crypto.randomUUID(),
+      };
+
+      console.log("Creating new task with data:", newTaskData);
+
+      // Always ensure assignee_id is not included to avoid foreign key constraint issues
+      delete newTaskData.assignee_id;
+      console.log("Removed assignee_id to avoid FK constraint issues");
+
       const newTask = await createTemplateTaskFromModule(
-        moduleCopy,
+        newTaskData,
         selectedDay,
       );
 
@@ -325,12 +467,30 @@ export const ProductionBoard = ({
           return updatedTasks;
         });
 
-        // Mark the module as assigned instead of removing it
-        setAvailableModules((prevModules) =>
-          prevModules.map((m) =>
-            m.id === module.id ? { ...m, assigned: true } : m,
-          ),
-        );
+        // Mark all modules with the same title as assigned
+        setAvailableModules((prevModules) => {
+          // First, mark all modules with the same title as assigned
+          const updatedModules = prevModules.map((m) =>
+            m.title === module.title ? { ...m, assigned: true } : m,
+          );
+
+          // Then, ensure we don't have any duplicates by title
+          const uniqueTitles = new Set();
+          return updatedModules.filter((m) => {
+            // If this module is already assigned, always keep it
+            if (m.assigned) {
+              uniqueTitles.add(m.title);
+              return true;
+            }
+
+            // For unassigned modules, only keep if we haven't seen this title before
+            if (uniqueTitles.has(m.title)) {
+              return false;
+            }
+            uniqueTitles.add(m.title);
+            return true;
+          });
+        });
 
         // Don't refresh data immediately - this is causing the task to disappear
         // await refreshData();
@@ -645,6 +805,101 @@ export const ProductionBoard = ({
     }));
   };
 
+  // Shared function to fetch modules based on selected prep lists and day
+  const fetchModulesForSelectedDay = (day: string) => {
+    console.log("=== FETCH MODULES FOR SELECTED DAY START ====");
+    console.log("Fetching modules for day:", day);
+    console.log("Current selected prep lists:", selectedPrepLists);
+
+    // Force refresh templates to ensure we have the latest data with tasks
+    fetchTemplates();
+
+    // If there are selected prep lists, fetch their modules
+    if (selectedPrepLists.length > 0) {
+      try {
+        console.log(
+          `Fetching modules for ${selectedPrepLists.length} selected prep lists`,
+        );
+        // Find the prep lists that match the selected prep lists
+        const selectedPrepListsData = prepLists.filter((prepList) =>
+          selectedPrepLists.includes(prepList.id),
+        );
+
+        if (selectedPrepListsData.length === 0) {
+          console.warn("No matching prep lists found in prepLists data");
+          console.log(
+            "Available prep lists:",
+            prepLists.map((pl) => ({ id: pl.id, title: pl.title })),
+          );
+          console.log("Selected prep list IDs:", selectedPrepLists);
+          setAvailableModules([]);
+          return;
+        }
+
+        console.log(
+          "Selected prep lists data:",
+          JSON.stringify(selectedPrepListsData, null, 2),
+        );
+
+        // Collect all template IDs from the selected prep lists
+        const templateIds = selectedPrepListsData
+          .flatMap((prepList) => {
+            // Check for template_ids array first, then fall back to template_id if needed
+            if (
+              prepList.template_ids &&
+              Array.isArray(prepList.template_ids) &&
+              prepList.template_ids.length > 0
+            ) {
+              console.log(
+                `Prep list ${prepList.id} has template_ids:`,
+                JSON.stringify(prepList.template_ids),
+              );
+              return prepList.template_ids;
+            } else if (prepList.template_id) {
+              console.log(
+                `Prep list ${prepList.id} has template_id:`,
+                prepList.template_id,
+              );
+              return [prepList.template_id];
+            }
+            console.log(`Prep list ${prepList.id} has no template IDs`);
+            return [];
+          })
+          .filter(Boolean); // Remove any null/undefined values
+
+        if (templateIds.length === 0) {
+          console.warn("No template IDs found in the selected prep lists");
+          setAvailableModules([]);
+          return;
+        }
+
+        console.log("Template IDs from selected prep lists:", templateIds);
+        console.log("Available templates count:", templates.length);
+        if (templates.length > 0) {
+          console.log("First template sample:", {
+            id: templates[0].id,
+            title: templates[0].title,
+            tasksCount: templates[0].tasks?.length || 0,
+          });
+        }
+
+        // IMPORTANT: For the Available Modules column, we only want to show data from prep_list_templates
+        fetchModulesDirectly(templateIds);
+      } catch (error) {
+        console.error("Error processing prep lists for modules:", error);
+        // Attempt direct database query as fallback
+        if (selectedPrepLists.length > 0) {
+          console.log("Attempting direct database query as fallback...");
+          fetchDirectlyFromPrepListIds(selectedPrepLists);
+        }
+      }
+    } else {
+      console.log("No prep lists selected, clearing available modules");
+      setAvailableModules([]);
+    }
+    console.log("=== FETCH MODULES FOR SELECTED DAY COMPLETE ====");
+  };
+
   // Toggle between week, day, and config views
   const toggleView = () => {
     if (view === "week") {
@@ -655,9 +910,20 @@ export const ProductionBoard = ({
       if (!selectedDay) {
         setSelectedDay(selectedDate);
       }
+      // When switching to config view, fetch modules for the selected day
+      if (selectedDay || selectedDate) {
+        const dayToUse = selectedDay || selectedDate;
+        console.log(
+          "Fetching modules when switching to config view for day:",
+          dayToUse,
+        );
+        fetchModulesForSelectedDay(dayToUse);
+      }
     } else {
       setView("week");
       setSelectedDay(null);
+      // Clear available modules when going back to week view
+      setAvailableModules([]);
     }
     console.log(
       "View toggled to:",
@@ -705,100 +971,9 @@ export const ProductionBoard = ({
       tasksByDay[day] || "No tasks for this day",
     );
 
-    console.log("=== DAY CLICK HANDLER START ====");
-    console.log("Day clicked:", day);
-    console.log("Current selected prep lists:", selectedPrepLists);
+    // Use the shared function to fetch modules
+    fetchModulesForSelectedDay(day);
 
-    // Force refresh templates to ensure we have the latest data with tasks
-    fetchTemplates();
-
-    // If there are selected prep lists, fetch their modules
-    if (selectedPrepLists.length > 0) {
-      try {
-        console.log(
-          `Fetching modules for ${selectedPrepLists.length} selected prep lists`,
-        );
-        // Find the prep lists that match the selected prep lists
-        const selectedPrepListsData = prepLists.filter((prepList) =>
-          selectedPrepLists.includes(prepList.id),
-        );
-
-        if (selectedPrepListsData.length === 0) {
-          console.warn("No matching prep lists found in prepLists data");
-          console.log(
-            "Available prep lists:",
-            prepLists.map((pl) => ({ id: pl.id, title: pl.title })),
-          );
-          console.log("Selected prep list IDs:", selectedPrepLists);
-          setAvailableModules([]);
-          return;
-        }
-
-        console.log(
-          "Selected prep lists data:",
-          JSON.stringify(selectedPrepListsData, null, 2),
-        );
-
-        // Since prep_lists can have multiple templates, we need to collect all template IDs
-        // from both template_ids array and legacy template_id field
-
-        // Collect all template IDs from the selected prep lists
-        const templateIds = selectedPrepListsData
-          .flatMap((prepList) => {
-            // Check for template_ids array first, then fall back to template_id if needed
-            if (
-              prepList.template_ids &&
-              Array.isArray(prepList.template_ids) &&
-              prepList.template_ids.length > 0
-            ) {
-              console.log(
-                `Prep list ${prepList.id} has template_ids:`,
-                JSON.stringify(prepList.template_ids),
-              );
-              return prepList.template_ids;
-            } else if (prepList.template_id) {
-              console.log(
-                `Prep list ${prepList.id} has template_id:`,
-                prepList.template_id,
-              );
-              return [prepList.template_id];
-            }
-            console.log(`Prep list ${prepList.id} has no template IDs`);
-            return [];
-          })
-          .filter(Boolean); // Remove any null/undefined values
-
-        if (templateIds.length === 0) {
-          console.warn("No template IDs found in the selected prep lists");
-          setAvailableModules([]);
-          return;
-        }
-
-        console.log("Template IDs from selected prep lists:", templateIds);
-        console.log("Available templates count:", templates.length);
-        if (templates.length > 0) {
-          console.log("First template sample:", {
-            id: templates[0].id,
-            title: templates[0].title,
-            tasksCount: templates[0].tasks?.length || 0,
-          });
-        }
-
-        // IMPORTANT: For the Available Modules column, we only want to show data from prep_list_templates
-        // We'll fetch the templates directly using the fetchModulesDirectly function
-        fetchModulesDirectly(templateIds);
-      } catch (error) {
-        console.error("Error processing prep lists for modules:", error);
-        // Attempt direct database query as fallback
-        if (selectedPrepLists.length > 0) {
-          console.log("Attempting direct database query as fallback...");
-          fetchDirectlyFromPrepListIds(selectedPrepLists);
-        }
-      }
-    } else {
-      console.log("No prep lists selected, clearing available modules");
-      setAvailableModules([]);
-    }
     console.log("=== DAY CLICK HANDLER COMPLETE ====");
   };
 
@@ -837,34 +1012,53 @@ export const ProductionBoard = ({
 
         // Check which modules are already assigned to this day
         const tasksForDay = tasksByDay[selectedDay || ""] || [];
-        const assignedModuleIds = tasksForDay
-          .map((task) => task.template_id)
+        const assignedModuleTitles = tasksForDay
+          .map((task) => task.title)
           .filter(Boolean);
 
         // Convert templates to a format compatible with the modules display
         // Include ALL relevant data from the template
-        const templatesAsModules = data.map((template) => ({
-          id: template.id,
-          title: template.title,
-          description: template.description || "",
-          template_id: template.id, // Keep reference to template ID
-          estimated_time: template.estimated_time || 0,
-          station: template.station || "",
-          sequence: template.sequence || 0,
-          required: true,
-          assigned: assignedModuleIds.includes(template.id), // Mark as assigned if already in the day
-          // Include additional data from the template
-          prep_system: template.prep_system,
-          par_level: template.par_level,
-          current_level: template.current_level,
-          amount_required: template.amount_required,
-          kitchen_station:
-            template.kitchen_station || template.kitchen_stations?.[0],
-          recipe_id: template.recipe_id,
-          requires_certification: template.requires_certification,
-          priority: template.priority || "medium",
-        }));
+        // Filter out duplicates by title - only keep the first occurrence of each title
+        const uniqueTitles = new Set();
+        const templatesAsModules = data
+          .filter((template) => {
+            // Only keep this template if we haven't seen this title before
+            if (uniqueTitles.has(template.title)) {
+              return false;
+            }
+            uniqueTitles.add(template.title);
+            return true;
+          })
+          .map((template) => ({
+            id: template.id,
+            title: template.title,
+            description: template.description
+              ? template.description.replace(
+                  /\s*\[Auto-advanced from.*?\]/g,
+                  "",
+                )
+              : "",
+            template_id: template.id, // Keep reference to template ID
+            estimated_time: template.estimated_time || 0,
+            station: template.station || "",
+            sequence: template.sequence || 0,
+            required: true,
+            assigned: assignedModuleTitles.includes(template.title), // Mark as assigned if already in the day by title
+            // Include additional data from the template
+            prep_system: template.prep_system,
+            par_level: template.par_level,
+            current_level: template.current_level,
+            amount_required: template.amount_required,
+            kitchen_station:
+              template.kitchen_station || template.kitchen_stations?.[0],
+            recipe_id: template.recipe_id,
+            requires_certification: template.requires_certification,
+            priority: template.priority || "low",
+          }));
         setAvailableModules(templatesAsModules);
+        console.log(
+          `Filtered to ${templatesAsModules.length} unique modules by title`,
+        );
       } else {
         console.log("No templates found in prep_list_templates table");
         setAvailableModules([]);
@@ -903,7 +1097,9 @@ export const ProductionBoard = ({
         const templateAsModule = {
           id: data.id,
           title: data.title,
-          description: data.description || "",
+          description: data.description
+            ? data.description.replace(/\s*\[Auto-advanced from.*?\]/g, "")
+            : "",
           template_id: data.id,
           estimated_time: data.estimated_time || 0,
           station: data.station || "",
@@ -916,7 +1112,7 @@ export const ProductionBoard = ({
           kitchen_station: data.kitchen_station || data.kitchen_stations?.[0],
           recipe_id: data.recipe_id,
           requires_certification: data.requires_certification,
-          priority: data.priority || "medium",
+          priority: data.priority || "low",
         };
         setAvailableModules([templateAsModule]);
       } else {
@@ -1109,7 +1305,17 @@ export const ProductionBoard = ({
 
                       if (allTemplateTasks.length > 0) {
                         console.log("Template tasks:", allTemplateTasks);
-                        setAvailableModules(allTemplateTasks);
+                        // Clean up auto-advance messages before setting modules
+                        const cleanedTasks = allTemplateTasks.map((task) => ({
+                          ...task,
+                          description: task.description
+                            ? task.description.replace(
+                                /\s*\[Auto-advanced from.*?\]/g,
+                                "",
+                              )
+                            : "",
+                        }));
+                        setAvailableModules(cleanedTasks);
                       } else {
                         console.log("No tasks found in templates");
                         console.log(
@@ -1151,7 +1357,17 @@ export const ProductionBoard = ({
                                 "Number of tasks found:",
                                 data.length,
                               );
-                              setAvailableModules(data);
+                              // Clean up auto-advance messages before setting modules
+                              const cleanedData = data.map((task) => ({
+                                ...task,
+                                description: task.description
+                                  ? task.description.replace(
+                                      /\s*\[Auto-advanced from.*?\]/g,
+                                      "",
+                                    )
+                                  : "",
+                              }));
+                              setAvailableModules(cleanedData);
                             } else {
                               console.log("No tasks found directly either");
                               setAvailableModules([]);
@@ -1614,7 +1830,12 @@ export const ProductionBoard = ({
               }}
               onDayClick={handleDayClick}
               onHeaderClick={
-                view === "day" || view === "config" ? toggleView : undefined
+                view === "day" || view === "config"
+                  ? () => {
+                      // When clicking the header to go back to week view, ensure we clear the selected day
+                      toggleView();
+                    }
+                  : undefined
               }
               isDayView={view === "day" || view === "config"}
               onUpdatePrepSystem={handleUpdatePrepSystem}
@@ -1627,9 +1848,38 @@ export const ProductionBoard = ({
 
           {view === "config" && selectedDay && (
             <div className="bg-gray-800/30 rounded-lg border border-gray-700/50 p-4 w-full md:w-[35%] min-w-0 flex-shrink-0">
-              <h2 className="text-xl font-semibold text-white mb-4">
-                Available Modules
-              </h2>
+              <div className="flex flex-col space-y-4 mb-4">
+                <h2 className="text-xl font-semibold text-white">
+                  Available Modules
+                </h2>
+
+                {/* Assignee Dropdown */}
+                <div className="flex flex-col space-y-2">
+                  <label
+                    htmlFor="assignee-select"
+                    className="text-sm text-gray-300"
+                  >
+                    Assign tasks to:
+                  </label>
+                  <select
+                    id="assignee-select"
+                    value={selectedAssignee}
+                    onChange={(e) => setSelectedAssignee(e.target.value)}
+                    className="bg-gray-700 text-white border border-gray-600 rounded-md p-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="">Select assignee (optional)</option>
+                    {teamMembers.map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {member.name} {member.role ? `(${member.role})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-400">
+                    Tasks will be assigned to the selected team member when
+                    added
+                  </p>
+                </div>
+              </div>
 
               {selectedPrepLists.length === 0 ? (
                 <div className="bg-gray-700/30 rounded-lg p-4 text-center">
@@ -1654,71 +1904,82 @@ export const ProductionBoard = ({
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2 max-h-[calc(100vh-250px)] overflow-y-auto pr-2">
-                  {availableModules.map((module) => (
-                    <div
-                      key={module.id}
-                      className={`bg-gray-700/50 hover:bg-gray-700/70 rounded-lg p-3 cursor-pointer transition-colors border border-gray-600/50 ${processingModuleId === module.id ? "opacity-70 pointer-events-none" : ""} ${module.assigned ? "opacity-50 border-gray-500/30" : ""}`}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handleAddModule(module);
-                      }}
-                    >
-                      <div className="flex justify-between items-start">
-                        <h3 className="text-xl text-white font-medium">
-                          {module.title}
-                        </h3>
-                        <button
-                          className={`flex items-center gap-1 text-sm px-2 py-0.5 rounded ${processingModuleId === module.id ? "bg-gray-600/50 text-gray-400" : module.assigned ? "bg-gray-600/50 text-gray-400" : "bg-blue-500/10 text-blue-400 hover:text-blue-300"}`}
-                          onClick={(e) => {
-                            e.stopPropagation(); // Prevent the parent onClick from firing
-                            handleAddModule(module);
-                          }}
-                          disabled={
-                            processingModuleId === module.id || module.assigned
-                          }
-                        >
-                          {processingModuleId === module.id ? (
-                            <>
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                              Adding...
-                            </>
-                          ) : module.assigned ? (
-                            <>
-                              <CheckCircle className="w-3 h-3" /> Added
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle className="w-3 h-3" /> Add
-                            </>
+                <>
+                  {/* List of available modules that can be added to the selected day */}
+                  <div className="space-y-2 max-h-[calc(100vh-250px)] overflow-y-auto pr-2">
+                    {availableModules.map((module) => (
+                      <div
+                        key={module.id}
+                        className={`bg-gray-700/50 hover:bg-gray-700/70 rounded-lg p-3 cursor-pointer transition-colors border border-gray-600/50 ${processingModuleId === module.id ? "opacity-70 pointer-events-none" : ""} ${module.assigned ? "opacity-50 border-gray-500/30" : ""}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleAddModule(module);
+                        }}
+                      >
+                        {/* Module header with title and add button */}
+                        <div className="flex justify-between items-start">
+                          <h3 className="text-xl text-white font-medium">
+                            {module.title}
+                          </h3>
+                          <button
+                            className={`flex items-center gap-1 text-sm px-2 py-0.5 rounded ${processingModuleId === module.id ? "bg-gray-600/50 text-gray-400" : module.assigned ? "bg-gray-600/50 text-gray-400" : "bg-blue-500/10 text-blue-400 hover:text-blue-300"}`}
+                            onClick={(e) => {
+                              e.stopPropagation(); // Prevent the parent onClick from firing
+                              handleAddModule(module);
+                            }}
+                            disabled={
+                              processingModuleId === module.id ||
+                              module.assigned
+                            }
+                          >
+                            {/* Dynamic button state based on module status */}
+                            {processingModuleId === module.id ? (
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                Adding...
+                              </>
+                            ) : module.assigned ? (
+                              <>
+                                <CheckCircle className="w-3 h-3" /> Added
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle className="w-3 h-3" /> Add
+                              </>
+                            )}
+                          </button>
+                        </div>
+                        {/* Module description if available */}
+                        {module.description && (
+                          <p className="text-gray-400 text-sm mt-1">
+                            {module.description}
+                          </p>
+                        )}
+                        {/* Module metadata badges */}
+                        <div className="flex items-center gap-2 mt-2">
+                          {/* Estimated time badge */}
+                          {module.estimated_time > 0 && (
+                            <span className="text-xs bg-gray-600/50 text-gray-300 px-2 py-0.5 rounded-full">
+                              {module.estimated_time} min
+                            </span>
                           )}
-                        </button>
+                          {/* Station badge */}
+                          {module.station && (
+                            <span className="text-xs bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full">
+                              {module.station}
+                            </span>
+                          )}
+                          {/* Prep system badge */}
+                          {module.prep_system && (
+                            <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full">
+                              {module.prep_system.toUpperCase()}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      {module.description && (
-                        <p className="text-gray-400 text-sm mt-1">
-                          {module.description}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-2 mt-2">
-                        {module.estimated_time > 0 && (
-                          <span className="text-xs bg-gray-600/50 text-gray-300 px-2 py-0.5 rounded-full">
-                            {module.estimated_time} min
-                          </span>
-                        )}
-                        {module.station && (
-                          <span className="text-xs bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full">
-                            {module.station}
-                          </span>
-                        )}
-                        {module.prep_system && (
-                          <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full">
-                            {module.prep_system.toUpperCase()}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                </>
               )}
             </div>
           )}

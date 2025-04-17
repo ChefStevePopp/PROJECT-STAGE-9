@@ -65,6 +65,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         )}
       </div>
 
+      {/* Only show days late badge when daysLate is greater than 0 */}
+      {task.daysLate && task.daysLate > 0 ? (
+        <span
+          className={`px-2 py-0.5 text-xs rounded-full ${getPriorityColor(task.priority)}`}
+        >
+          {task.daysLate} {task.daysLate === 1 ? "day" : "days"} late
+        </span>
+      ) : null}
+
       {task.description && (
         <p className="text-gray-400 text-sm mb-3">{task.description}</p>
       )}

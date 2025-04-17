@@ -48,6 +48,10 @@ export interface Task {
   daysLate?: number; // Number of days this task is late
   is_catering_event?: boolean; // Whether this task is a catering event
   auto_advance?: boolean; // Whether this task should automatically advance to the next day if not completed
+  source?: "prep_list" | "catering" | "manual" | "production" | string; // Source of the task (prep list, catering event, manual entry, etc.)
+  source_name?: string; // Name of the source (e.g., prep list name, catering event name)
+  source_id?: string; // ID of the source (e.g., prep list ID, catering event ID)
+  assigning_team_member_id?: string; // ID of the team member who assigned/created this task
 }
 
 export interface TaskStore {
@@ -119,6 +123,7 @@ export interface PrepListTemplateTask {
   due_date?: string; // Due date for this task
   status?: string; // Status of the task (pending, in_progress, completed)
   auto_advance?: boolean; // Whether this task should automatically advance to the next day if not completed
+  assigning_team_member_id?: string; // ID of the team member who assigned/created this task
 }
 
 export interface PrepList {
