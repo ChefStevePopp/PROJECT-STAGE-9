@@ -85,46 +85,133 @@ export const ProductionBoard = ({
   );
   const [selectedAssignee, setSelectedAssignee] = useState<string>("");
   const [teamMembers, setTeamMembers] = useState<
-    Array<{ id: string; name: string; role: string }>
+    Array<{
+      id: string;
+      name: string;
+      role: string;
+      email?: string;
+      kitchen_stations?: string[];
+    }>
   >([]);
 
   // Fetch all team members without filtering
   useEffect(() => {
     const fetchTeamMembers = async () => {
       try {
+        console.log("Starting team member fetch...");
+
         // Get organization_id from user context
         const { data: userData } = await supabase.auth.getUser();
-        if (!userData.user?.user_metadata?.organizationId) {
-          console.error("No organization ID found");
-          return;
-        }
+        console.log("User data:", userData);
+        console.log("User metadata:", userData.user?.user_metadata);
 
-        const organizationId = userData.user.user_metadata.organizationId;
+        // Try a direct query to see if any team members exist at all
+        const { data: allTeamMembers, error: allTeamMembersError } =
+          await supabase.from("organization_team_members").select("count");
 
-        // Fetch all team members without filtering by role
+        console.log(
+          "Direct query result (all team members):",
+          allTeamMembers,
+          allTeamMembersError,
+        );
+
+        // Fetch all team members without filtering by organization
+        // This is a temporary change to see if we can get any team members at all
         const { data, error } = await supabase
           .from("organization_team_members")
-          .select("id, user_id, name, role, kitchen_role")
-          .eq("organization_id", organizationId);
+          .select(
+            "id, first_name, last_name, email, kitchen_role, display_name, kitchen_stations, organization_id, metadata",
+          )
+          .order("first_name");
 
         if (error) {
           console.error("Error fetching team members:", error);
           return;
         }
 
+        console.log("Raw team member data (all orgs):", data);
+
         if (data && data.length > 0) {
           // Format team members for dropdown
-          const formattedMembers = data.map((member) => ({
-            id: member.user_id,
-            name: member.name || `Team Member ${member.id.substring(0, 4)}`,
-            role: member.kitchen_role || member.role, // Prefer kitchen_role, fall back to role
-          }));
+          const formattedMembers = data.map((member) => {
+            // Use display_name if available, otherwise construct from first_name and last_name
+            const displayName =
+              member.display_name ||
+              (member.first_name && member.last_name
+                ? `${member.first_name} ${member.last_name}`
+                : `Team Member ${member.id.substring(0, 4)}`);
+
+            // Format role for display - capitalize and clean up
+            let formattedRole = "";
+            if (member.kitchen_role) {
+              formattedRole = member.kitchen_role
+                .split("_")
+                .map(
+                  (word) =>
+                    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
+                )
+                .join(" ");
+            }
+
+            // Get user_id from metadata if available
+            const userId = member.metadata?.user_id || member.id;
+
+            console.log("Member metadata:", member.metadata);
+            console.log("Using user ID:", userId);
+
+            return {
+              id: userId, // Use user_id from metadata or fallback to id
+              name: displayName,
+              role: formattedRole,
+              email: member.email,
+              kitchen_stations: member.kitchen_stations || [],
+              organization_id: member.organization_id, // Include organization_id for debugging
+            };
+          });
 
           setTeamMembers(formattedMembers);
           console.log("Fetched all team members:", formattedMembers.length);
+          console.log("First few team members:", formattedMembers.slice(0, 3));
+
+          // If we have user metadata with organization ID, filter the team members
+          if (userData.user?.user_metadata?.organizationId) {
+            const organizationId = userData.user.user_metadata.organizationId;
+            console.log("Found organization ID in metadata:", organizationId);
+
+            // Filter team members by organization ID
+            const filteredMembers = formattedMembers.filter(
+              (member) => member.organization_id === organizationId,
+            );
+
+            console.log(
+              "Filtered team members for org:",
+              filteredMembers.length,
+            );
+            console.log(
+              "First few filtered members:",
+              filteredMembers.slice(0, 3),
+            );
+
+            if (filteredMembers.length > 0) {
+              setTeamMembers(filteredMembers);
+            } else {
+              console.log(
+                "No team members found for this organization after filtering",
+              );
+              // Keep the unfiltered list if no members match the organization
+            }
+          } else {
+            console.log(
+              "No organization ID found in user metadata, using all team members",
+            );
+          }
+        } else {
+          console.log("No team members found in the database at all");
+          setTeamMembers([]);
         }
       } catch (error) {
         console.error("Error in fetchTeamMembers:", error);
+        setTeamMembers([]);
       }
     };
 
@@ -178,33 +265,8 @@ export const ProductionBoard = ({
           })
           .filter(Boolean);
 
-        // Find matching templates
-        const selectedTemplates = templates.filter((template) =>
-          templateIds.includes(template.id),
-        );
-
-        // Extract tasks from templates
-        const modulesFromTemplates = selectedTemplates.flatMap(
-          (template) => template.tasks || [],
-        );
-
-        if (modulesFromTemplates.length > 0) {
-          console.log(
-            `Found ${modulesFromTemplates.length} modules from templates after update`,
-          );
-          // Clean up auto-advance messages before setting modules
-          const cleanedModules = modulesFromTemplates.map((module) => ({
-            ...module,
-            description: module.description
-              ? module.description.replace(/\s*\[Auto-advanced from.*?\]/g, "")
-              : "",
-          }));
-          setAvailableModules(cleanedModules);
-        } else if (templateIds.length > 0) {
-          // If no modules found but we have template IDs, fetch directly
-          console.log(
-            "No modules found in templates after update, fetching directly",
-          );
+        // If we have template IDs, fetch modules directly from prep_list_templates
+        if (templateIds.length > 0) {
           fetchModulesDirectly(templateIds);
         }
       }
@@ -353,7 +415,7 @@ export const ProductionBoard = ({
   // Get the current user from the useAuth hook at the component level
   const { user } = useAuth();
 
-  // Handle adding a module to a day
+  // Handle adding a module to a day - SIMPLIFIED
   const handleAddModule = async (
     module: PrepListTemplateTask & { assigned?: boolean },
   ) => {
@@ -388,36 +450,10 @@ export const ProductionBoard = ({
       return;
     }
 
-    // Also check if we're about to add a duplicate module that might not be marked as assigned yet
-    const duplicateModule = availableModules.find(
-      (m) => m.title === module.title && m.id !== module.id && m.assigned,
-    );
-    if (duplicateModule) {
-      toast.info(
-        <div className="flex items-center gap-2">
-          <CheckCircle className="w-4 h-4 text-blue-400" />
-          <span>
-            {module.title} is already assigned to this day (duplicate module)
-          </span>
-        </div>,
-      );
-      return;
-    }
-
     try {
       setProcessingModuleId(module.id);
-      console.log("Adding module to day:", module, selectedDay);
-
-      // Get the current user's email from auth context
-      const userEmail = user?.email;
-      let validAssigneeId = null;
-
-      // Don't try to set assignee_id at all when creating a new task
-      // This avoids the foreign key constraint issue
 
       // Create a new task based on the module template
-      // Important: We need to create a clean object without any properties that might cause FK constraint issues
-      // and ensure we're creating a new row with a new ID each time
       const newTaskData = {
         title: module.title,
         description: module.description
@@ -435,20 +471,13 @@ export const ProductionBoard = ({
         current_level: module.current_level || null,
         amount_required: module.amount_required || null,
         priority: module.priority || "low",
-
-        due_date: selectedDay, // Set the due date to the selected day
-        // Don't set assignee_id at all to avoid foreign key constraint issues
+        due_date: selectedDay,
         assignee_station: null,
-        // Generate a completely new UUID for each task instance
-        // This ensures we don't load data from previous instances
-        id: crypto.randomUUID(),
+        id: crypto.randomUUID(), // Generate a new UUID for each task instance
       };
 
-      console.log("Creating new task with data:", newTaskData);
-
-      // Always ensure assignee_id is not included to avoid foreign key constraint issues
+      // Ensure assignee_id is not included to avoid foreign key constraint issues
       delete newTaskData.assignee_id;
-      console.log("Removed assignee_id to avoid FK constraint issues");
 
       const newTask = await createTemplateTaskFromModule(
         newTaskData,
@@ -456,8 +485,7 @@ export const ProductionBoard = ({
       );
 
       if (newTask) {
-        console.log("Successfully created new task:", newTask);
-        // Manually update the local state to immediately show the new task
+        // Update local state to immediately show the new task
         setTasksByDay((prev) => {
           const updatedTasks = { ...prev };
           if (!updatedTasks[selectedDay]) {
@@ -469,31 +497,10 @@ export const ProductionBoard = ({
 
         // Mark all modules with the same title as assigned
         setAvailableModules((prevModules) => {
-          // First, mark all modules with the same title as assigned
-          const updatedModules = prevModules.map((m) =>
+          return prevModules.map((m) =>
             m.title === module.title ? { ...m, assigned: true } : m,
           );
-
-          // Then, ensure we don't have any duplicates by title
-          const uniqueTitles = new Set();
-          return updatedModules.filter((m) => {
-            // If this module is already assigned, always keep it
-            if (m.assigned) {
-              uniqueTitles.add(m.title);
-              return true;
-            }
-
-            // For unassigned modules, only keep if we haven't seen this title before
-            if (uniqueTitles.has(m.title)) {
-              return false;
-            }
-            uniqueTitles.add(m.title);
-            return true;
-          });
         });
-
-        // Don't refresh data immediately - this is causing the task to disappear
-        // await refreshData();
 
         toast.success(
           <div className="flex items-center gap-2">
@@ -805,93 +812,53 @@ export const ProductionBoard = ({
     }));
   };
 
-  // Shared function to fetch modules based on selected prep lists and day
+  // Shared function to fetch modules based on selected prep lists and day - SIMPLIFIED
   const fetchModulesForSelectedDay = (day: string) => {
     console.log("=== FETCH MODULES FOR SELECTED DAY START ====");
     console.log("Fetching modules for day:", day);
     console.log("Current selected prep lists:", selectedPrepLists);
 
-    // Force refresh templates to ensure we have the latest data with tasks
-    fetchTemplates();
-
-    // If there are selected prep lists, fetch their modules
+    // If there are selected prep lists, fetch their modules directly from prep_list_templates table
     if (selectedPrepLists.length > 0) {
       try {
-        console.log(
-          `Fetching modules for ${selectedPrepLists.length} selected prep lists`,
-        );
         // Find the prep lists that match the selected prep lists
         const selectedPrepListsData = prepLists.filter((prepList) =>
           selectedPrepLists.includes(prepList.id),
         );
 
         if (selectedPrepListsData.length === 0) {
-          console.warn("No matching prep lists found in prepLists data");
-          console.log(
-            "Available prep lists:",
-            prepLists.map((pl) => ({ id: pl.id, title: pl.title })),
-          );
-          console.log("Selected prep list IDs:", selectedPrepLists);
+          console.log("No matching prep lists found");
           setAvailableModules([]);
           return;
         }
 
-        console.log(
-          "Selected prep lists data:",
-          JSON.stringify(selectedPrepListsData, null, 2),
-        );
-
         // Collect all template IDs from the selected prep lists
         const templateIds = selectedPrepListsData
           .flatMap((prepList) => {
-            // Check for template_ids array first, then fall back to template_id if needed
             if (
               prepList.template_ids &&
               Array.isArray(prepList.template_ids) &&
               prepList.template_ids.length > 0
             ) {
-              console.log(
-                `Prep list ${prepList.id} has template_ids:`,
-                JSON.stringify(prepList.template_ids),
-              );
               return prepList.template_ids;
             } else if (prepList.template_id) {
-              console.log(
-                `Prep list ${prepList.id} has template_id:`,
-                prepList.template_id,
-              );
               return [prepList.template_id];
             }
-            console.log(`Prep list ${prepList.id} has no template IDs`);
             return [];
           })
           .filter(Boolean); // Remove any null/undefined values
 
         if (templateIds.length === 0) {
-          console.warn("No template IDs found in the selected prep lists");
+          console.log("No template IDs found in the selected prep lists");
           setAvailableModules([]);
           return;
         }
 
-        console.log("Template IDs from selected prep lists:", templateIds);
-        console.log("Available templates count:", templates.length);
-        if (templates.length > 0) {
-          console.log("First template sample:", {
-            id: templates[0].id,
-            title: templates[0].title,
-            tasksCount: templates[0].tasks?.length || 0,
-          });
-        }
-
-        // IMPORTANT: For the Available Modules column, we only want to show data from prep_list_templates
+        // IMPORTANT: For the Available Modules column, we ONLY fetch from prep_list_templates
         fetchModulesDirectly(templateIds);
       } catch (error) {
         console.error("Error processing prep lists for modules:", error);
-        // Attempt direct database query as fallback
-        if (selectedPrepLists.length > 0) {
-          console.log("Attempting direct database query as fallback...");
-          fetchDirectlyFromPrepListIds(selectedPrepLists);
-        }
+        setAvailableModules([]);
       }
     } else {
       console.log("No prep lists selected, clearing available modules");
@@ -977,39 +944,29 @@ export const ProductionBoard = ({
     console.log("=== DAY CLICK HANDLER COMPLETE ====");
   };
 
-  // Function to fetch templates directly from the database for the Available Modules column
+  // Function to fetch templates directly from the database for the Available Modules column - SIMPLIFIED
   const fetchModulesDirectly = async (templateIds: string[]) => {
     try {
       console.log("=== DIRECT MODULE FETCH START ====");
-      console.log(
-        "Fetching templates from prep_list_templates table for template IDs:",
-        templateIds,
-      );
 
       if (!templateIds || templateIds.length === 0) {
-        console.log("No template IDs to fetch templates for");
         setAvailableModules([]);
         return;
       }
 
-      // IMPORTANT: For the Available Modules column, we only want to show data from prep_list_templates
+      // IMPORTANT: For the Available Modules column, we ONLY fetch from prep_list_templates
       const { data, error } = await supabase
         .from("prep_list_templates")
         .select("*")
         .in("id", templateIds);
 
       if (error) {
-        console.error("Error fetching templates directly:", error);
+        console.error("Error fetching templates:", error);
         setAvailableModules([]);
         return;
       }
 
       if (data && data.length > 0) {
-        console.log(
-          `Directly fetched ${data.length} templates from prep_list_templates table`,
-        );
-        console.log("First template sample:", JSON.stringify(data[0], null, 2));
-
         // Check which modules are already assigned to this day
         const tasksForDay = tasksByDay[selectedDay || ""] || [];
         const assignedModuleTitles = tasksForDay
@@ -1017,15 +974,11 @@ export const ProductionBoard = ({
           .filter(Boolean);
 
         // Convert templates to a format compatible with the modules display
-        // Include ALL relevant data from the template
         // Filter out duplicates by title - only keep the first occurrence of each title
         const uniqueTitles = new Set();
         const templatesAsModules = data
           .filter((template) => {
-            // Only keep this template if we haven't seen this title before
-            if (uniqueTitles.has(template.title)) {
-              return false;
-            }
+            if (uniqueTitles.has(template.title)) return false;
             uniqueTitles.add(template.title);
             return true;
           })
@@ -1038,13 +991,12 @@ export const ProductionBoard = ({
                   "",
                 )
               : "",
-            template_id: template.id, // Keep reference to template ID
+            template_id: template.id,
             estimated_time: template.estimated_time || 0,
             station: template.station || "",
             sequence: template.sequence || 0,
             required: true,
-            assigned: assignedModuleTitles.includes(template.title), // Mark as assigned if already in the day by title
-            // Include additional data from the template
+            assigned: assignedModuleTitles.includes(template.title),
             prep_system: template.prep_system,
             par_level: template.par_level,
             current_level: template.current_level,
@@ -1055,105 +1007,36 @@ export const ProductionBoard = ({
             requires_certification: template.requires_certification,
             priority: template.priority || "low",
           }));
+
         setAvailableModules(templatesAsModules);
-        console.log(
-          `Filtered to ${templatesAsModules.length} unique modules by title`,
-        );
+        console.log(`Loaded ${templatesAsModules.length} unique modules`);
       } else {
-        console.log("No templates found in prep_list_templates table");
+        console.log("No templates found");
         setAvailableModules([]);
       }
       console.log("=== DIRECT MODULE FETCH COMPLETE ====");
     } catch (err) {
-      console.error("Error in direct template fetch:", err);
+      console.error("Error fetching templates:", err);
       setAvailableModules([]);
-      console.log("=== DIRECT MODULE FETCH FAILED ====");
     }
   };
 
-  // This function is no longer used - we're only fetching from prep_list_templates for the Available Modules column
-  // Keeping it as a reference but modified to match our approach
-  const fetchTasksForTemplate = async (templateId: string) => {
-    try {
-      console.log(`Fetching template directly for template ID: ${templateId}`);
+  // This function is no longer needed - removing to simplify the code
 
-      // IMPORTANT: For the Available Modules column, we only want to show data from prep_list_templates
-      const { data, error } = await supabase
-        .from("prep_list_templates")
-        .select("*")
-        .eq("id", templateId)
-        .single();
-
-      if (error) {
-        console.error(`Error fetching template ${templateId}:`, error);
-        return;
-      }
-
-      if (data) {
-        console.log(
-          `Fetched template ${templateId} from prep_list_templates table`,
-        );
-        // Convert template to a format compatible with the modules display
-        const templateAsModule = {
-          id: data.id,
-          title: data.title,
-          description: data.description
-            ? data.description.replace(/\s*\[Auto-advanced from.*?\]/g, "")
-            : "",
-          template_id: data.id,
-          estimated_time: data.estimated_time || 0,
-          station: data.station || "",
-          sequence: data.sequence || 0,
-          required: true,
-          prep_system: data.prep_system,
-          par_level: data.par_level,
-          current_level: data.current_level,
-          amount_required: data.amount_required,
-          kitchen_station: data.kitchen_station || data.kitchen_stations?.[0],
-          recipe_id: data.recipe_id,
-          requires_certification: data.requires_certification,
-          priority: data.priority || "low",
-        };
-        setAvailableModules([templateAsModule]);
-      } else {
-        console.log(`No template found for ID ${templateId}`);
-      }
-    } catch (err) {
-      console.error(`Error fetching template ${templateId}:`, err);
-    }
-  };
-
-  // Alternative fallback that starts from prep list IDs
+  // This function is no longer needed as we're simplifying the approach
+  // Keeping a minimal version for backward compatibility
   const fetchDirectlyFromPrepListIds = async (prepListIds: string[]) => {
     try {
-      console.log("=== FETCH FROM PREP LIST IDS START ====");
-      console.log(
-        "Fetching template IDs directly from prep list IDs:",
-        prepListIds,
-      );
-
-      // First get the template IDs from the prep lists
+      // Get template IDs from prep lists
       const { data: prepListsData, error: prepListsError } = await supabase
         .from("prep_lists")
-        .select("id, template_id, template_ids, title, description")
+        .select("template_id, template_ids")
         .in("id", prepListIds);
 
-      if (prepListsError) {
-        console.error("Error fetching prep lists:", prepListsError);
+      if (prepListsError || !prepListsData || prepListsData.length === 0) {
         setAvailableModules([]);
         return;
       }
-
-      if (!prepListsData || prepListsData.length === 0) {
-        console.warn("No prep lists found for the provided IDs");
-        setAvailableModules([]);
-        return;
-      }
-
-      console.log(
-        "Fetched prep lists:",
-        JSON.stringify(prepListsData, null, 2),
-      );
 
       // Extract template IDs
       const templateIds = prepListsData
@@ -1167,22 +1050,16 @@ export const ProductionBoard = ({
         })
         .filter(Boolean);
 
-      console.log("Extracted template IDs:", templateIds);
-
       if (templateIds.length === 0) {
-        console.warn("No template IDs found in prep lists");
         setAvailableModules([]);
         return;
       }
 
-      // IMPORTANT: For the Available Modules column, we only want to show data from prep_list_templates
-      // Now fetch the templates for these template IDs
+      // Fetch the templates directly
       fetchModulesDirectly(templateIds);
-      console.log("=== FETCH FROM PREP LIST IDS COMPLETE ====");
     } catch (error) {
       console.error("Error fetching from prep list IDs:", error);
       setAvailableModules([]);
-      console.log("=== FETCH FROM PREP LIST IDS FAILED ====");
     }
   };
 
@@ -1271,115 +1148,8 @@ export const ProductionBoard = ({
                     console.log("Available templates:", templates);
 
                     if (templateIds.length > 0) {
-                      // Find all templates that match the template IDs
-                      const selectedTemplates = templates.filter((template) => {
-                        const isMatch = templateIds.includes(template.id);
-                        console.log(
-                          `Template ${template.id} match: ${isMatch}`,
-                        );
-                        return isMatch;
-                      });
-                      console.log("Found templates:", selectedTemplates);
-                      console.log("All available templates:", templates);
-                      console.log("Looking for template IDs:", templateIds);
-
-                      // Extract all tasks from the selected templates
-                      const allTemplateTasks = selectedTemplates.flatMap(
-                        (template) => {
-                          console.log(
-                            `Template ${template.id} tasks:`,
-                            template.tasks,
-                          );
-                          // Check if tasks is undefined or empty
-                          if (!template.tasks || template.tasks.length === 0) {
-                            console.warn(
-                              `No tasks found for template ${template.id}, fetching directly`,
-                            );
-                            // Immediately fetch tasks for this template
-                            fetchTasksForTemplate(template.id);
-                            return [];
-                          }
-                          return template.tasks;
-                        },
-                      );
-
-                      if (allTemplateTasks.length > 0) {
-                        console.log("Template tasks:", allTemplateTasks);
-                        // Clean up auto-advance messages before setting modules
-                        const cleanedTasks = allTemplateTasks.map((task) => ({
-                          ...task,
-                          description: task.description
-                            ? task.description.replace(
-                                /\s*\[Auto-advanced from.*?\]/g,
-                                "",
-                              )
-                            : "",
-                        }));
-                        setAvailableModules(cleanedTasks);
-                      } else {
-                        console.log("No tasks found in templates");
-                        console.log(
-                          "Selected templates details:",
-                          JSON.stringify(selectedTemplates, null, 2),
-                        );
-
-                        // If no tasks found in templates, try to fetch them directly
-                        const fetchTasksDirectly = async () => {
-                          try {
-                            console.log(
-                              "Attempting to fetch tasks directly for template IDs:",
-                              templateIds,
-                            );
-
-                            if (!templateIds || templateIds.length === 0) {
-                              console.log("No template IDs to fetch tasks for");
-                              setAvailableModules([]);
-                              return;
-                            }
-
-                            const { data, error } = await supabase
-                              .from("prep_list_template_tasks")
-                              .select("*")
-                              .in("template_id", templateIds)
-                              .order("sequence", { ascending: true });
-
-                            if (error) {
-                              console.error(
-                                "Error fetching tasks directly:",
-                                error,
-                              );
-                              return;
-                            }
-
-                            if (data && data.length > 0) {
-                              console.log("Directly fetched tasks:", data);
-                              console.log(
-                                "Number of tasks found:",
-                                data.length,
-                              );
-                              // Clean up auto-advance messages before setting modules
-                              const cleanedData = data.map((task) => ({
-                                ...task,
-                                description: task.description
-                                  ? task.description.replace(
-                                      /\s*\[Auto-advanced from.*?\]/g,
-                                      "",
-                                    )
-                                  : "",
-                              }));
-                              setAvailableModules(cleanedData);
-                            } else {
-                              console.log("No tasks found directly either");
-                              setAvailableModules([]);
-                            }
-                          } catch (err) {
-                            console.error("Error in direct task fetch:", err);
-                            setAvailableModules([]);
-                          }
-                        };
-
-                        fetchTasksDirectly();
-                      }
+                      // Instead of fetching tasks, fetch the templates directly
+                      fetchModulesDirectly(templateIds);
                     } else {
                       console.log("No template IDs found");
                       setAvailableModules([]);
@@ -1857,7 +1627,7 @@ export const ProductionBoard = ({
                 <div className="flex flex-col space-y-2">
                   <label
                     htmlFor="assignee-select"
-                    className="text-sm text-gray-300"
+                    className="text-sm text-gray-300 font-medium"
                   >
                     Assign tasks to:
                   </label>
@@ -1868,16 +1638,243 @@ export const ProductionBoard = ({
                     className="bg-gray-700 text-white border border-gray-600 rounded-md p-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     <option value="">Select assignee (optional)</option>
-                    {teamMembers.map((member) => (
-                      <option key={member.id} value={member.id}>
-                        {member.name} {member.role ? `(${member.role})` : ""}
-                      </option>
-                    ))}
+                    {teamMembers.length > 0 ? (
+                      teamMembers.map((member) => {
+                        // Determine role color class based on role
+                        let roleColorClass = "";
+                        if (member.role) {
+                          const roleLower = member.role.toLowerCase();
+                          if (
+                            roleLower.includes("dev") ||
+                            roleLower.includes("developer")
+                          ) {
+                            roleColorClass = "text-purple-300";
+                          } else if (roleLower.includes("owner")) {
+                            roleColorClass = "text-blue-400";
+                          } else if (
+                            roleLower.includes("chef") &&
+                            !roleLower.includes("sous")
+                          ) {
+                            roleColorClass = "text-emerald-300";
+                          } else if (roleLower.includes("sous chef")) {
+                            roleColorClass = "text-amber-300";
+                          } else if (roleLower.includes("supervisor")) {
+                            roleColorClass = "text-rose-300";
+                          } else if (
+                            roleLower.includes("manager") ||
+                            roleLower.includes("director")
+                          ) {
+                            roleColorClass = "text-blue-300";
+                          } else if (roleLower.includes("lead")) {
+                            roleColorClass = "text-amber-300";
+                          } else if (roleLower.includes("senior")) {
+                            roleColorClass = "text-rose-300";
+                          } else {
+                            roleColorClass = "text-white";
+                          }
+                        }
+
+                        return (
+                          <option key={member.id} value={member.id}>
+                            {member.name}{" "}
+                            {member.role ? (
+                              <>
+                                •{" "}
+                                <span className={roleColorClass}>
+                                  {member.role}
+                                </span>
+                              </>
+                            ) : (
+                              ""
+                            )}
+                          </option>
+                        );
+                      })
+                    ) : (
+                      <option disabled>No team members available</option>
+                    )}
                   </select>
-                  <p className="text-xs text-gray-400">
-                    Tasks will be assigned to the selected team member when
-                    added
-                  </p>
+                  {selectedAssignee && teamMembers.length > 0 && (
+                    <div className="mt-2 p-2 bg-gray-700/50 rounded-md border border-gray-600/50">
+                      <p className="text-sm text-white font-medium">
+                        {
+                          teamMembers.find((m) => m.id === selectedAssignee)
+                            ?.name
+                        }
+                      </p>
+                      {teamMembers.find((m) => m.id === selectedAssignee)
+                        ?.role && (
+                        <p className="text-xs mt-0.5">
+                          {(() => {
+                            const member = teamMembers.find(
+                              (m) => m.id === selectedAssignee,
+                            );
+                            const role = member?.role || "";
+                            const roleLower = role.toLowerCase();
+                            let roleColorClass = "text-white";
+
+                            if (
+                              roleLower.includes("dev") ||
+                              roleLower.includes("developer")
+                            ) {
+                              roleColorClass = "text-purple-300";
+                            } else if (roleLower.includes("owner")) {
+                              roleColorClass = "text-blue-400";
+                            } else if (
+                              roleLower.includes("chef") &&
+                              !roleLower.includes("sous")
+                            ) {
+                              roleColorClass = "text-emerald-300";
+                            } else if (roleLower.includes("sous chef")) {
+                              roleColorClass = "text-amber-300";
+                            } else if (roleLower.includes("supervisor")) {
+                              roleColorClass = "text-rose-300";
+                            } else if (
+                              roleLower.includes("manager") ||
+                              roleLower.includes("director")
+                            ) {
+                              roleColorClass = "text-blue-300";
+                            } else if (roleLower.includes("lead")) {
+                              roleColorClass = "text-amber-300";
+                            } else if (roleLower.includes("senior")) {
+                              roleColorClass = "text-rose-300";
+                            }
+
+                            return (
+                              <span className={roleColorClass}>{role}</span>
+                            );
+                          })()}
+                        </p>
+                      )}
+                      {teamMembers.find((m) => m.id === selectedAssignee)
+                        ?.kitchen_stations?.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {teamMembers
+                            .find((m) => m.id === selectedAssignee)
+                            ?.kitchen_stations?.map((station, idx) => (
+                              <span
+                                key={idx}
+                                className="text-xs bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full"
+                              >
+                                {station}
+                              </span>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {teamMembers.length > 0 ? (
+                    <p className="text-xs text-gray-400 mt-2">
+                      Tasks will be assigned to the selected team member when
+                      added ({teamMembers.length} team members available)
+                    </p>
+                  ) : (
+                    <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-md">
+                      <p className="text-xs text-amber-400 flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" />
+                        No team members found. The user_id might be stored in
+                        the metadata field.
+                      </p>
+                      <p className="text-xs text-amber-400 mt-1">
+                        Make sure team members have been added to your
+                        organization and check the console for debugging
+                        information.
+                      </p>
+                      <button
+                        onClick={() => {
+                          // Force refresh team members
+                          const fetchTeamMembers = async () => {
+                            try {
+                              console.log(
+                                "Manually refreshing team members...",
+                              );
+                              const { data, error } = await supabase
+                                .from("organization_team_members")
+                                .select(
+                                  "id, first_name, last_name, email, kitchen_role, display_name, kitchen_stations, organization_id, metadata",
+                                );
+
+                              if (error) {
+                                console.error(
+                                  "Error fetching team members:",
+                                  error,
+                                );
+                                return;
+                              }
+
+                              console.log(
+                                "Manual refresh - Raw team member data:",
+                                data,
+                              );
+
+                              if (data && data.length > 0) {
+                                const formattedMembers = data.map((member) => {
+                                  const displayName =
+                                    member.display_name ||
+                                    (member.first_name && member.last_name
+                                      ? `${member.first_name} ${member.last_name}`
+                                      : `Team Member ${member.id.substring(0, 4)}`);
+
+                                  let formattedRole = "";
+                                  if (member.kitchen_role) {
+                                    formattedRole = member.kitchen_role
+                                      .split("_")
+                                      .map(
+                                        (word) =>
+                                          word.charAt(0).toUpperCase() +
+                                          word.slice(1).toLowerCase(),
+                                      )
+                                      .join(" ");
+                                  }
+
+                                  // Get user_id from metadata if available
+                                  const userId =
+                                    member.metadata?.user_id || member.id;
+                                  console.log(
+                                    "Manual refresh - Member metadata:",
+                                    member.metadata,
+                                  );
+                                  console.log(
+                                    "Manual refresh - Using user ID:",
+                                    userId,
+                                  );
+
+                                  return {
+                                    id: userId,
+                                    name: displayName,
+                                    role: formattedRole,
+                                    email: member.email,
+                                    kitchen_stations:
+                                      member.kitchen_stations || [],
+                                  };
+                                });
+
+                                setTeamMembers(formattedMembers);
+                                toast.success(
+                                  `Found ${formattedMembers.length} team members`,
+                                );
+                              } else {
+                                toast.error(
+                                  "No team members found in database",
+                                );
+                              }
+                            } catch (error) {
+                              console.error(
+                                "Error in manual team member refresh:",
+                                error,
+                              );
+                              toast.error("Error refreshing team members");
+                            }
+                          };
+
+                          fetchTeamMembers();
+                        }}
+                        className="mt-2 w-full text-xs bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 px-2 py-1 rounded transition-colors"
+                      >
+                        Refresh Team Members
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
