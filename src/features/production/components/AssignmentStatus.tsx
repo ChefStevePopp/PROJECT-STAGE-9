@@ -15,6 +15,9 @@ import {
   Pause,
   Settings,
   Square,
+  Clock,
+  AlertCircle,
+  Timer,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -312,228 +315,280 @@ export const AssignmentStatus: React.FC<AssignmentStatusProps> = ({
   };
 
   return (
-    <div className="mb-3 p-3 rounded-lg bg-gray-800/50 border border-gray-700/70 shadow-inner">
-      <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-700/50">
-        <h4 className="text-sm font-medium text-white">Assignment Status</h4>
-        {estimatedTime ? (
-          <div className="flex items-center gap-1 px-2 py-1 bg-gray-700/50 rounded-full">
-            <CalendarClock className="w-3 h-3 text-primary-400" />
-            <span className="text-xs text-gray-300">
-              {formatEstimatedTime(estimatedTime)} allotted
+    <div className="mb-3 p-2 rounded-lg bg-gray-800/70 border border-gray-700/70 shadow-inner">
+      {/* Header with icon */}
+      <div className="mb-3">
+        <div className="flex items-center gap-2 text-lg text-gray-400 bg-slate-700/30 p-2 border border-gray-500/30 rounded-lg mb-2 w-full">
+          <div className="w-8 h-8 flex items-center justify-center bg-blue-400/30 rounded-full border border-blue-300/50 mr-2">
+            <Clock className="w-5 h-5 text-blue-400" />
+          </div>
+          <div className="flex items-center justify-between w-full">
+            <span className="text-m text-white pl-1 p-1 font-medium">
+              Assignment Status
             </span>
           </div>
-        ) : null}
-      </div>
-      {/* Assignment Status Cards */}
-      {task.assignment_type === "direct" && task.assignee_id ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-          {/* Task Accepted - Green Card */}
-          <div className="flex items-center gap-2 text-white bg-green-500/20 p-2 rounded-lg border border-green-500/50 shadow-sm">
-            <User className="w-4 h-4 text-green-400" />
-            <span className="font-medium truncate">
-              Accepted by: {getUserName(task.assignee_id)}
-            </span>
-          </div>
-
-          {/* Station Assignment - Only show if available */}
-          {(task.assignee_station || task.kitchen_station || task.station) && (
-            <div className="flex items-center gap-2 text-white bg-blue-500/20 p-2 rounded-lg border border-blue-500/50 shadow-sm">
-              <MapPin className="w-4 h-4 text-blue-400" />
-              <span className="font-medium truncate">
-                {task.assignee_station || task.kitchen_station || task.station}
-              </span>
-            </div>
-          )}
         </div>
-      ) : task.assignment_type === "station" ||
-        (!task.assignment_type &&
-          (task.assignee_station || task.kitchen_station || task.station)) ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-          {/* Station Assignment - Primary Card */}
-          <div className="flex items-center gap-2 text-white bg-blue-500/20 p-2 rounded-lg border border-blue-500/50 shadow-sm">
-            <MapPin className="w-4 h-4 text-blue-400" />
-            <span className="font-medium truncate">
-              {task.assignee_station ||
-                task.kitchen_station ||
-                task.station ||
-                ""}
-            </span>
-          </div>
+      </div>
 
-          {/* Task Accepted Status */}
-          {task.assignee_id ? (
+      <div className="grid grid-cols-1 gap-3">
+        {/* Assignment Status Cards */}
+        {task.assignment_type === "direct" && task.assignee_id ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+            {/* Task Accepted - Green Card */}
             <div className="flex items-center gap-2 text-white bg-green-500/20 p-2 rounded-lg border border-green-500/50 shadow-sm">
               <User className="w-4 h-4 text-green-400" />
               <span className="font-medium truncate">
                 Accepted by: {getUserName(task.assignee_id)}
               </span>
             </div>
-          ) : (
-            <div className="flex items-center gap-2 text-white bg-gray-700/50 p-2 rounded-lg border border-gray-700 shadow-sm">
-              <User className="w-4 h-4 text-gray-400" />
-              <span className="font-medium">Awaiting acceptance</span>
-            </div>
-          )}
-        </div>
-      ) : task.assignment_type === "lottery" || task.lottery ? (
-        <div className="flex items-center justify-center gap-2 text-white bg-rose-500/20 p-3 rounded-lg border border-rose-500/50 shadow-sm">
-          <Users className="w-5 h-5 text-rose-400" />
-          <span className="font-medium text-rose-300">
-            Available in lottery pool
-          </span>
-        </div>
-      ) : (
-        <div className="flex items-center justify-center gap-2 text-white bg-gray-700/50 p-3 rounded-lg border border-gray-700 shadow-sm">
-          <User className="w-5 h-5 text-gray-400" />
-          <span className="font-medium text-gray-300">Not assigned</span>
-        </div>
-      )}
-      {/* Original station info - only show if different from assigned station */}
-      {task.assignment_type === "station" &&
-      task.assignee_station &&
-      (task.kitchen_station || task.station) &&
-      task.assignee_station !== (task.kitchen_station || task.station) ? (
-        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-700/50 text-xs text-gray-400">
-          <MapPin className="w-3 h-3 text-gray-500" />
-          <span>Original station: {task.kitchen_station || task.station}</span>
-        </div>
-      ) : !task.assignment_type &&
-        !task.assignee_station &&
-        (task.kitchen_station || task.station) ? (
-        <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-700/50 text-xs text-gray-400">
-          <div className="flex items-center gap-2">
-            <MapPin className="w-3 h-3 text-gray-500" />
-            <span>Default station: {task.kitchen_station || task.station}</span>
+
+            {/* Station Assignment - Only show if available */}
+            {(task.assignee_station ||
+              task.kitchen_station ||
+              task.station) && (
+              <div className="flex items-center gap-2 text-white bg-blue-500/20 p-2 rounded-lg border border-blue-500/50 shadow-sm">
+                <MapPin className="w-4 h-4 text-blue-400" />
+                <span className="font-medium truncate">
+                  {task.assignee_station ||
+                    task.kitchen_station ||
+                    task.station}
+                </span>
+              </div>
+            )}
           </div>
-          {task.auto_advance !== false && (
-            <div className="flex items-center gap-1 text-amber-400">
-              <CalendarClock className="w-3 h-3" />
-              <span>Auto-advances daily</span>
+        ) : task.assignment_type === "station" ||
+          (!task.assignment_type &&
+            (task.assignee_station || task.kitchen_station || task.station)) ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+            {/* Station Assignment - Primary Card */}
+            <div className="flex items-center gap-2 text-white bg-blue-500/20 p-2 rounded-lg border border-blue-500/50 shadow-sm">
+              <MapPin className="w-4 h-4 text-blue-400" />
+              <span className="font-medium truncate">
+                {task.assignee_station ||
+                  task.kitchen_station ||
+                  task.station ||
+                  ""}
+              </span>
             </div>
-          )}
-        </div>
-      ) : null}
-      {/* Accept Task Button - Only show when task is in lottery pool or assigned to station and not yet accepted by current user */}
-      {(task.assignment_type === "lottery" ||
-        task.lottery ||
-        (task.assignment_type === "station" && !task.assignee_id) ||
-        (!task.assignment_type &&
-          (task.assignee_station || task.kitchen_station || task.station) &&
-          !task.assignee_id)) && (
-        <div className="mt-3 pt-3 border-t border-gray-700/50">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              acceptTask();
-            }}
-            disabled={isUpdating}
-            className={`w-full flex items-center justify-center gap-2 bg-green-500/30 hover:bg-green-500/40 text-green-300 px-3 py-2 rounded-lg transition-colors border border-green-500/50 ${isUpdating ? "opacity-50 cursor-not-allowed" : ""}`}
-          >
-            {isUpdating ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                <span className="font-medium">Accepting...</span>
-              </>
+
+            {/* Task Accepted Status */}
+            {task.assignee_id ? (
+              <div className="flex items-center gap-2 text-white bg-green-500/20 p-2 rounded-lg border border-green-500/50 shadow-sm">
+                <User className="w-4 h-4 text-green-400" />
+                <span className="font-medium truncate">
+                  Accepted by: {getUserName(task.assignee_id)}
+                </span>
+              </div>
             ) : (
-              <>
-                <CheckCircle className="w-4 h-4" />
-                <span className="font-medium">Accept This Task</span>
-              </>
-            )}
-          </button>
-        </div>
-      )}
-      {/* Timer Display */}
-      <div className="mt-3 pt-3 border-t border-gray-700/50">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <div className="text-sm font-medium text-white">Task Timer</div>
-            {isRunning && !isPaused && (
-              <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full">
-                Running
-              </span>
-            )}
-            {isPaused && (
-              <span className="text-xs bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full">
-                Paused
-              </span>
-            )}
-            {isStopped && (
-              <span className="text-xs bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded-full">
-                Stopped
-              </span>
+              <div className="flex items-center gap-2 text-white bg-gray-700/50 p-2 rounded-lg border border-gray-700 shadow-sm">
+                <User className="w-4 h-4 text-gray-400" />
+                <span className="font-medium">Awaiting acceptance</span>
+              </div>
             )}
           </div>
-          <div className="text-lg font-mono text-white">
-            {formatTime(activeTime)}
+        ) : task.assignment_type === "lottery" || task.lottery ? (
+          <div className="flex items-center justify-center gap-2 text-white bg-rose-500/20 p-3 rounded-lg border border-rose-500/50 shadow-sm">
+            <Users className="w-5 h-5 text-rose-400" />
+            <span className="font-medium text-rose-300">
+              Available in lottery pool
+            </span>
           </div>
-        </div>
-        {isPaused && (
-          <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
-            <span>Pause duration:</span>
-            <span className="font-mono">{formatTime(pauseTime)}</span>
+        ) : (
+          <div className="flex items-center justify-center gap-2 text-white bg-gray-700/50 p-3 rounded-lg border border-gray-700 shadow-sm">
+            <AlertCircle className="w-5 h-5 text-gray-400" />
+            <span className="font-medium text-gray-300">Not assigned</span>
           </div>
         )}
-      </div>
-      {/* Task Action Buttons - Always visible regardless of assignment status */}
-      <div className="mt-3 pt-3 border-t border-gray-700/50">
-        <div className="flex items-center gap-2 bg-gray-800/50 p-2 rounded-lg justify-evenly">
-          {/* Start Button - Always visible */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleStart();
-            }}
-            className="flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors bg-blue-500/20 text-blue-400 hover:bg-blue-500/30"
-          >
-            <Play className="w-3 h-3" />
-            Start
-          </button>
 
-          {/* Pause Button - Always visible */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handlePause();
-            }}
-            className="flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
-          >
-            <Pause className="w-3 h-3" />
-            Pause
-          </button>
+        {/* Original station info - only show if different from assigned station */}
+        {task.assignment_type === "station" &&
+        task.assignee_station &&
+        (task.kitchen_station || task.station) &&
+        task.assignee_station !== (task.kitchen_station || task.station) ? (
+          <div className="flex items-center gap-2 mt-1 pt-2 border-t border-gray-700/50 text-xs text-gray-400">
+            <MapPin className="w-3 h-3 text-gray-500" />
+            <span>
+              Original station: {task.kitchen_station || task.station}
+            </span>
+          </div>
+        ) : !task.assignment_type &&
+          !task.assignee_station &&
+          (task.kitchen_station || task.station) ? (
+          <div className="flex items-center justify-between mt-1 pt-2 border-t border-gray-700/50 text-xs text-gray-400">
+            <div className="flex items-center gap-2">
+              <MapPin className="w-3 h-3 text-gray-500" />
+              <span>
+                Default station: {task.kitchen_station || task.station}
+              </span>
+            </div>
+            {task.auto_advance !== false && (
+              <div className="flex items-center gap-1 text-amber-400">
+                <CalendarClock className="w-3 h-3" />
+                <span>Auto-advances daily</span>
+              </div>
+            )}
+          </div>
+        ) : null}
 
-          {/* Stop Button - Always visible */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleStop();
-            }}
-            className="flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors bg-rose-500/20 text-rose-400 hover:bg-rose-500/30"
-          >
-            <Square className="w-3 h-3" />
-            Stop
-          </button>
+        {/* Accept Task Button - Only show when task is in lottery pool or assigned to station and not yet accepted by current user */}
+        {(task.assignment_type === "lottery" ||
+          task.lottery ||
+          (task.assignment_type === "station" && !task.assignee_id) ||
+          (!task.assignment_type &&
+            (task.assignee_station || task.kitchen_station || task.station) &&
+            !task.assignee_id)) && (
+          <div className="mt-2 pt-2 border-t border-gray-700/50">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                acceptTask();
+              }}
+              disabled={isUpdating}
+              className={`w-full flex items-center justify-center gap-2 bg-green-500/30 hover:bg-green-500/40 text-green-300 px-3 py-2 rounded-lg transition-colors border border-green-500/50 ${isUpdating ? "opacity-50 cursor-not-allowed" : ""}`}
+            >
+              {isUpdating ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span className="font-medium">Accepting...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4" />
+                  <span className="font-medium">Accept This Task</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
 
-          {/* Complete Button - Always visible */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleComplete();
-            }}
-            className="flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors bg-green-500/20 text-green-400 hover:bg-green-500/30"
-          >
-            <CheckCircle className="w-3 h-3" />
-            Complete
-          </button>
+        {/* Timer Display - Enhanced with more visual emphasis and clearer estimated time indication */}
+        <div className="mt-3 pt-3 border-t border-gray-700/50">
+          <div className="bg-slate-800/50 rounded-lg border border-slate-600/30 p-3 shadow-inner">
+            <div className="flex flex-col items-center mb-2">
+              {/* Timer Header */}
+              <div className="flex items-center justify-between w-full mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 flex items-center justify-center bg-blue-500/20 rounded-md">
+                    <Clock className="w-4 h-4 text-blue-400" />
+                  </div>
+                  <div className="text-sm font-medium text-white">
+                    Current Time
+                  </div>
+                  {isRunning && !isPaused && (
+                    <span className="text-xs bg-blue-500/30 text-blue-300 px-2 py-0.5 rounded-full border border-blue-500/50">
+                      Running
+                    </span>
+                  )}
+                  {isPaused && (
+                    <span className="text-xs bg-amber-500/30 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/50">
+                      Paused
+                    </span>
+                  )}
+                  {isStopped && (
+                    <span className="text-xs bg-rose-500/30 text-rose-300 px-2 py-0.5 rounded-full border border-rose-500/50">
+                      Stopped
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Active Timer */}
+              <div className="text-2xl font-mono text-white bg-slate-700/50 px-6 py-2 rounded-md border border-slate-600/50 shadow-inner mb-2 w-full text-center">
+                {formatTime(activeTime)}
+              </div>
+
+              {/* Estimated Time - Clearly placed under the timer */}
+              {estimatedTime && (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-700/30 rounded-md border border-slate-600/30 w-full">
+                  <div className="w-5 h-5 flex items-center justify-center bg-amber-400/20 rounded-md border border-amber-300/30">
+                    <Timer className="w-3 h-3 text-amber-400" />
+                  </div>
+                  <span className="text-sm text-amber-300 font-medium">
+                    Estimated time: {formatEstimatedTime(estimatedTime)}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Pause Duration - If applicable */}
+            {isPaused && (
+              <div className="flex items-center justify-between text-xs text-gray-400 mt-2 bg-amber-500/10 p-2 rounded border border-amber-500/20">
+                <span>Pause duration:</span>
+                <span className="font-mono text-amber-300">
+                  {formatTime(pauseTime)}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Estimated Time Display - Moved to its own row for better spacing */}
-        <div className="flex items-center justify-end gap-1 text-xs text-gray-400 mt-2">
-          <CalendarClock className="w-3 h-3" />
-          <span>
-            Estimated time:{" "}
-            {estimatedTime ? formatEstimatedTime(estimatedTime) : "--"}
-          </span>
+        {/* Task Action Buttons - Enhanced with more visual emphasis */}
+        <div className="mt-3 pt-3 border-t border-gray-700/50">
+          <div className="bg-slate-800/30 p-3 rounded-lg border border-slate-700/50 shadow-lg">
+            <h4 className="text-sm font-medium text-white mb-3">
+              Task Controls
+            </h4>
+
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              {/* Start Button - More prominent */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleStart();
+                }}
+                className="flex flex-col items-center justify-center gap-1 py-3 rounded-lg transition-colors bg-blue-500/20 text-blue-400 hover:bg-blue-500/40 border border-blue-500/40 hover:border-blue-500/60"
+              >
+                <div className="w-8 h-8 flex items-center justify-center bg-blue-500/30 rounded-full border border-blue-400/50 mb-1">
+                  <Play className="w-4 h-4" />
+                </div>
+                <span className="font-medium">Start</span>
+              </button>
+
+              {/* Pause Button - More prominent */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePause();
+                }}
+                className="flex flex-col items-center justify-center gap-1 py-3 rounded-lg transition-colors bg-amber-500/20 text-amber-400 hover:bg-amber-500/40 border border-amber-500/40 hover:border-amber-500/60"
+              >
+                <div className="w-8 h-8 flex items-center justify-center bg-amber-500/30 rounded-full border border-amber-400/50 mb-1">
+                  <Pause className="w-4 h-4" />
+                </div>
+                <span className="font-medium">Pause</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {/* Stop Button - More prominent */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleStop();
+                }}
+                className="flex flex-col items-center justify-center gap-1 py-3 rounded-lg transition-colors bg-rose-500/20 text-rose-400 hover:bg-rose-500/40 border border-rose-500/40 hover:border-rose-500/60"
+              >
+                <div className="w-8 h-8 flex items-center justify-center bg-rose-500/30 rounded-full border border-rose-400/50 mb-1">
+                  <Square className="w-4 h-4" />
+                </div>
+                <span className="font-medium">Stop</span>
+              </button>
+
+              {/* Complete Button - More prominent */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleComplete();
+                }}
+                className="flex flex-col items-center justify-center gap-1 py-3 rounded-lg transition-colors bg-green-500/20 text-green-400 hover:bg-green-500/40 border border-green-500/40 hover:border-green-500/60"
+              >
+                <div className="w-8 h-8 flex items-center justify-center bg-green-500/30 rounded-full border border-green-400/50 mb-1">
+                  <CheckCircle className="w-4 h-4" />
+                </div>
+                <span className="font-medium">Complete</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

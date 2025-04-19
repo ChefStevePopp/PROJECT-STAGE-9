@@ -22,6 +22,8 @@ import {
   CalendarClock,
   Play,
   Pause,
+  BrainCog,
+  NotebookPen,
 } from "lucide-react";
 import { TaskAssignment } from "./TaskAssignment";
 import { TaskConfiguration } from "./TaskConfiguration";
@@ -386,35 +388,49 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
       {isExpanded.main && (
         <div className="expandable-kanban-content">
           {/* Task description - cleaned up without auto-advance history */}
-          {task.description && (
-            <p className="text-gray-400 text-sm mb-3">
-              {task.description.replace(/\s*\[Auto-advanced from.*?\]/g, "")}
-            </p>
-          )}
+          <div className="card p-6 flex flex-col gap-3 mt-3 pt-3 border-gray-700 bg-slate-900/40">
+            <div className="bg-gray-800/50 rounded border border-gray-700 mb-3 p-2">
+              <span className="block text-xs text-gray-400 font-normal mt-1 mb-2">
+                <div className="flex items-center gap-2 text-lg text-gray-400 bg-slate-700/30 p-2 border border-gray-500/30 rounded-lg mb-4">
+                  <div className="w-8 h-8 flex items-center justify-center bg-primary-400/30 rounded-full border border-primary-300/50 mr-2">
+                    <NotebookPen className="text-primary-500 w-5 h-5 text-bold" />
+                  </div>
+                  <span className="font-medium text-m text-white">
+                    Task Description
+                  </span>
+                </div>
+                {task.description && (
+                  <p className="text-gray-300 text-sm pl-1 mb-3">
+                    {task.description.replace(
+                      /\s*\[Auto-advanced from.*?\]/g,
+                      "",
+                    )}
+                  </p>
+                )}
+              </span>
+              {/* Recipe Reference Component - Now second */}
+              <RecipeReference task={task} recipeName={recipeName} />
+            </div>
+            {/* Ingredient Details Section - Now first */}
 
-          {/* Ingredient Details Section - Now first */}
-          <IngredientDetails
-            task={task}
-            masterIngredientData={masterIngredientData}
-          />
-
-          {/* Recipe Reference Component - Now second */}
-          <RecipeReference task={task} recipeName={recipeName} />
-
-          {/* Assignment Status Component - Now third */}
-          <AssignmentStatus
-            task={task}
-            onComplete={onComplete}
-            estimatedTime={task.estimated_time}
-          />
-
-          {task.requires_certification &&
-            task.requires_certification.length > 0 && (
-              <div className="flex items-center gap-2 text-xs text-gray-400 mb-3">
-                <Award className="w-3 h-3" />
-                <span>Requires certification</span>
-              </div>
-            )}
+            <IngredientDetails
+              task={task}
+              masterIngredientData={masterIngredientData}
+            />
+            {/* Assignment Status Component - Now third */}
+            <AssignmentStatus
+              task={task}
+              onComplete={onComplete}
+              estimatedTime={task.estimated_time}
+            />
+            {task.requires_certification &&
+              task.requires_certification.length > 0 && (
+                <div className="flex items-center gap-2 text-xs text-gray-400 mb-3">
+                  <Award className="w-3 h-3" />
+                  <span>Requires certification</span>
+                </div>
+              )}
+          </div>
 
           {/* Task Configuration - Expandable section */}
           <div className="card p-6 flex flex-col gap-3 mt-3 pt-3 border-gray-700 bg-slate-900/40">

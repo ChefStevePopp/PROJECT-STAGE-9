@@ -913,6 +913,9 @@ export const ProductionBoard = ({
     console.log("View set to config after day click");
     console.log("Selected day set to:", day);
 
+    // Set a loading state for modules
+    setProcessingModuleId("loading");
+
     // CRITICAL FIX: Do NOT clear prepListIds when switching to day view
     // This was causing the tasks to disappear
     setFilters((prev) => ({
@@ -951,6 +954,7 @@ export const ProductionBoard = ({
 
       if (!templateIds || templateIds.length === 0) {
         setAvailableModules([]);
+        setProcessingModuleId(null); // Clear loading state
         return;
       }
 
@@ -963,6 +967,7 @@ export const ProductionBoard = ({
       if (error) {
         console.error("Error fetching templates:", error);
         setAvailableModules([]);
+        setProcessingModuleId(null); // Clear loading state
         return;
       }
 
@@ -1015,9 +1020,11 @@ export const ProductionBoard = ({
         setAvailableModules([]);
       }
       console.log("=== DIRECT MODULE FETCH COMPLETE ====");
+      setProcessingModuleId(null); // Clear loading state
     } catch (err) {
       console.error("Error fetching templates:", err);
       setAvailableModules([]);
+      setProcessingModuleId(null); // Clear loading state
     }
   };
 
@@ -1074,6 +1081,22 @@ export const ProductionBoard = ({
               .includes(searchTerm.toLowerCase()),
         )
       : [];
+
+  // State to track if the Kanban board is ready to be displayed
+  const [kanbanReady, setKanbanReady] = useState(false);
+
+  // Effect to set kanbanReady to true after data is loaded
+  useEffect(() => {
+    if (!isLoading && !isRefreshing) {
+      // Add a small delay to ensure the board is fully rendered
+      const timer = setTimeout(() => {
+        setKanbanReady(true);
+      }, 300);
+      return () => clearTimeout(timer);
+    } else {
+      setKanbanReady(false);
+    }
+  }, [isLoading, isRefreshing]);
 
   return (
     <div className="space-y-6">
@@ -1459,8 +1482,10 @@ export const ProductionBoard = ({
           )}
         </div>
       )}
-      {isLoading ? (
-        <div className="flex items-center justify-center h-64">
+
+      {/* Loading state - centered in the screen */}
+      {(isLoading || isRefreshing) && (
+        <div className="fixed inset-0 flex items-center justify-center z-10 bg-gray-900/70">
           <SectionLoadingLogo
             section="tasks"
             message={
@@ -1470,7 +1495,12 @@ export const ProductionBoard = ({
             }
           />
         </div>
-      ) : (
+      )}
+
+      {/* Content area - only shown when not loading */}
+      <div
+        className={`transition-opacity duration-300 ${kanbanReady ? "opacity-100" : "opacity-0"}`}
+      >
         <div
           className={`${(view === "day" || view === "config") && selectedDay ? "flex flex-col md:flex-row gap-[5%] w-full" : "w-full"}`}
         >
@@ -1888,6 +1918,14 @@ export const ProductionBoard = ({
                     Select Prep Lists
                   </button>
                 </div>
+              ) : isLoading || processingModuleId === "loading" ? (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <SectionLoadingLogo
+                    section="tasks"
+                    message="Loading modules..."
+                    className="h-32"
+                  />
+                </div>
               ) : availableModules.length === 0 ? (
                 <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg p-4 text-center">
                   <div className="flex items-center justify-center gap-2 mb-2">
@@ -1981,7 +2019,7 @@ export const ProductionBoard = ({
             </div>
           )}
         </div>
-      )}
+      </div>
     </div>
   );
 };
