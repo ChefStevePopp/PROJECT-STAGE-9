@@ -24,7 +24,6 @@ import {
   MapPin,
   FileText,
   AlignLeft,
-  X,
 } from "lucide-react";
 import { usePrepListTemplateStore } from "../../../../../../stores/prepListTemplateStore";
 import {
@@ -60,7 +59,7 @@ const SortableItem = ({
   id,
   title,
   description,
-  templateId,
+  // templateId is unused but kept in props interface
   kitchenStations,
   onEdit,
   onRemove,
@@ -72,7 +71,7 @@ const SortableItem = ({
 
   // Find the template to get its prep system
   const template = templates.find((t) => t.id === id);
-  const prepSystem = template?.prep_system || template?.prepSystem || "";
+  const prepSystem = template?.prep_system || "";
 
   const getPrepSystemBadgeClass = (prepSystem: string) => {
     switch (prepSystem?.toLowerCase()) {
@@ -522,7 +521,11 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
       setPrepListTitle(prepList.title);
       setPrepListDescription(prepList.description || "");
       // Set selected templates from the template_id
-      setSelectedTemplates(prepList.template_id ? [prepList.template_id] : []);
+      setSelectedTemplates(
+        prepList.templates && prepList.templates.length > 0
+          ? [prepList.templates[0]]
+          : [],
+      );
       // Set selected kitchen stations
       setSelectedKitchenStations(prepList.kitchen_stations || []);
       setCurrentPrepListId(prepList.id);
@@ -593,9 +596,7 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
     }
   };
 
-  const toggleInfoSection = () => {
-    setInfoSectionExpanded(!infoSectionExpanded);
-  };
+  // Removed unused function: toggleInfoSection
 
   return (
     <div className="card p-6">

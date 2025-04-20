@@ -32,17 +32,17 @@ export const LoadingLogo: React.FC<LoadingLogoProps> = ({
   if (error || hasTimedOut) {
     return (
       <div className={`flex flex-col items-center justify-center ${className}`}>
-        <div className="relative mb-4">
-          <AlertTriangle className="w-16 h-16 text-rose-500 animate-pulse" />
+        <div className="relative mb-2 sm:mb-4">
+          <AlertTriangle className="w-12 h-12 sm:w-16 sm:h-16 text-rose-500 animate-pulse" />
         </div>
-        <div className="text-lg font-medium text-gray-400 mb-4">
+        <div className="text-base sm:text-lg font-medium text-gray-400 mb-2 sm:mb-4 text-center px-2">
           {error ? message : "Taking longer than expected..."}
         </div>
         <button
           onClick={() => window.location.reload()}
-          className="flex items-center gap-2 px-4 py-2 bg-rose-500/20 text-rose-400 rounded-lg hover:bg-rose-500/30 transition-colors"
+          className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-rose-500/20 text-rose-400 rounded-lg hover:bg-rose-500/30 transition-colors text-sm sm:text-base"
         >
-          <RefreshCw className="w-4 h-4" />
+          <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4" />
           Refresh Page
         </button>
       </div>
@@ -51,13 +51,13 @@ export const LoadingLogo: React.FC<LoadingLogoProps> = ({
 
   return (
     <div className={`flex flex-col items-center justify-center ${className}`}>
-      <div className="relative mb-4">
+      <div className="relative mb-2 sm:mb-4">
         <div className="absolute inset-0 animate-ping">
-          <ChefHat className="w-16 h-16 text-primary-500/50" />
+          <ChefHat className="w-12 h-12 sm:w-16 sm:h-16 text-primary-500/50" />
         </div>
-        <ChefHat className="w-16 h-16 text-primary-500 relative" />
+        <ChefHat className="w-12 h-12 sm:w-16 sm:h-16 text-primary-500 relative" />
       </div>
-      <div className="text-lg font-medium text-gray-400 animate-pulse">
+      <div className="text-base sm:text-lg font-medium text-gray-400 animate-pulse text-center px-2">
         {message}
       </div>
     </div>

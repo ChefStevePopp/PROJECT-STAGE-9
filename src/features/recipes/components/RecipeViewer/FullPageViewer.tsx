@@ -49,7 +49,7 @@ export const FullPageViewer: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800">
       <div className="sticky top-0 z-50">
         <ViewerHeader
           recipe={recipe}

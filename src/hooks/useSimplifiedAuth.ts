@@ -34,7 +34,7 @@ export function useAuth() {
         }
       : null;
 
-    // If no organizationId, just set the organization to null
+    // If no organizationId, just set the organization to null and return early
     if (!organizationId) {
       setOrganization(null);
       setIsLoading(false);
@@ -75,6 +75,7 @@ export function useAuth() {
     fetchOrganization();
   }, [organizationId, user]);
 
+  // Always return the same shape of object to avoid hook count changes
   return {
     user,
     organization,

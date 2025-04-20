@@ -5,6 +5,8 @@ import { MasterIngredient } from "@/types/master-ingredient";
 interface MasterIngredientsStore {
   ingredients: MasterIngredient[];
   isLoading: boolean;
+  loadingProgress: number;
+  totalItems: number;
   error: string | null;
   fetchIngredients: () => Promise<void>;
   createIngredient: (ingredient: Partial<MasterIngredient>) => Promise<void>;
@@ -36,21 +38,48 @@ export const useMasterIngredientsStore = create<MasterIngredientsStore>(
   (set, get) => ({
     ingredients: [],
     isLoading: false,
+    loadingProgress: 0,
+    totalItems: 0,
     error: null,
 
     fetchIngredients: async () => {
       try {
-        set({ isLoading: true, error: null });
+        set({ isLoading: true, loadingProgress: 0, error: null });
 
+        // First, get the count of total items
+        const { count, error: countError } = await supabase
+          .from("master_ingredients_with_categories")
+          .select("*", { count: "exact", head: true });
+
+        if (countError) throw countError;
+
+        set({ totalItems: count || 0 });
+
+        // Then fetch the actual data
         const { data, error } = await supabase
           .from("master_ingredients_with_categories")
           .select("*");
 
         if (error) throw error;
 
+        // Simulate progressive loading for better UX
+        const items = data || [];
+        const batchSize = Math.max(1, Math.floor(items.length / 10));
+
+        for (let i = 0; i <= items.length; i += batchSize) {
+          const progress = Math.min(i, items.length);
+          set({ loadingProgress: progress });
+
+          // Small delay to show progress
+          if (i < items.length) {
+            await new Promise((resolve) => setTimeout(resolve, 100));
+          }
+        }
+
         set({
-          ingredients: data || [],
+          ingredients: items,
           isLoading: false,
+          loadingProgress: items.length,
         });
       } catch (error) {
         console.error("Error fetching master ingredients:", error);
@@ -60,6 +89,7 @@ export const useMasterIngredientsStore = create<MasterIngredientsStore>(
               ? error.message
               : "Failed to load ingredients",
           isLoading: false,
+          loadingProgress: 0,
           ingredients: [],
         });
       }

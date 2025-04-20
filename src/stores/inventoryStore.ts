@@ -8,6 +8,8 @@ interface InventoryStore {
   items: InventoryCount[];
   isLoading: boolean;
   error: string | null;
+  loadingProgress: number;
+  totalItems: number;
   fetchItems: () => Promise<void>;
   addCount: (
     count: Omit<InventoryCount, "id" | "lastUpdated">,
@@ -22,9 +24,11 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
   items: [],
   isLoading: false,
   error: null,
+  loadingProgress: 0,
+  totalItems: 0,
 
   fetchItems: async () => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, error: null, loadingProgress: 0, totalItems: 0 });
     try {
       const {
         data: { user },
@@ -35,49 +39,70 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
         throw new Error("No organization ID found");
       }
 
-      // Try to fetch from inventory_counts table
-      try {
-        const { data: inventoryCounts, error: countError } = await supabase
-          .from("inventory_counts")
-          .select("*, master_ingredients_with_categories!inner(*)")
-          .eq("organization_id", organizationId)
-          .order("count_date", { ascending: false });
+      // First get the total count for progress tracking
+      const { count: totalCount, error: countError } = await supabase
+        .from("inventory_counts")
+        .select("id", { count: "exact", head: false })
+        .eq("organization_id", organizationId);
 
-        if (!countError && inventoryCounts && inventoryCounts.length > 0) {
-          // Transform DB format to app format
-          const formattedCounts = inventoryCounts.map((count) => {
-            const ingredient = count.master_ingredients_with_categories;
-            return {
-              id: count.id,
-              masterIngredientId: count.master_ingredient_id,
-              quantity: count.quantity,
-              unitCost: count.unit_cost,
-              totalValue: count.total_value,
-              location:
-                count.location || ingredient.storage_area || "Main Storage",
-              countedBy: count.counted_by,
-              notes: count.notes || "",
-              status: count.status,
-              lastUpdated: count.updated_at,
-              ingredient: {
-                itemCode: ingredient.item_code,
-                product: ingredient.product,
-                category: ingredient.category_name,
-                subCategory: ingredient.sub_category_name,
-                unitOfMeasure: ingredient.unit_of_measure,
-                imageUrl: ingredient.image_url,
-              },
-            };
-          });
+      if (!countError && totalCount && totalCount > 0) {
+        set({ totalItems: totalCount });
 
-          set({ items: formattedCounts, error: null });
-          return;
+        // Try to fetch from inventory_counts table
+        try {
+          const { data: inventoryCounts, error: fetchError } = await supabase
+            .from("inventory_counts")
+            .select("*, master_ingredients_with_categories!inner(*)")
+            .eq("organization_id", organizationId)
+            .order("count_date", { ascending: false });
+
+          // Update progress after fetch completes
+          set({ loadingProgress: totalCount });
+
+          if (!fetchError && inventoryCounts && inventoryCounts.length > 0) {
+            // Transform DB format to app format
+            const formattedCounts = inventoryCounts.map((count) => {
+              const ingredient = count.master_ingredients_with_categories;
+              return {
+                id: count.id,
+                masterIngredientId: count.master_ingredient_id,
+                quantity: count.quantity,
+                unitCost: count.unit_cost,
+                totalValue: count.total_value,
+                location:
+                  count.location || ingredient.storage_area || "Main Storage",
+                countedBy: count.counted_by,
+                notes: count.notes || "",
+                status: count.status,
+                lastUpdated: count.updated_at,
+                ingredient: {
+                  itemCode: ingredient.item_code,
+                  product: ingredient.product,
+                  category: ingredient.category_name,
+                  subCategory: ingredient.sub_category_name,
+                  unitOfMeasure: ingredient.unit_of_measure,
+                  imageUrl: ingredient.image_url,
+                },
+              };
+            });
+
+            set({ items: formattedCounts, error: null, isLoading: false });
+            return;
+          }
+        } catch (fetchError) {
+          console.warn("Error fetching from inventory_counts:", fetchError);
         }
-      } catch (countError) {
-        console.warn(
-          "Error fetching from inventory_counts, falling back to mock data:",
-          countError,
-        );
+      }
+
+      // Fallback: Get count of master ingredients for progress tracking
+      const { count: totalMasterCount, error: countMasterError } =
+        await supabase
+          .from("master_ingredients_with_categories")
+          .select("id", { count: "exact", head: false })
+          .eq("organization_id", organizationId);
+
+      if (!countMasterError && totalMasterCount) {
+        set({ totalItems: totalMasterCount });
       }
 
       // Fallback: Use the master_ingredients table to create mock data
@@ -85,6 +110,11 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
         .from("master_ingredients_with_categories")
         .select("*")
         .eq("organization_id", organizationId);
+
+      // Update progress after fetch completes
+      if (totalMasterCount) {
+        set({ loadingProgress: totalMasterCount });
+      }
 
       if (miError) throw miError;
 

@@ -38,7 +38,7 @@ interface ActivityFeedProps {
 
 export const ActivityFeed: React.FC<ActivityFeedProps> = ({
   activities: initialActivities,
-  daysFilter,
+  // daysFilter, // Unused parameter
   reviewCount: initialReviewCount,
   defaultDaysLimit = 14,
 }) => {
@@ -47,7 +47,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
   const [scrollPosition, setScrollPosition] = useState(0);
   const [reviewCount, setReviewCount] = useState(initialReviewCount || 0);
   const [showAcknowledged, setShowAcknowledged] = useState(false);
-  const [daysLimit, setDaysLimit] = useState(defaultDaysLimit);
+  const [daysLimit] = useState(defaultDaysLimit); // setDaysLimit is unused
   const { organization, user } = useAuth();
 
   // Map activity types to icons with enhanced styling
@@ -286,7 +286,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                 const { data: teamMemberData } = await supabase
                   .from("organization_team_members")
                   .select("avatar_url")
-                  .ilike("email", `%${changes.email}%`)
+                  .ilike("email", `%${changes.email || ""}%`)
                   .eq("organization_id", organization.id)
                   .limit(1);
 
@@ -313,7 +313,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                 .from("organization_team_members")
                 .select("avatar_url")
                 .or(
-                  `first_name.ilike.%${firstName}%,last_name.ilike.%${lastName}%,email.ilike.%${activity.user}%`,
+                  `first_name.ilike.%${firstName}%,last_name.ilike.%${lastName}%,email.ilike.%${activity.user || ""}%`,
                 )
                 .eq("organization_id", organization.id)
                 .limit(1);
@@ -331,7 +331,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                 .from("organization_team_members")
                 .select("avatar_url")
                 .or(
-                  `first_name.ilike.%${activity.user}%,last_name.ilike.%${activity.user}%,email.ilike.%${activity.user}%`,
+                  `first_name.ilike.%${activity.user}%,last_name.ilike.%${activity.user}%,email.ilike.%${activity.user || ""}%`,
                 )
                 .eq("organization_id", organization.id)
                 .limit(1);

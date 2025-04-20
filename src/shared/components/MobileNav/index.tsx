@@ -90,7 +90,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onChatClick }) => {
           <Link
             key={item.label}
             to={item.path}
-            className={`flex flex-col items-center justify-center min-w-[4rem] px-4 py-2 rounded-lg transition-all
+            className={`flex flex-col items-center gap-2 justify-center min-w-[4rem] px-4 py-2 rounded-lg transition-all
               ${
                 isPathActive(item.path)
                   ? "text-white bg-gray-800"
