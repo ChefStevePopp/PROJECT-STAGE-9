@@ -141,11 +141,24 @@ const InventoryItemCard = memo(
                 Unit: <span className="text-gray-300">{item.unit}</span>
               </div>
             )}
+            {item.case_size && (
+              <div className="text-gray-400">
+                Case: <span className="text-gray-300">{item.case_size}</span>
+              </div>
+            )}
             {item.unit_cost && (
               <div className="text-gray-400">
                 Price:{" "}
                 <span className="text-gray-300">
                   ${item.unit_cost.toFixed(2)}
+                </span>
+              </div>
+            )}
+            {item.inventory_unit_cost !== undefined && (
+              <div className="text-gray-400">
+                Inv Unit Cost:{" "}
+                <span className="text-gray-300">
+                  ${item.inventory_unit_cost.toFixed(2)}
                 </span>
               </div>
             )}
@@ -169,9 +182,9 @@ const InventoryItemCard = memo(
                 {item.unit || "units"}
               </span>
             </div>
-            {item.unit_cost && (
+            {item.inventory_unit_cost !== undefined && (
               <div className="text-right text-xs text-gray-300 mt-1">
-                Total: ${(quantity * item.unit_cost).toFixed(2)}
+                Total: ${(quantity * item.inventory_unit_cost).toFixed(2)}
               </div>
             )}
           </div>
@@ -544,6 +557,7 @@ export const UserInventory: React.FC = () => {
   const [filteredSubCategoryList, setFilteredSubCategoryList] = useState<
     string[]
   >([]);
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
 
   // Get inventory store
   const {
@@ -609,6 +623,9 @@ export const UserInventory: React.FC = () => {
             total_value: 0,
             status: "pending",
             vendor: item.vendor,
+            case_size: item.case_size,
+            units_per_case: item.units_per_case,
+            inventory_unit_cost: item.inventory_unit_cost,
           }));
 
           // Set initial data to make the list scrollable
@@ -1012,14 +1029,28 @@ export const UserInventory: React.FC = () => {
     [currentCounts],
   );
 
+  const handleRefreshData = useCallback(() => {
+    setBackgroundLoading(true);
+    fetchCounts();
+    fetchInventoryItems();
+    setLastRefreshTime(new Date());
+  }, [fetchCounts, fetchInventoryItems]);
+
   return (
     <div className="p-6 min-h-screen bg-gray-900">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col p-3 gap-4 mb-4 sticky top-0 rounded-lg z-10 bg-gray-900 shadow-lg">
           <div className="flex flex-col md:flex-row md:justify-between md:items-center">
-            <h1 className="text-xl sm:text-3xl font-bold text-white">
-              Kitchen Inventory
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl sm:text-3xl font-bold text-white">
+                Kitchen Inventory
+              </h1>
+              {lastRefreshTime && (
+                <div className="hidden md:block text-xs text-gray-400">
+                  Last updated: {lastRefreshTime.toLocaleTimeString()}
+                </div>
+              )}
+            </div>
 
             {/* Mobile Header */}
             <div className="flex md:hidden items-center gap-2 mt-3">
@@ -1517,6 +1548,13 @@ export const UserInventory: React.FC = () => {
                   </span>
                 </div>
               )}
+
+            {/* Last updated time for mobile */}
+            {lastFetched && (
+              <div className="md:hidden text-center text-xs text-gray-400 mb-4">
+                Last updated: {new Date(lastFetched).toLocaleTimeString()}
+              </div>
+            )}
 
             {/* Last updated time moved to header */}
 
