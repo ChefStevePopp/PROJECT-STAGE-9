@@ -39,6 +39,10 @@ type InventoryItem = {
   storage_area?: string;
   status?: string;
   vendor?: string;
+  case_size?: string;
+  units_per_case?: number;
+  unit_of_measure?: string;
+  inventory_unit_cost?: number;
 };
 
 // Define color palette for dynamic assignment to categories
@@ -58,7 +62,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
 const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
 
-// Item Card Component with Count Functionality
+// Item Card Component with Simplified Count Functionality
 const InventoryItemCard = memo(
   ({
     item,
@@ -67,72 +71,45 @@ const InventoryItemCard = memo(
     item: InventoryItem;
     onAddCount: (item: InventoryItem) => void;
   }) => {
-    const [localQuantity, setLocalQuantity] = useState(item.quantity || 0);
-    const [editMode, setEditMode] = useState(false);
-    const [tempQuantity, setTempQuantity] = useState(item.quantity || 0);
+    const [quantity, setQuantity] = useState(item.quantity || 0);
     const [isUpdating, setIsUpdating] = useState(false);
     const itemColor =
       COLOR_PALETTE[Math.abs(item.name.charCodeAt(0)) % COLOR_PALETTE.length];
 
-    // Start editing mode
-    const startEditing = useCallback(
-      (e: React.MouseEvent) => {
-        e.stopPropagation();
-        setTempQuantity(localQuantity);
-        setEditMode(true);
+    // Handle quantity change and save
+    const handleQuantityChange = useCallback(
+      (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = parseFloat(e.target.value);
+        const newQuantity = isNaN(value) ? 0 : value;
+        setQuantity(newQuantity);
       },
-      [localQuantity],
+      [],
     );
 
-    // Handle increment/decrement of quantity in edit mode
-    const handleTempQuantityChange = useCallback(
-      (increment: boolean) => {
-        const newQuantity = increment
-          ? tempQuantity + 1
-          : Math.max(0, tempQuantity - 1);
-        setTempQuantity(newQuantity);
-      },
-      [tempQuantity],
-    );
+    // Save changes when input loses focus
+    const handleSaveChanges = useCallback(() => {
+      setIsUpdating(true);
 
-    // Save changes and exit edit mode
-    const saveChanges = useCallback(() => {
-      if (tempQuantity !== localQuantity) {
-        setIsUpdating(true);
-        setLocalQuantity(tempQuantity);
+      // Create a count object and save it
+      const countData = {
+        masterIngredientId: item.id,
+        quantity: quantity,
+        unitCost: item.unit_cost || 0,
+        totalValue: quantity * (item.unit_cost || 0),
+        location: item.storage_area || "Main Storage",
+        notes: "",
+        status: "pending",
+      };
 
-        // Create a count object and save it
-        const countData = {
-          masterIngredientId: item.id,
-          quantity: tempQuantity,
-          unitCost: item.unit_cost || 0,
-          totalValue: tempQuantity * (item.unit_cost || 0),
-          location: item.storage_area || "Main Storage",
-          notes: "",
-          status: "pending",
-        };
+      // Call the onAddCount function with the updated item
+      onAddCount({ ...item, quantity: quantity });
 
-        // Call the onAddCount function with the updated item
-        onAddCount({ ...item, quantity: tempQuantity });
-
-        // Reset updating state after a short delay
-        setTimeout(() => setIsUpdating(false), 300);
-      }
-      setEditMode(false);
-    }, [item, localQuantity, tempQuantity, onAddCount]);
-
-    // Cancel editing
-    const cancelEditing = useCallback(
-      (e: React.MouseEvent) => {
-        e.stopPropagation();
-        setTempQuantity(localQuantity);
-        setEditMode(false);
-      },
-      [localQuantity],
-    );
+      // Reset updating state after a short delay
+      setTimeout(() => setIsUpdating(false), 300);
+    }, [item, quantity, onAddCount]);
 
     return (
-      <div className="card overflow-hidden hover:bg-gray-800/80 transition-all duration-200 cursor-pointer">
+      <div className="card overflow-hidden hover:bg-gray-800/80 transition-all duration-200">
         <div className="aspect-square bg-gray-800 relative">
           {item.image_url ? (
             <img
@@ -151,122 +128,81 @@ const InventoryItemCard = memo(
               />
             </div>
           )}
-          {!editMode && (
-            <button
-              onClick={startEditing}
-              className="absolute bottom-2 right-2 rounded-full bg-slate-700 border border-slate-300 text-slate-400 p-2"
-              title="Edit Count"
-            >
-              <Edit size={24} />
-            </button>
-          )}
         </div>
         <div className="p-4">
           <h5 className="font-medium text-white mb-2 line-clamp-1">
             {item.name}
           </h5>
 
-          {editMode ? (
-            <div className="mt-3 mb-2">
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <span className="text-sm text-gray-400">Count:</span>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleTempQuantityChange(false);
-                    }}
-                    className="btn-ghost-red w-10 h-10 flex items-center justify-center p-2"
-                    title="Decrease Count"
-                    disabled={isUpdating || tempQuantity <= 0}
-                  >
-                    <Minus size={20} />
-                  </button>
-                  <span className="px-3 py-1 font-medium text-white text-lg min-w-[40px] text-center">
-                    {tempQuantity}
-                  </span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleTempQuantityChange(true);
-                    }}
-                    className="btn-primary w-10 h-10 flex items-center justify-center p-2"
-                    title="Increase Count"
-                    disabled={isUpdating}
-                  >
-                    <Plus size={20} />
-                  </button>
-                </div>
+          {/* Item Details */}
+          <div className="grid grid-cols-2 gap-x-2 gap-y-1 mb-3 text-xs">
+            {item.unit && (
+              <div className="text-gray-400">
+                Unit: <span className="text-gray-300">{item.unit}</span>
               </div>
-              <div className="flex justify-between gap-2 mt-3">
-                <button
-                  onClick={cancelEditing}
-                  className="btn-ghost-red flex-1"
-                  title="Cancel"
-                >
-                  <X size={18} className="mx-auto" />
-                </button>
-                <button
-                  onClick={saveChanges}
-                  className="btn-ghost-green flex-1 flex items-center justify-center"
-                  title="Save Count"
-                  disabled={isUpdating}
-                >
-                  <CheckCircle size={18} className="mr-1" />
-                  Save
-                </button>
+            )}
+            {item.unit_cost && (
+              <div className="text-gray-400">
+                Price:{" "}
+                <span className="text-gray-300">
+                  ${item.unit_cost.toFixed(2)}
+                </span>
               </div>
+            )}
+          </div>
+
+          {/* Count Input */}
+          <div className="mb-3">
+            <label className="text-sm text-gray-400 block mb-1">Count:</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={quantity}
+                onChange={handleQuantityChange}
+                onBlur={handleSaveChanges}
+                className="input w-full text-white"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+              />
+              <span className="text-gray-400 whitespace-nowrap">
+                {item.unit || "units"}
+              </span>
             </div>
-          ) : (
-            <>
-              {item.status && (
-                <div
-                  className={`inline-block px-2 py-1 rounded-md text-xs font-medium capitalize
-                ${
-                  item.status === "completed"
-                    ? "bg-green-500/20 text-green-400"
-                    : item.status === "verified"
-                      ? "bg-blue-500/20 text-blue-400"
-                      : "bg-amber-500/20 text-amber-400"
-                }`}
-                >
-                  {item.status}
-                </div>
-              )}
-              <div className="flex justify-between items-center mt-2">
-                <span className="text-sm text-gray-400">
-                  {localQuantity} {item.unit || "units"}
-                </span>
-                <span
-                  className={`inline-flex items-center justify-center w-8 h-8 ${itemColor.bg} ${itemColor.text} font-medium rounded-full`}
-                >
-                  {localQuantity}
-                </span>
+            {item.unit_cost && (
+              <div className="text-right text-xs text-gray-300 mt-1">
+                Total: ${(quantity * item.unit_cost).toFixed(2)}
               </div>
-              {item.unit_cost && (
-                <div className="flex justify-between items-center mt-2 text-xs">
-                  <span className="text-gray-400">
-                    Unit: ${item.unit_cost.toFixed(2)}
-                  </span>
-                  <span className="text-gray-300 font-medium">
-                    Total: ${(localQuantity * item.unit_cost).toFixed(2)}
-                  </span>
-                </div>
-              )}
-              <div className="flex flex-wrap gap-2 mt-2">
-                {item.storage_area && (
-                  <div className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full">
-                    {item.storage_area}
-                  </div>
-                )}
-                {item.vendor && (
-                  <div className="text-xs bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full">
-                    {item.vendor}
-                  </div>
-                )}
+            )}
+          </div>
+
+          {/* Status and Tags */}
+          <div className="flex flex-wrap gap-2">
+            {item.status && (
+              <div
+                className={`inline-block px-2 py-1 rounded-md text-xs font-medium capitalize
+              ${
+                item.status === "completed"
+                  ? "bg-green-500/20 text-green-400"
+                  : item.status === "verified"
+                    ? "bg-blue-500/20 text-blue-400"
+                    : "bg-amber-500/20 text-amber-400"
+              }`}
+              >
+                {item.status}
               </div>
-            </>
-          )}
+            )}
+            {item.storage_area && (
+              <div className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full">
+                {item.storage_area}
+              </div>
+            )}
+            {item.vendor && (
+              <div className="text-xs bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full">
+                {item.vendor}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -619,6 +555,8 @@ export const UserInventory: React.FC = () => {
     deleteCount,
     loadingProgress,
     totalItems,
+    isBackgroundLoading,
+    lastFetched,
   } = useInventoryStore();
 
   // Initial data loading - start immediately with no loading screen
@@ -626,7 +564,7 @@ export const UserInventory: React.FC = () => {
     // Start loading data immediately
     fetchCounts();
     fetchInventoryItems();
-  }, [fetchCounts]);
+  }, []);
 
   const fetchInventoryItems = async () => {
     try {
@@ -733,11 +671,15 @@ export const UserInventory: React.FC = () => {
                 organization_id: item.organization_id,
                 storage_area: item.storage_area,
                 unit: item.unit_of_measure,
+                unit_of_measure: item.unit_of_measure,
                 unit_cost: item.current_price || 0,
                 quantity: 0,
                 total_value: 0,
                 status: "pending",
                 vendor: item.vendor,
+                case_size: item.case_size,
+                units_per_case: item.units_per_case,
+                inventory_unit_cost: item.inventory_unit_cost,
               }));
 
               // Update processed items
@@ -1477,7 +1419,6 @@ export const UserInventory: React.FC = () => {
                   setFilterByVendor("");
                   setFilterByCategory("");
                   setFilterBySubCategory("");
-                  setSearchTerm("");
                 }}
               >
                 Clear All Filters
@@ -1564,12 +1505,20 @@ export const UserInventory: React.FC = () => {
         ) : (
           <div className="space-y-12">
             {/* Small, non-intrusive loading indicator */}
-            {backgroundLoading && inventoryItems.length > 0 && (
-              <div className="fixed bottom-4 right-4 bg-gray-800 rounded-lg shadow-lg p-3 text-sm text-gray-400 flex items-center gap-2 z-20">
-                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-primary-500"></div>
-                <span>{inventoryItems.length} items loaded</span>
-              </div>
-            )}
+            {/* Show loading indicator for both background data fetching states */}
+            {(backgroundLoading || isBackgroundLoading) &&
+              inventoryItems.length > 0 && (
+                <div className="fixed bottom-4 right-4 bg-gray-800 rounded-lg shadow-lg p-3 text-sm text-gray-400 flex items-center gap-2 z-20">
+                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-primary-500"></div>
+                  <span>
+                    {isBackgroundLoading
+                      ? "Refreshing data..."
+                      : `${inventoryItems.length} items loaded`}
+                  </span>
+                </div>
+              )}
+
+            {/* Last updated time moved to header */}
 
             {Object.entries(filteredCategories).map(
               ([majorCategory, categoryObj], majorIndex) => (

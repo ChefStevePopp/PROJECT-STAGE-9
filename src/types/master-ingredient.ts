@@ -19,6 +19,7 @@ export interface MasterIngredient {
   unit_of_measure: string;
   image_url: string | null;
   storage_area: string;
+  inventory_unit_cost?: number;
   archived?: boolean;
   allergen_peanut: boolean;
   allergen_crustacean: boolean;

@@ -4,13 +4,20 @@ import type { InventoryCount, InventoryCountDB } from "@/types/inventory";
 import type { MasterIngredient } from "@/types/master-ingredient";
 import toast from "react-hot-toast";
 
+// Local storage keys
+const LOCAL_STORAGE_KEY = "inventory_counts";
+const LAST_FETCH_KEY = "inventory_last_fetch";
+
 interface InventoryStore {
   items: InventoryCount[];
   isLoading: boolean;
   error: string | null;
   loadingProgress: number;
   totalItems: number;
-  fetchItems: () => Promise<void>;
+  lastFetched: number | null;
+  isBackgroundLoading: boolean;
+  fetchItems: (forceRefresh?: boolean) => Promise<void>;
+  fetchItemsBackground: () => Promise<void>;
   addCount: (
     count: Omit<InventoryCount, "id" | "lastUpdated">,
   ) => Promise<void>;
@@ -18,6 +25,10 @@ interface InventoryStore {
   deleteCount: (id: string) => Promise<void>;
   importItems: (data: any[]) => Promise<void>;
   clearItems: () => Promise<void>;
+  getLocalItems: () => InventoryCount[] | null;
+  saveLocalItems: (items: InventoryCount[]) => void;
+  getLastFetchTime: () => number | null;
+  saveLastFetchTime: () => void;
 }
 
 export const useInventoryStore = create<InventoryStore>((set, get) => ({
@@ -26,8 +37,85 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
   error: null,
   loadingProgress: 0,
   totalItems: 0,
+  lastFetched: null,
+  isBackgroundLoading: false,
 
-  fetchItems: async () => {
+  getLocalItems: () => {
+    try {
+      const storedItems = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (storedItems) {
+        return JSON.parse(storedItems) as InventoryCount[];
+      }
+    } catch (error) {
+      console.error("Error retrieving items from local storage:", error);
+    }
+    return null;
+  },
+
+  saveLocalItems: (items: InventoryCount[]) => {
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(items));
+    } catch (error) {
+      console.error("Error saving items to local storage:", error);
+    }
+  },
+
+  getLastFetchTime: () => {
+    try {
+      const lastFetch = localStorage.getItem(LAST_FETCH_KEY);
+      if (lastFetch) {
+        return parseInt(lastFetch, 10);
+      }
+    } catch (error) {
+      console.error(
+        "Error retrieving last fetch time from local storage:",
+        error,
+      );
+    }
+    return null;
+  },
+
+  saveLastFetchTime: () => {
+    try {
+      const now = Date.now();
+      localStorage.setItem(LAST_FETCH_KEY, now.toString());
+      set({ lastFetched: now });
+    } catch (error) {
+      console.error("Error saving last fetch time to local storage:", error);
+    }
+  },
+
+  fetchItems: async (forceRefresh = false) => {
+    // Try to load from local storage first if not forcing refresh
+    if (!forceRefresh) {
+      const localItems = get().getLocalItems();
+      const lastFetchTime = get().getLastFetchTime();
+      const isCurrentlyBackgroundLoading = get().isBackgroundLoading;
+
+      // If we have local data and it's less than 1 hour old, use it
+      if (localItems && localItems.length > 0 && lastFetchTime) {
+        const oneHourAgo = Date.now() - 60 * 60 * 1000;
+        if (lastFetchTime > oneHourAgo) {
+          set({
+            items: localItems,
+            isLoading: false,
+            error: null,
+            lastFetched: lastFetchTime,
+          });
+
+          // Only fetch in background if not already doing so and if data is older than 15 minutes
+          const fifteenMinutesAgo = Date.now() - 15 * 60 * 1000;
+          if (
+            !isCurrentlyBackgroundLoading &&
+            lastFetchTime < fifteenMinutesAgo
+          ) {
+            setTimeout(() => get().fetchItemsBackground(), 100);
+          }
+          return;
+        }
+      }
+    }
+
     set({ isLoading: true, error: null, loadingProgress: 0, totalItems: 0 });
     try {
       const {
@@ -87,6 +175,10 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
             });
 
             set({ items: formattedCounts, error: null, isLoading: false });
+
+            // Save to local storage
+            get().saveLocalItems(formattedCounts);
+            get().saveLastFetchTime();
             return;
           }
         } catch (fetchError) {
@@ -141,11 +233,126 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
       }));
 
       set({ items: mockInventoryData, error: null });
+
+      // Save to local storage
+      get().saveLocalItems(mockInventoryData);
+      get().saveLastFetchTime();
     } catch (error) {
       console.error("Error fetching inventory:", error);
       set({ error: "Failed to load inventory data", items: [] });
     } finally {
       set({ isLoading: false });
+    }
+  },
+
+  fetchItemsBackground: async () => {
+    // Check if already loading in background to prevent multiple simultaneous fetches
+    if (get().isBackgroundLoading) {
+      console.log("Background fetch already in progress, skipping");
+      return;
+    }
+
+    set({ isBackgroundLoading: true });
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const organizationId = user?.user_metadata?.organizationId;
+
+      if (!organizationId) {
+        throw new Error("No organization ID found");
+      }
+
+      // First try to fetch from inventory_counts table
+      try {
+        const { data: inventoryCounts, error: fetchError } = await supabase
+          .from("inventory_counts")
+          .select("*, master_ingredients_with_categories!inner(*)")
+          .eq("organization_id", organizationId)
+          .order("count_date", { ascending: false });
+
+        if (!fetchError && inventoryCounts && inventoryCounts.length > 0) {
+          // Transform DB format to app format
+          const formattedCounts = inventoryCounts.map((count) => {
+            const ingredient = count.master_ingredients_with_categories;
+            return {
+              id: count.id,
+              masterIngredientId: count.master_ingredient_id,
+              quantity: count.quantity,
+              unitCost: count.unit_cost,
+              totalValue: count.total_value,
+              location:
+                count.location || ingredient.storage_area || "Main Storage",
+              countedBy: count.counted_by,
+              notes: count.notes || "",
+              status: count.status,
+              lastUpdated: count.updated_at,
+              ingredient: {
+                itemCode: ingredient.item_code,
+                product: ingredient.product,
+                category: ingredient.category_name,
+                subCategory: ingredient.sub_category_name,
+                unitOfMeasure: ingredient.unit_of_measure,
+                imageUrl: ingredient.image_url,
+              },
+            };
+          });
+
+          // Update state without setting loading to true
+          set({ items: formattedCounts });
+
+          // Save to local storage
+          get().saveLocalItems(formattedCounts);
+          get().saveLastFetchTime();
+          return;
+        }
+      } catch (fetchError) {
+        console.warn(
+          "Error fetching from inventory_counts in background:",
+          fetchError,
+        );
+      }
+
+      // Fallback: Use the master_ingredients table to create mock data
+      const { data: masterIngredients, error: miError } = await supabase
+        .from("master_ingredients_with_categories")
+        .select("*")
+        .eq("organization_id", organizationId);
+
+      if (miError) throw miError;
+
+      // Create mock inventory data based on master ingredients
+      const mockInventoryData = masterIngredients.map((ingredient) => ({
+        id: ingredient.id,
+        masterIngredientId: ingredient.id,
+        quantity: 0,
+        unitCost: ingredient.current_price || 0,
+        totalValue: 0,
+        location: ingredient.storage_area || "Main Storage",
+        countedBy: user.id,
+        notes: "",
+        status: "pending",
+        lastUpdated: new Date().toISOString(),
+        ingredient: {
+          itemCode: ingredient.item_code,
+          product: ingredient.product,
+          category: ingredient.category_name,
+          subCategory: ingredient.sub_category_name,
+          unitOfMeasure: ingredient.unit_of_measure,
+          imageUrl: ingredient.image_url,
+        },
+      }));
+
+      // Update state without setting loading to true
+      set({ items: mockInventoryData });
+
+      // Save to local storage
+      get().saveLocalItems(mockInventoryData);
+      get().saveLastFetchTime();
+    } catch (error) {
+      console.error("Error fetching inventory in background:", error);
+    } finally {
+      set({ isBackgroundLoading: false });
     }
   },
 
@@ -211,9 +418,12 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
         lastUpdated: new Date().toISOString(),
       };
 
-      set((state) => ({
-        items: [...state.items, newCountLocal],
-      }));
+      const updatedItems = [...get().items, newCountLocal];
+      set({ items: updatedItems });
+
+      // Update local storage
+      get().saveLocalItems(updatedItems);
+      get().saveLastFetchTime();
 
       toast.success("Inventory count added successfully");
     } catch (error) {
@@ -266,13 +476,17 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
       }
 
       // Fallback: Update local state if table doesn't exist
-      set((state) => ({
-        items: state.items.map((item) =>
-          item.id === id
-            ? { ...item, ...updates, lastUpdated: new Date().toISOString() }
-            : item,
-        ),
-      }));
+      const updatedItems = get().items.map((item) =>
+        item.id === id
+          ? { ...item, ...updates, lastUpdated: new Date().toISOString() }
+          : item,
+      );
+
+      set({ items: updatedItems });
+
+      // Update local storage
+      get().saveLocalItems(updatedItems);
+      get().saveLastFetchTime();
 
       toast.success("Inventory count updated successfully");
     } catch (error) {
@@ -314,9 +528,12 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
       }
 
       // Fallback: Delete from local state if table doesn't exist
-      set((state) => ({
-        items: state.items.filter((item) => item.id !== id),
-      }));
+      const updatedItems = get().items.filter((item) => item.id !== id);
+      set({ items: updatedItems });
+
+      // Update local storage
+      get().saveLocalItems(updatedItems);
+      get().saveLastFetchTime();
 
       toast.success("Inventory count deleted successfully");
     } catch (error) {
@@ -415,9 +632,12 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
       }));
 
       // Update our local state with the imported data
-      set((state) => ({
-        items: [...state.items, ...localCounts],
-      }));
+      const updatedItems = [...get().items, ...localCounts];
+      set({ items: updatedItems });
+
+      // Update local storage
+      get().saveLocalItems(updatedItems);
+      get().saveLastFetchTime();
 
       toast.success("Inventory data imported successfully");
     } catch (error) {
@@ -451,6 +671,11 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
 
         if (!deleteError) {
           set({ items: [] });
+
+          // Update local storage
+          get().saveLocalItems([]);
+          get().saveLastFetchTime();
+
           toast.success("Inventory data cleared successfully");
           return;
         }
@@ -463,6 +688,11 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
 
       // Fallback: Clear local state if table doesn't exist
       set({ items: [] });
+
+      // Update local storage
+      get().saveLocalItems([]);
+      get().saveLastFetchTime();
+
       toast.success("Inventory data cleared successfully");
     } catch (error) {
       console.error("Error clearing inventory:", error);
