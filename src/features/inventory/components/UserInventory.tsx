@@ -1114,7 +1114,7 @@ export const UserInventory: React.FC = () => {
               </div>
 
               {/* Filter Controls */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 flex-wrap">
                 {/* Storage Location Filter */}
                 <div className="relative">
                   <button
@@ -1629,6 +1629,13 @@ export const UserInventory: React.FC = () => {
                 </p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Last updated time at bottom left */}
+        {lastFetched && (
+          <div className="fixed bottom-4 left-4 text-xs text-gray-400 bg-gray-800/70 px-3 py-1.5 rounded-md shadow-md z-10">
+            Last updated: {new Date(lastFetched).toLocaleTimeString()}
           </div>
         )}
       </div>
