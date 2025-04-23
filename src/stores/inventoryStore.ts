@@ -394,6 +394,9 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
             counted_by: user.id,
             notes: count.notes,
             status: count.status,
+            count_date: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           })
           .select()
           .single();
@@ -447,14 +450,29 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
         // Try to update in inventory_counts table
         const dbUpdates: Partial<InventoryCountDB> = {};
 
-        if (updates.quantity !== undefined)
+        if (updates.quantity !== undefined) {
           dbUpdates.quantity = updates.quantity;
-        if (updates.unitCost !== undefined)
+          // Recalculate total_value if quantity changes
+          const currentItem = get().items.find((item) => item.id === id);
+          if (currentItem) {
+            dbUpdates.total_value = updates.quantity * currentItem.unitCost;
+          }
+        }
+        if (updates.unitCost !== undefined) {
           dbUpdates.unit_cost = updates.unitCost;
+          // Recalculate total_value if unit cost changes
+          const currentItem = get().items.find((item) => item.id === id);
+          if (currentItem) {
+            dbUpdates.total_value = currentItem.quantity * updates.unitCost;
+          }
+        }
         if (updates.location !== undefined)
           dbUpdates.location = updates.location;
         if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
         if (updates.status !== undefined) dbUpdates.status = updates.status;
+
+        // Always update the updated_at timestamp
+        dbUpdates.updated_at = new Date().toISOString();
 
         const { error: updateError } = await supabase
           .from("inventory_counts")

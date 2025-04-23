@@ -939,8 +939,10 @@ export const UserInventory: React.FC = () => {
       const countData = {
         masterIngredientId: updatedItem.id,
         quantity: updatedItem.quantity || 0,
-        unitCost: updatedItem.unit_cost || 0,
-        totalValue: (updatedItem.quantity || 0) * (updatedItem.unit_cost || 0),
+        unitCost: updatedItem.inventory_unit_cost || updatedItem.unit_cost || 0,
+        totalValue:
+          (updatedItem.quantity || 0) *
+          (updatedItem.inventory_unit_cost || updatedItem.unit_cost || 0),
         location: updatedItem.storage_area || "Main Storage",
         notes: "",
         status: "pending",
@@ -1090,7 +1092,7 @@ export const UserInventory: React.FC = () => {
               >
                 <Package className="w-5 h-5" />
                 {currentCounts.length > 0 && (
-                  <span className="text-white text-xs">
+                  <span className="text-white text-xs px-2 py-0.5 rounded-full bg-blue-600">
                     {currentCounts.length}
                   </span>
                 )}
@@ -1588,6 +1590,7 @@ export const UserInventory: React.FC = () => {
                                         key={item.id}
                                         item={item}
                                         onAddCount={handleAddCount}
+                                        inventoryCounts={inventoryCounts}
                                       />
                                     ))}
                                   </div>
