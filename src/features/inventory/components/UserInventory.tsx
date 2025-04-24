@@ -1032,11 +1032,19 @@ export const UserInventory: React.FC = () => {
   );
 
   const handleRefreshData = useCallback(() => {
+    // Prevent multiple refreshes
+    if (backgroundLoading || isBackgroundLoading) return;
+
     setBackgroundLoading(true);
     fetchCounts();
     fetchInventoryItems();
     setLastRefreshTime(new Date());
-  }, [fetchCounts, fetchInventoryItems]);
+  }, [
+    fetchCounts,
+    fetchInventoryItems,
+    backgroundLoading,
+    isBackgroundLoading,
+  ]);
 
   return (
     <div className="p-6 min-h-screen bg-gray-900">
