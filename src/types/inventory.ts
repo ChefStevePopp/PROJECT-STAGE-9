@@ -29,8 +29,8 @@ export interface InventoryCountDB {
   quantity: number;
   unit_cost: number;
   total_value: number;
-  location: string;
-  counted_by: string;
-  notes: string;
+  location: string | null;
+  counted_by: string | null;
+  notes: string | null;
   status: "pending" | "completed" | "verified";
 }

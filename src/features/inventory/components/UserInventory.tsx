@@ -43,6 +43,11 @@ type InventoryItem = {
   units_per_case?: number;
   unit_of_measure?: string;
   inventory_unit_cost?: number;
+  lastUpdated?: string;
+  countedBy?: string;
+  countedByName?: string;
+  pendingCounts?: number;
+  pendingQuantity?: number;
 };
 
 // Define color palette for dynamic assignment to categories
@@ -62,176 +67,28 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
 const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
 
-// Item Card Component with Simplified Count Functionality
-const InventoryItemCard = memo(
-  ({
-    item,
-    onAddCount,
-  }: {
-    item: InventoryItem;
-    onAddCount: (item: InventoryItem) => void;
-  }) => {
-    const [quantity, setQuantity] = useState(item.quantity || 0);
-    const [isUpdating, setIsUpdating] = useState(false);
-    const itemColor =
-      COLOR_PALETTE[Math.abs(item.name.charCodeAt(0)) % COLOR_PALETTE.length];
-
-    // Handle quantity change and save
-    const handleQuantityChange = useCallback(
-      (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = parseFloat(e.target.value);
-        const newQuantity = isNaN(value) ? 0 : value;
-        setQuantity(newQuantity);
-      },
-      [],
-    );
-
-    // Save changes when input loses focus
-    const handleSaveChanges = useCallback(() => {
-      setIsUpdating(true);
-
-      // Create a count object and save it
-      const countData = {
-        masterIngredientId: item.id,
-        quantity: quantity,
-        unitCost: item.unit_cost || 0,
-        totalValue: quantity * (item.unit_cost || 0),
-        location: item.storage_area || "Main Storage",
-        notes: "",
-        status: "pending",
-      };
-
-      // Call the onAddCount function with the updated item
-      onAddCount({ ...item, quantity: quantity });
-
-      // Reset updating state after a short delay
-      setTimeout(() => setIsUpdating(false), 300);
-    }, [item, quantity, onAddCount]);
-
-    return (
-      <div className="card overflow-hidden hover:bg-gray-800/80 transition-all duration-200">
-        <div className="aspect-square bg-gray-800 relative">
-          {item.image_url ? (
-            <img
-              src={item.image_url}
-              alt={item.name}
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full w-full">
-              <img
-                src="https://www.restaurantconsultants.ca/wp-content/uploads/2023/03/cropped-AI-CHEF-BOT.png"
-                alt="Company Logo"
-                className="w-full h-full object-contain p-4"
-                loading="lazy"
-              />
-            </div>
-          )}
-        </div>
-        <div className="p-4">
-          <h5 className="font-medium text-white mb-2 line-clamp-1">
-            {item.name}
-          </h5>
-
-          {/* Item Details */}
-          <div className="grid grid-cols-2 gap-x-2 gap-y-1 mb-3 text-xs">
-            {item.unit && (
-              <div className="text-gray-400">
-                Unit: <span className="text-gray-300">{item.unit}</span>
-              </div>
-            )}
-            {item.case_size && (
-              <div className="text-gray-400">
-                Case: <span className="text-gray-300">{item.case_size}</span>
-              </div>
-            )}
-            {item.unit_cost && (
-              <div className="text-gray-400">
-                Price:{" "}
-                <span className="text-gray-300">
-                  ${item.unit_cost.toFixed(2)}
-                </span>
-              </div>
-            )}
-            {item.inventory_unit_cost !== undefined && (
-              <div className="text-gray-400">
-                Inv Unit Cost:{" "}
-                <span className="text-gray-300">
-                  ${item.inventory_unit_cost.toFixed(2)}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Count Input */}
-          <div className="mb-3">
-            <label className="text-sm text-gray-400 block mb-1">Count:</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                value={quantity}
-                onChange={handleQuantityChange}
-                onBlur={handleSaveChanges}
-                className="input w-full text-white"
-                min="0"
-                step="0.01"
-                inputMode="decimal"
-              />
-              <span className="text-gray-400 whitespace-nowrap">
-                {item.unit || "units"}
-              </span>
-            </div>
-            {item.inventory_unit_cost !== undefined && (
-              <div className="text-right text-xs text-gray-300 mt-1">
-                Total: ${(quantity * item.inventory_unit_cost).toFixed(2)}
-              </div>
-            )}
-          </div>
-
-          {/* Status and Tags */}
-          <div className="flex flex-wrap gap-2">
-            {item.status && (
-              <div
-                className={`inline-block px-2 py-1 rounded-md text-xs font-medium capitalize
-              ${
-                item.status === "completed"
-                  ? "bg-green-500/20 text-green-400"
-                  : item.status === "verified"
-                    ? "bg-blue-500/20 text-blue-400"
-                    : "bg-amber-500/20 text-amber-400"
-              }`}
-              >
-                {item.status}
-              </div>
-            )}
-            {item.storage_area && (
-              <div className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full">
-                {item.storage_area}
-              </div>
-            )}
-            {item.vendor && (
-              <div className="text-xs bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full">
-                {item.vendor}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  },
-);
+// Import the standalone InventoryItemCard component
+import { InventoryItemCard } from "./InventoryItemCard";
 
 // Count Entry Component
 const CountEntryItem = memo(
   ({ count, onUpdate, onDelete, masterIngredients }) => {
     const [isEditing, setIsEditing] = useState(false);
-    const [quantity, setQuantity] = useState(count.quantity);
+    const [quantity, setQuantity] = useState(
+      typeof count.quantity === "string"
+        ? parseFloat(count.quantity)
+        : Number(count.quantity) || 0,
+    );
     const [location, setLocation] = useState(count.location || "Main Storage");
     const [notes, setNotes] = useState(count.notes || "");
 
     const ingredient = masterIngredients.find(
-      (ing) => ing.id === count.masterIngredientId,
+      (ing) =>
+        ing.id === count.masterIngredientId ||
+        ing.id === count.master_ingredient_id ||
+        (ing.id &&
+          count.masterIngredientId &&
+          ing.id.toString() === count.masterIngredientId.toString()),
     );
 
     const handleSave = () => {
@@ -243,6 +100,17 @@ const CountEntryItem = memo(
       });
       setIsEditing(false);
     };
+
+    // Format the timestamp
+    const formattedTimestamp = useMemo(() => {
+      const timestamp = count.updated_at || count.created_at;
+      if (!timestamp) return null;
+      try {
+        return new Date(timestamp).toLocaleString();
+      } catch (e) {
+        return null;
+      }
+    }, [count.updated_at, count.created_at]);
 
     return (
       <div className="card p-4 mb-2">
@@ -317,7 +185,22 @@ const CountEntryItem = memo(
                       Verified
                     </span>
                   )}
+                  {count.status === "pending" && (
+                    <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full">
+                      Pending
+                    </span>
+                  )}
                 </div>
+                {formattedTimestamp && (
+                  <div className="text-xs text-gray-400 mt-1">
+                    {formattedTimestamp}
+                  </div>
+                )}
+                {count.created_by_name && (
+                  <div className="text-xs text-gray-400">
+                    By: {count.created_by_name}
+                  </div>
+                )}
               </div>
               <div className="flex gap-2">
                 <button
@@ -345,7 +228,11 @@ const CountEntryItem = memo(
               <div>
                 <span className="text-gray-400">Value:</span>
                 <span className="text-gray-300 ml-1">
-                  ${(count.quantity * count.unitCost).toFixed(2)}
+                  $
+                  {(
+                    parseFloat(count.quantity || 0) *
+                    parseFloat(count.unitCost || 0)
+                  ).toFixed(2)}
                 </span>
               </div>
             </div>
@@ -573,6 +460,36 @@ export const UserInventory: React.FC = () => {
     lastFetched,
   } = useInventoryStore();
 
+  // Debug inventory data when it's loaded
+  useEffect(() => {
+    if (inventoryCounts.length > 0) {
+      // Log sample counts for debugging
+      console.log(`Total inventory counts: ${inventoryCounts.length}`);
+      if (inventoryCounts.length > 0) {
+        console.log("Sample inventory count:", inventoryCounts[0]);
+
+        // Check quantity types
+        const quantityTypes = new Set(
+          inventoryCounts.map((count) => typeof count.quantity),
+        );
+        console.log(
+          "Quantity data types in inventory counts:",
+          Array.from(quantityTypes),
+        );
+
+        // Check some sample quantities
+        console.log(
+          "Sample quantities:",
+          inventoryCounts.slice(0, 5).map((count) => ({
+            id: count.id,
+            quantity: count.quantity,
+            type: typeof count.quantity,
+          })),
+        );
+      }
+    }
+  }, [inventoryCounts]);
+
   // Initial data loading - start immediately with no loading screen
   useEffect(() => {
     // Start loading data immediately
@@ -618,6 +535,7 @@ export const UserInventory: React.FC = () => {
             organization_id: item.organization_id,
             storage_area: item.storage_area,
             unit: item.unit_of_measure,
+            unit_of_measure: item.unit_of_measure,
             unit_cost: item.current_price || 0,
             quantity: 0,
             total_value: 0,
@@ -627,6 +545,73 @@ export const UserInventory: React.FC = () => {
             units_per_case: item.units_per_case,
             inventory_unit_cost: item.inventory_unit_cost,
           }));
+
+          // Create a map of the latest counts for each ingredient
+          const latestCountsMap = new Map();
+
+          // Get the latest counts from the inventory store
+          inventoryCounts.forEach((count) => {
+            // Handle both field naming conventions
+            const countIngredientId =
+              count.masterIngredientId || count.master_ingredient_id;
+
+            if (!countIngredientId) return;
+
+            const existingCount = latestCountsMap.get(countIngredientId);
+            // If no existing count or this count is newer, update the map
+            if (
+              !existingCount ||
+              (count.updated_at &&
+                (!existingCount.lastUpdated ||
+                  new Date(count.updated_at) >
+                    new Date(existingCount.lastUpdated)))
+            ) {
+              // Ensure quantity is a number
+              const countQuantity =
+                typeof count.quantity === "string"
+                  ? parseFloat(count.quantity)
+                  : Number(count.quantity) || 0;
+
+              latestCountsMap.set(countIngredientId, {
+                quantity: countQuantity,
+                lastUpdated: count.updated_at || count.created_at,
+                countedBy: count.created_by,
+                countedByName: count.created_by_name || "Unknown",
+              });
+            }
+          });
+
+          // Calculate sum of pending quantities for each item
+          const pendingQuantitiesMap = new Map();
+          if (inventoryCounts && Array.isArray(inventoryCounts)) {
+            console.log(
+              `Processing ${inventoryCounts.length} inventory counts for pending counts`,
+            );
+            inventoryCounts.forEach((count) => {
+              if (count && count.status === "pending") {
+                // Handle both field naming conventions
+                const countIngredientId =
+                  count.masterIngredientId || count.master_ingredient_id;
+
+                if (!countIngredientId) return;
+
+                // Ensure quantity is a number
+                const countQuantity =
+                  typeof count.quantity === "string"
+                    ? parseFloat(count.quantity)
+                    : Number(count.quantity) || 0;
+
+                const currentQuantity =
+                  pendingQuantitiesMap.get(countIngredientId) || 0;
+                pendingQuantitiesMap.set(
+                  countIngredientId,
+                  currentQuantity + countQuantity,
+                );
+              }
+            });
+          } else {
+            console.warn("inventoryCounts is not an array or is undefined");
+          }
 
           // Set initial data to make the list scrollable
           setInventoryItems(initialProcessedData as InventoryItem[]);
@@ -677,43 +662,65 @@ export const UserInventory: React.FC = () => {
 
               // Process this chunk
               const chunk = chunks[index];
-              const chunkData = chunk.map((item) => ({
-                id: item.id,
-                name: item.product,
-                image_url: item.image_url,
-                major_category: item.major_group_name || "Uncategorized",
-                category: item.category_name || "Uncategorized",
-                sub_category:
-                  item.sub_category_name || item.storage_area || "General",
-                organization_id: item.organization_id,
-                storage_area: item.storage_area,
-                unit: item.unit_of_measure,
-                unit_of_measure: item.unit_of_measure,
-                unit_cost: item.current_price || 0,
-                quantity: 0,
-                total_value: 0,
-                status: "pending",
-                vendor: item.vendor,
-                case_size: item.case_size,
-                units_per_case: item.units_per_case,
-                inventory_unit_cost: item.inventory_unit_cost,
-              }));
+              const chunkData = chunk.map((item) => {
+                // Get the latest count info for this item if available
+                const countInfo = latestCountsMap.get(item.id) || {
+                  quantity: 0,
+                  lastUpdated: null,
+                  countedBy: null,
+                  countedByName: null,
+                };
 
-              // Update processed items
+                // Get pending quantities for this item
+                const pendingQuantity = pendingQuantitiesMap.get(item.id) || 0;
+
+                return {
+                  id: item.id,
+                  name: item.product,
+                  image_url: item.image_url,
+                  major_category: item.major_group_name || "Uncategorized",
+                  category: item.category_name || "Uncategorized",
+                  sub_category:
+                    item.sub_category_name || item.storage_area || "General",
+                  organization_id: item.organization_id,
+                  storage_area: item.storage_area,
+                  unit: item.unit_of_measure,
+                  unit_of_measure: item.unit_of_measure,
+                  unit_cost: item.current_price || 0,
+                  quantity: countInfo.quantity || 0,
+                  total_value:
+                    (countInfo.quantity || 0) *
+                    (item.inventory_unit_cost || item.current_price || 0),
+                  status: countInfo.quantity > 0 ? "completed" : "pending",
+                  vendor: item.vendor,
+                  case_size: item.case_size,
+                  units_per_case: item.units_per_case,
+                  inventory_unit_cost: item.inventory_unit_cost,
+                  lastUpdated: countInfo.lastUpdated,
+                  countedBy: countInfo.countedBy,
+                  countedByName: countInfo.countedByName,
+                  pendingQuantity: pendingQuantity,
+                };
+              });
+
+              // Add this chunk's data to our processed items
               processedItems = [...processedItems, ...chunkData];
 
-              // Update UI with current progress
+              // Update the UI with progress
               setInventoryItems(processedItems as InventoryItem[]);
               organizeByCategories(processedItems as InventoryItem[]);
 
-              // Process next chunk
+              // Process next chunk with a small delay
               setTimeout(() => processNextChunk(index + 1), 50);
             };
 
-            // Start processing remaining chunks
-            setTimeout(() => processNextChunk(1), 50);
+            // Start processing the remaining chunks
+            setTimeout(() => processNextChunk(1), 100);
           } else {
-            // Only one chunk, we're already done
+            // Only one chunk, so we're already done
+            setBackgroundLoading(false);
+
+            // Extract filter data
             const storageLocations = Array.from(
               new Set(data.map((item) => item.storage_area).filter(Boolean)),
             ).sort();
@@ -735,8 +742,6 @@ export const UserInventory: React.FC = () => {
               ),
             ).sort();
             setSubCategoryList(subCategories as string[]);
-
-            setBackgroundLoading(false);
           }
         } else {
           // No data
@@ -899,73 +904,6 @@ export const UserInventory: React.FC = () => {
     filterBySubCategory,
   ]);
 
-  // Calculate total inventory value
-  const totalInventoryValue = useMemo(() => {
-    return inventoryCounts.reduce((sum, count) => {
-      return sum + count.quantity * count.unitCost;
-    }, 0);
-  }, [inventoryCounts]);
-
-  // Calculate category stats
-  const categoryStats = useMemo(() => {
-    if (!inventoryItems || inventoryItems.length === 0) return [];
-
-    // First get category counts
-    const stats = inventoryItems.reduce(
-      (acc, item) => {
-        const category = item.category || "Uncategorized";
-        acc[category] = (acc[category] || 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-
-    // Sort categories by count in descending order
-    const sortedCategories = Object.entries(stats)
-      .sort(([, a], [, b]) => b - a)
-      .map(([category, count], index) => ({
-        category,
-        count,
-        ...COLOR_PALETTE[index % COLOR_PALETTE.length],
-      }));
-
-    return sortedCategories;
-  }, [inventoryItems]);
-
-  // Handle adding a new count
-  const handleAddCount = useCallback(
-    (updatedItem) => {
-      // Create a count object with the updated quantity
-      const countData = {
-        masterIngredientId: updatedItem.id,
-        quantity: updatedItem.quantity || 0,
-        unitCost: updatedItem.inventory_unit_cost || updatedItem.unit_cost || 0,
-        totalValue:
-          (updatedItem.quantity || 0) *
-          (updatedItem.inventory_unit_cost || updatedItem.unit_cost || 0),
-        location: updatedItem.storage_area || "Main Storage",
-        notes: "",
-        status: "pending",
-      };
-
-      // Add or update the count in the store
-      addCount(countData);
-
-      // Show a toast notification
-      toast.success(`Updated count for ${updatedItem.name}`);
-    },
-    [addCount],
-  );
-
-  // Handle saving a new count
-  const handleSaveCount = useCallback(
-    (countData) => {
-      addCount(countData);
-      toast.success(`Count added for ${selectedItem?.name}`);
-    },
-    [addCount, selectedItem],
-  );
-
   // Get counts for the current inventory
   const currentCounts = useMemo(
     () =>
@@ -978,9 +916,16 @@ export const UserInventory: React.FC = () => {
           filterByCategory ||
           filterBySubCategory
         ) {
+          // Find the matching item for this count
+          const countId =
+            count.masterIngredientId || count.master_ingredient_id;
+
           const matchingItem = inventoryItems.find(
-            (item) => item.id === count.masterIngredientId,
+            (item) =>
+              item.id === countId ||
+              (item.id && countId && item.id.toString() === countId.toString()),
           );
+
           if (!matchingItem) return false;
 
           // Apply the same filters as for the items
@@ -1019,16 +964,136 @@ export const UserInventory: React.FC = () => {
     ],
   );
 
+  // Calculate total inventory value
+  const totalInventoryValue = useMemo(() => {
+    return inventoryCounts.reduce((sum, count) => {
+      // Ensure quantity and unitCost are numbers
+      const quantity =
+        typeof count.quantity === "string"
+          ? parseFloat(count.quantity)
+          : Number(count.quantity) || 0;
+      const unitCost =
+        typeof count.unitCost === "string"
+          ? parseFloat(count.unitCost)
+          : Number(count.unitCost) || 0;
+
+      return sum + quantity * unitCost;
+    }, 0);
+  }, [inventoryCounts]);
+
+  // Calculate pending inventory value
+  const pendingInventoryValue = useMemo(() => {
+    return inventoryCounts
+      .filter((count) => count.status === "pending")
+      .reduce((sum, count) => {
+        // Ensure quantity and unitCost are numbers
+        const quantity =
+          typeof count.quantity === "string"
+            ? parseFloat(count.quantity)
+            : Number(count.quantity) || 0;
+        const unitCost =
+          typeof count.unitCost === "string"
+            ? parseFloat(count.unitCost)
+            : Number(count.unitCost) || 0;
+
+        return sum + quantity * unitCost;
+      }, 0);
+  }, [inventoryCounts]);
+
   // Count summary stats
   const countStats = useMemo(
     () => ({
       totalCounts: currentCounts.length,
-      totalItems: new Set(currentCounts.map((c) => c.masterIngredientId)).size,
+      totalItems: new Set(
+        currentCounts.map(
+          (c) => c.masterIngredientId || c.master_ingredient_id,
+        ),
+      ).size,
       pendingCounts: currentCounts.filter((c) => c.status === "pending").length,
       completedCounts: currentCounts.filter((c) => c.status === "completed")
         .length,
+      pendingValue: pendingInventoryValue.toFixed(2),
     }),
-    [currentCounts],
+    [currentCounts, pendingInventoryValue],
+  );
+
+  // Calculate category stats
+  const categoryStats = useMemo(() => {
+    if (!inventoryItems || inventoryItems.length === 0) return [];
+
+    // First get category counts
+    const stats = inventoryItems.reduce(
+      (acc, item) => {
+        const category = item.category || "Uncategorized";
+        acc[category] = (acc[category] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+
+    // Sort categories by count in descending order
+    const sortedCategories = Object.entries(stats)
+      .sort(([, a], [, b]) => b - a)
+      .map(([category, count], index) => ({
+        category,
+        count,
+        ...COLOR_PALETTE[index % COLOR_PALETTE.length],
+      }));
+
+    return sortedCategories;
+  }, [inventoryItems]);
+
+  // Handle adding a new count
+  const handleAddCount = useCallback(
+    (updatedItem) => {
+      console.log("Adding count for item:", {
+        id: updatedItem.id,
+        idType: typeof updatedItem.id,
+        name: updatedItem.name,
+        quantity: updatedItem.quantity,
+      });
+
+      // Skip adding counts with zero quantity
+      if (!updatedItem.quantity || parseFloat(updatedItem.quantity) <= 0) {
+        console.log("Skipping count with zero or negative quantity");
+        toast.error(
+          `Please enter a quantity greater than zero for ${updatedItem.name}`,
+        );
+        return;
+      }
+
+      // Create a count object with the updated quantity
+      const countData = {
+        masterIngredientId: updatedItem.id,
+        master_ingredient_id: updatedItem.id, // Add both formats to ensure compatibility
+        quantity: updatedItem.quantity || 0,
+        unitCost: updatedItem.inventory_unit_cost || updatedItem.unit_cost || 0,
+        totalValue:
+          (updatedItem.quantity || 0) *
+          (updatedItem.inventory_unit_cost || updatedItem.unit_cost || 0),
+        location: updatedItem.storage_area || "Main Storage",
+        notes: "",
+        status: "pending",
+      };
+
+      console.log("Count data being sent to store:", countData);
+
+      // Add or update the count in the store
+      addCount(countData);
+
+      // Show a toast notification
+      toast.success(`Updated count for ${updatedItem.name}`);
+    },
+    [addCount],
+  );
+
+  // Handle saving a new count
+  const handleSaveCount = useCallback(
+    (countData) => {
+      addCount(countData);
+      toast.success(`Count added for ${selectedItem?.name}`);
+    },
+    [addCount, selectedItem],
   );
 
   const handleRefreshData = useCallback(() => {
@@ -1060,51 +1125,6 @@ export const UserInventory: React.FC = () => {
                   Last updated: {lastRefreshTime.toLocaleTimeString()}
                 </div>
               )}
-            </div>
-
-            {/* Mobile Header */}
-            <div className="flex md:hidden items-center gap-2 mt-3">
-              {/* Search Icon for Mobile */}
-              <button
-                onClick={() => {
-                  // Toggle a mobile search input
-                  const newValue = !showMobileSearch;
-                  setShowMobileSearch(newValue);
-                  // Focus the input when shown
-                  if (newValue) {
-                    setTimeout(() => {
-                      const searchInput = document.getElementById(
-                        "mobile-search-input",
-                      );
-                      if (searchInput) searchInput.focus();
-                    }, 100);
-                  }
-                }}
-                className={`p-2 rounded-lg ${searchTerm ? "bg-blue-500/30 text-blue-300" : "bg-gray-800/50 text-gray-400"}`}
-              >
-                <Search className="w-5 h-5" />
-              </button>
-
-              {/* Filter Icons for Mobile - No Dropdowns */}
-              <button
-                onClick={() => setShowMobileFilters(!showMobileFilters)}
-                className={`p-2 rounded-lg ${filterByStorage || filterByVendor || filterByCategory || filterBySubCategory ? "bg-amber-500/30 text-amber-300" : "bg-gray-800/50 text-gray-400"}`}
-              >
-                <Filter className="w-5 h-5" />
-              </button>
-
-              {/* Toggle Counts Panel Button */}
-              <button
-                onClick={() => setShowCountsPanel(!showCountsPanel)}
-                className={`p-2 rounded-lg flex items-center gap-1.5 ${showCountsPanel ? "bg-primary-500/30 text-primary-300" : "bg-gray-800/50 text-gray-400"}`}
-              >
-                <Package className="w-5 h-5" />
-                {currentCounts.length > 0 && (
-                  <span className="text-white text-xs px-2 py-0.5 rounded-full bg-blue-600">
-                    {currentCounts.length}
-                  </span>
-                )}
-              </button>
             </div>
 
             {/* Desktop Header */}
@@ -1271,6 +1291,51 @@ export const UserInventory: React.FC = () => {
                 <span>{showStats ? "Hide" : "Show"} Stats</span>
               </button>
             </div>
+          </div>
+
+          {/* Mobile Header */}
+          <div className="flex md:hidden items-center gap-2 mt-3">
+            {/* Search Icon for Mobile */}
+            <button
+              onClick={() => {
+                // Toggle a mobile search input
+                const newValue = !showMobileSearch;
+                setShowMobileSearch(newValue);
+                // Focus the input when shown
+                if (newValue) {
+                  setTimeout(() => {
+                    const searchInput = document.getElementById(
+                      "mobile-search-input",
+                    );
+                    if (searchInput) searchInput.focus();
+                  }, 100);
+                }
+              }}
+              className={`p-2 rounded-lg ${searchTerm ? "bg-blue-500/30 text-blue-300" : "bg-gray-800/50 text-gray-400"}`}
+            >
+              <Search className="w-5 h-5" />
+            </button>
+
+            {/* Filter Icons for Mobile - No Dropdowns */}
+            <button
+              onClick={() => setShowMobileFilters(!showMobileFilters)}
+              className={`p-2 rounded-lg ${filterByStorage || filterByVendor || filterByCategory || filterBySubCategory ? "bg-amber-500/30 text-amber-300" : "bg-gray-800/50 text-gray-400"}`}
+            >
+              <Filter className="w-5 h-5" />
+            </button>
+
+            {/* Toggle Counts Panel Button */}
+            <button
+              onClick={() => setShowCountsPanel(!showCountsPanel)}
+              className={`p-2 rounded-lg flex items-center gap-1.5 ${showCountsPanel ? "bg-primary-500/30 text-primary-300" : "bg-gray-800/50 text-gray-400"}`}
+            >
+              <Package className="w-5 h-5" />
+              {currentCounts.length > 0 && (
+                <span className="text-white text-xs px-2 py-0.5 rounded-full bg-blue-600">
+                  {currentCounts.length}
+                </span>
+              )}
+            </button>
           </div>
 
           {/* Mobile Search Input - Conditional */}
@@ -1486,7 +1551,7 @@ export const UserInventory: React.FC = () => {
               <StatCard
                 icon={<PieChart className="w-6 h-6 text-amber-400" />}
                 title="Total Value"
-                value={`$${totalInventoryValue.toFixed(2)}`}
+                value={`${totalInventoryValue.toFixed(2)}`}
                 bgColor="bg-amber-500/20"
                 textColor="text-amber-400"
               />
@@ -1509,7 +1574,8 @@ export const UserInventory: React.FC = () => {
                   Items: {countStats.totalItems}
                 </div>
                 <div className="text-sm bg-amber-500/20 text-amber-400 px-3 py-1 rounded-full">
-                  Pending: {countStats.pendingCounts}
+                  Pending: {countStats.pendingCounts} ($
+                  {countStats.pendingValue})
                 </div>
               </div>
             </div>

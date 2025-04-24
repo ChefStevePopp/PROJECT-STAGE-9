@@ -136,43 +136,85 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
       if (!countError && totalCount && totalCount > 0) {
         set({ totalItems: totalCount });
 
-        // Try to fetch from inventory_counts table
+        // Try to fetch from inventory_counts table - USING LEFT JOIN INSTEAD OF INNER JOIN
         try {
+          // Log for debugging
+          console.log(
+            "Fetching inventory counts with organization ID:",
+            organizationId,
+          );
+
           const { data: inventoryCounts, error: fetchError } = await supabase
             .from("inventory_counts")
-            .select("*, master_ingredients_with_categories!inner(*)")
+            .select("*, master_ingredients_with_categories(*)") // Removed !inner to get all counts
             .eq("organization_id", organizationId)
             .order("count_date", { ascending: false });
 
           // Update progress after fetch completes
           set({ loadingProgress: totalCount });
 
-          if (!fetchError && inventoryCounts && inventoryCounts.length > 0) {
+          if (fetchError) {
+            console.error("Error fetching inventory counts:", fetchError);
+            throw fetchError;
+          }
+
+          if (inventoryCounts && inventoryCounts.length > 0) {
+            console.log(
+              `Successfully retrieved ${inventoryCounts.length} inventory counts`,
+            );
+
+            // Log first item for debugging
+            if (inventoryCounts[0]) {
+              console.log("Sample inventory count:", {
+                id: inventoryCounts[0].id,
+                master_ingredient_id: inventoryCounts[0].master_ingredient_id,
+                ingredient:
+                  inventoryCounts[0].master_ingredients_with_categories,
+              });
+            }
+
             // Transform DB format to app format
-            const formattedCounts = inventoryCounts.map((count) => {
-              const ingredient = count.master_ingredients_with_categories;
-              return {
-                id: count.id,
-                masterIngredientId: count.master_ingredient_id,
-                quantity: count.quantity,
-                unitCost: count.unit_cost,
-                totalValue: count.total_value,
-                location:
-                  count.location || ingredient.storage_area || "Main Storage",
-                countedBy: count.counted_by,
-                notes: count.notes || "",
-                status: count.status,
-                lastUpdated: count.updated_at,
-                ingredient: {
-                  itemCode: ingredient.item_code,
-                  product: ingredient.product,
-                  category: ingredient.category_name,
-                  subCategory: ingredient.sub_category_name,
-                  unitOfMeasure: ingredient.unit_of_measure,
-                  imageUrl: ingredient.image_url,
-                },
-              };
-            });
+            const formattedCounts = inventoryCounts
+              .map((count) => {
+                const ingredient = count.master_ingredients_with_categories;
+
+                // Skip items with missing ingredients
+                if (!ingredient) {
+                  console.warn(
+                    `Missing ingredient data for count ${count.id}, master_ingredient_id: ${count.master_ingredient_id}`,
+                  );
+                  return null;
+                }
+
+                return {
+                  id: count.id,
+                  masterIngredientId: count.master_ingredient_id,
+                  quantity: count.quantity,
+                  unitCost: count.unit_cost,
+                  totalValue: count.total_value,
+                  location:
+                    count.location ||
+                    ingredient?.storage_area ||
+                    "Main Storage",
+                  countedBy: count.counted_by,
+                  notes: count.notes || "",
+                  status: count.status,
+                  created_at: count.created_at,
+                  updated_at: count.updated_at,
+                  lastUpdated: count.updated_at,
+                  created_by: count.counted_by,
+                  created_by_name: "User", // You might want to fetch user name
+                  ingredient: {
+                    itemCode: ingredient?.item_code,
+                    product: ingredient?.product,
+                    category: ingredient?.category_name,
+                    subCategory: ingredient?.sub_category_name,
+                    unitOfMeasure: ingredient?.unit_of_measure,
+                    imageUrl: ingredient?.image_url,
+                  },
+                };
+              })
+              .filter(Boolean); // Remove any null entries
 
             set({ items: formattedCounts, error: null, isLoading: false });
 
@@ -180,10 +222,18 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
             get().saveLocalItems(formattedCounts);
             get().saveLastFetchTime();
             return;
+          } else {
+            console.log(
+              "No inventory counts found, falling back to master ingredients",
+            );
           }
         } catch (fetchError) {
           console.warn("Error fetching from inventory_counts:", fetchError);
         }
+      } else {
+        console.log(
+          "No inventory counts found in database, using master ingredients",
+        );
       }
 
       // Fallback: Get count of master ingredients for progress tracking
@@ -210,6 +260,10 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
 
       if (miError) throw miError;
 
+      console.log(
+        `Created mock data from ${masterIngredients.length} master ingredients`,
+      );
+
       // Create mock inventory data based on master ingredients
       const mockInventoryData = masterIngredients.map((ingredient) => ({
         id: ingredient.id,
@@ -222,6 +276,10 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
         notes: "",
         status: "pending",
         lastUpdated: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        created_by: user.id,
+        created_by_name: "User",
         ingredient: {
           itemCode: ingredient.item_code,
           product: ingredient.product,
@@ -263,40 +321,52 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
         throw new Error("No organization ID found");
       }
 
-      // First try to fetch from inventory_counts table
+      // First try to fetch from inventory_counts table - USING LEFT JOIN INSTEAD OF INNER JOIN
       try {
         const { data: inventoryCounts, error: fetchError } = await supabase
           .from("inventory_counts")
-          .select("*, master_ingredients_with_categories!inner(*)")
+          .select("*, master_ingredients_with_categories(*)") // Removed !inner
           .eq("organization_id", organizationId)
           .order("count_date", { ascending: false });
 
         if (!fetchError && inventoryCounts && inventoryCounts.length > 0) {
           // Transform DB format to app format
-          const formattedCounts = inventoryCounts.map((count) => {
-            const ingredient = count.master_ingredients_with_categories;
-            return {
-              id: count.id,
-              masterIngredientId: count.master_ingredient_id,
-              quantity: count.quantity,
-              unitCost: count.unit_cost,
-              totalValue: count.total_value,
-              location:
-                count.location || ingredient.storage_area || "Main Storage",
-              countedBy: count.counted_by,
-              notes: count.notes || "",
-              status: count.status,
-              lastUpdated: count.updated_at,
-              ingredient: {
-                itemCode: ingredient.item_code,
-                product: ingredient.product,
-                category: ingredient.category_name,
-                subCategory: ingredient.sub_category_name,
-                unitOfMeasure: ingredient.unit_of_measure,
-                imageUrl: ingredient.image_url,
-              },
-            };
-          });
+          const formattedCounts = inventoryCounts
+            .map((count) => {
+              const ingredient = count.master_ingredients_with_categories;
+
+              // Skip items with missing ingredients
+              if (!ingredient) {
+                return null;
+              }
+
+              return {
+                id: count.id,
+                masterIngredientId: count.master_ingredient_id,
+                quantity: count.quantity,
+                unitCost: count.unit_cost,
+                totalValue: count.total_value,
+                location:
+                  count.location || ingredient?.storage_area || "Main Storage",
+                countedBy: count.counted_by,
+                notes: count.notes || "",
+                status: count.status,
+                lastUpdated: count.updated_at,
+                created_at: count.created_at,
+                updated_at: count.updated_at,
+                created_by: count.counted_by,
+                created_by_name: "User", // You might want to fetch user name
+                ingredient: {
+                  itemCode: ingredient?.item_code,
+                  product: ingredient?.product,
+                  category: ingredient?.category_name,
+                  subCategory: ingredient?.sub_category_name,
+                  unitOfMeasure: ingredient?.unit_of_measure,
+                  imageUrl: ingredient?.image_url,
+                },
+              };
+            })
+            .filter(Boolean); // Remove any null entries
 
           // Update state without setting loading to true
           set({ items: formattedCounts });
@@ -333,6 +403,10 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
         notes: "",
         status: "pending",
         lastUpdated: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        created_by: user.id,
+        created_by_name: "User",
         ingredient: {
           itemCode: ingredient.item_code,
           product: ingredient.product,
@@ -376,12 +450,47 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
         .single();
 
       if (ingredientError || !ingredient) {
-        throw new Error(
-          `Master ingredient not found: ${count.masterIngredientId}`,
+        console.error("Error finding master ingredient:", ingredientError);
+        console.log(
+          "Trying with string comparison for ID:",
+          count.masterIngredientId,
         );
+
+        // Try with string comparison if UUID doesn't match
+        const { data: ingredientByString, error: stringError } = await supabase
+          .from("master_ingredients")
+          .select("id, item_code, product")
+          .eq("organization_id", organizationId);
+
+        if (stringError) {
+          throw new Error(
+            `Master ingredient lookup failed: ${stringError.message}`,
+          );
+        }
+
+        // Find ingredient where id as string matches
+        const matchedIngredient = ingredientByString.find(
+          (ing) => ing.id.toString() === count.masterIngredientId.toString(),
+        );
+
+        if (!matchedIngredient) {
+          throw new Error(
+            `Master ingredient not found: ${count.masterIngredientId}`,
+          );
+        }
+
+        // Use the matched ingredient's id
+        count.masterIngredientId = matchedIngredient.id;
       }
 
       try {
+        // Add debug logging
+        console.log("Adding count with data:", {
+          masterIngredientId: count.masterIngredientId,
+          quantity: count.quantity,
+          unitCost: count.unitCost,
+        });
+
         // Try to insert into inventory_counts table
         const { data: newCount, error: insertError } = await supabase
           .from("inventory_counts")
@@ -395,13 +504,18 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
             notes: count.notes,
             status: count.status,
             count_date: new Date().toISOString(),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
+            // Note: created_at and updated_at have default values in the database
           })
           .select()
           .single();
 
-        if (!insertError && newCount) {
+        if (insertError) {
+          console.error("Error inserting count:", insertError);
+          throw insertError;
+        }
+
+        if (newCount) {
+          console.log("Successfully added count:", newCount);
           // Refresh the inventory items
           await get().fetchItems();
           toast.success("Inventory count added successfully");
