@@ -445,6 +445,10 @@ export const UserInventory: React.FC = () => {
     string[]
   >([]);
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Get inventory store
   const {
@@ -1659,37 +1663,6 @@ export const UserInventory: React.FC = () => {
                                   </h4>
                                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                                     {items.map((item) => {
-                                      // Add debugging logs
-                                      console.log(
-                                        "=====================================================",
-                                      );
-                                      console.log(
-                                        `Rendering card for ${item.name} with ID ${item.id}`,
-                                      );
-                                      console.log(
-                                        `Total inventory counts available: ${inventoryCounts.length}`,
-                                      );
-                                      console.log(
-                                        "First 3 inventory counts:",
-                                        inventoryCounts.slice(0, 3),
-                                      );
-                                      console.log(
-                                        "Item counts with matching ID:",
-                                        inventoryCounts.filter((count) => {
-                                          const countId =
-                                            count.masterIngredientId ||
-                                            count.master_ingredient_id;
-                                          return (
-                                            countId &&
-                                            countId.toString() ===
-                                              item.id.toString()
-                                          );
-                                        }),
-                                      );
-                                      console.log(
-                                        "=====================================================",
-                                      );
-
                                       return (
                                         <InventoryItemCard
                                           key={item.id}
@@ -1736,6 +1709,82 @@ export const UserInventory: React.FC = () => {
                       ? "Try adjusting your filter criteria"
                       : "Add items to your inventory to see them here"}
                 </p>
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center gap-2 mt-8 pb-12">
+                <button
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(prev - 1, 1))
+                  }
+                  disabled={currentPage === 1}
+                  className={`p-2 rounded-md ${currentPage === 1 ? "bg-gray-700 text-gray-500" : "bg-gray-700 text-white hover:bg-gray-600"}`}
+                >
+                  Previous
+                </button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    // Show pages around current page
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`w-8 h-8 flex items-center justify-center rounded-md ${currentPage === pageNum ? "bg-primary-600 text-white" : "bg-gray-700 text-white hover:bg-gray-600"}`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+
+                  {totalPages > 5 && currentPage < totalPages - 2 && (
+                    <>
+                      <span className="text-gray-400">...</span>
+                      <button
+                        onClick={() => setCurrentPage(totalPages)}
+                        className="w-8 h-8 flex items-center justify-center rounded-md bg-gray-700 text-white hover:bg-gray-600"
+                      >
+                        {totalPages}
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                <button
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                  }
+                  disabled={currentPage === totalPages}
+                  className={`p-2 rounded-md ${currentPage === totalPages ? "bg-gray-700 text-gray-500" : "bg-gray-700 text-white hover:bg-gray-600"}`}
+                >
+                  Next
+                </button>
+
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1); // Reset to first page when changing items per page
+                  }}
+                  className="bg-gray-700 text-white rounded-md p-2 ml-4"
+                >
+                  <option value="25">25 per page</option>
+                  <option value="50">50 per page</option>
+                  <option value="100">100 per page</option>
+                </select>
               </div>
             )}
           </div>

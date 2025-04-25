@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo, memo } from "react";
+import "./styles.css";
 import { COLOR_PALETTE } from "./constants";
 
 interface InventoryItemProps {
@@ -29,54 +30,61 @@ export const InventoryItemCard = memo(
       }
     }, [item.lastUpdated]);
 
-    // Get counts that match this item's ID - robust matching approach
+    // Get counts that match this item's ID - strict matching only
     const itemCounts = useMemo(() => {
       // Safety checks
-      if (!inventoryCounts || !Array.isArray(inventoryCounts)) {
-        if (debugMode)
-          console.log(`[${item.name}] Invalid inventory counts array`);
+      if (
+        !inventoryCounts ||
+        !Array.isArray(inventoryCounts) ||
+        !item ||
+        !item.id
+      ) {
         return [];
       }
 
-      if (!item || !item.id) {
-        if (debugMode)
-          console.log(`[${item?.name}] Invalid item or missing ID`);
-        return [];
-      }
+      // Normalize the item ID to a clean string without any special characters
+      const normalizedItemId = String(item.id).trim();
 
-      // Convert item ID to string for consistent comparison
-      const itemIdStr = item.id.toString();
-
-      // Get all counts where either masterIngredientId or master_ingredient_id matches the item's ID
+      // Get all counts where master_ingredient_id matches the item's ID
+      // Only include counts that have a valid ID and quantity
       const matchingCounts = inventoryCounts.filter((count) => {
-        // Check for the ID in either property format
-        const masterIngredientId = count.masterIngredientId;
-        const master_ingredient_id = count.master_ingredient_id;
+        if (!count || !count.id) return false;
 
-        // Skip if neither property exists
-        if (!masterIngredientId && !master_ingredient_id) return false;
+        // Get the ingredient ID from the count record
+        const countIngredientId = count.master_ingredient_id;
+        const alternativeId = count.masterIngredientId;
 
-        // Convert both to strings if they exist
-        const masterIdStr = masterIngredientId
-          ? masterIngredientId.toString()
+        if (!countIngredientId && !alternativeId) return false;
+
+        // Normalize the IDs for comparison
+        const normalizedCountId = countIngredientId
+          ? String(countIngredientId).trim()
           : null;
-        const master_idStr = master_ingredient_id
-          ? master_ingredient_id.toString()
+        const normalizedAltId = alternativeId
+          ? String(alternativeId).trim()
           : null;
 
-        // Match if either format equals the item ID
-        return masterIdStr === itemIdStr || master_idStr === itemIdStr;
+        // Check if either ID matches the item's ID
+        return (
+          (normalizedCountId === normalizedItemId ||
+            normalizedAltId === normalizedItemId) &&
+          // Ensure this is an actual inventory count record, not just a master ingredient
+          count.quantity !== undefined
+        );
       });
 
       if (debugMode) {
         console.log(
-          `[${item.name}] Found ${matchingCounts.length} matching counts for ID ${itemIdStr}`,
+          `[${item.name}] (ID: ${normalizedItemId}) has ${matchingCounts.length} matching counts`,
         );
-        matchingCounts.forEach((count, index) => {
-          console.log(
-            `  Count #${index + 1}: ID=${count.id}, Quantity=${count.quantity}, Status=${count.status}`,
-          );
-        });
+        if (matchingCounts.length > 0) {
+          console.log(`First matching count:`, {
+            countId: matchingCounts[0]?.id,
+            master_ingredient_id: matchingCounts[0]?.master_ingredient_id,
+            masterIngredientId: matchingCounts[0]?.masterIngredientId,
+            quantity: matchingCounts[0]?.quantity,
+          });
+        }
       }
 
       return matchingCounts;
@@ -90,9 +98,18 @@ export const InventoryItemCard = memo(
     // Calculate total pending quantity
     const pendingQuantity = useMemo(() => {
       return itemCounts
-        .filter((count) => count.status === "pending")
+        .filter((count) => count && count.status === "pending")
         .reduce((sum, count) => {
-          const countQuantity = parseFloat(count.quantity?.toString() || "0");
+          // Handle different data types for quantity
+          let countQuantity = 0;
+          if (typeof count.quantity === "number") {
+            countQuantity = count.quantity;
+          } else if (typeof count.quantity === "string") {
+            countQuantity = parseFloat(count.quantity);
+          } else if (count.quantity !== null && count.quantity !== undefined) {
+            countQuantity = parseFloat(String(count.quantity));
+          }
+
           return sum + (isNaN(countQuantity) ? 0 : countQuantity);
         }, 0);
     }, [itemCounts]);
@@ -119,8 +136,7 @@ export const InventoryItemCard = memo(
         masterIngredientId: item.id, // Include both formats for compatibility
         quantity: quantity,
         unitCost: item.unit_cost || item.inventory_unit_cost || 0,
-        totalValue:
-          quantity * (item.unit_cost || item.inventory_unit_cost || 0),
+        // Note: totalValue is a generated column in the database, no need to set it here
         location: item.storage_area || "Main Storage",
         notes: `Count added on ${new Date().toLocaleDateString()}`,
         status: "pending",
@@ -140,6 +156,20 @@ export const InventoryItemCard = memo(
 
     return (
       <div className="card overflow-hidden hover:bg-gray-800/80 transition-all duration-200">
+        {/* Total Quantity Badge */}
+        {itemCounts.length > 0 && (
+          <div className="absolute top-2 right-2 z-10 bg-blue-600/90 text-white px-2 py-1 rounded-md text-sm font-medium shadow-lg">
+            {itemCounts
+              .reduce((total, count) => {
+                const countQuantity = parseFloat(
+                  count.quantity?.toString() || "0",
+                );
+                return total + (isNaN(countQuantity) ? 0 : countQuantity);
+              }, 0)
+              .toFixed(2)}{" "}
+            {item.unit || "units"}
+          </div>
+        )}
         <div className="aspect-square bg-gray-800 relative">
           {item.image_url ? (
             <img
