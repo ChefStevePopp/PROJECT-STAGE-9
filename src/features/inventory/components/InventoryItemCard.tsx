@@ -11,6 +11,8 @@ export const InventoryItemCard = memo(
   ({ item, onAddCount, inventoryCounts }: InventoryItemProps) => {
     const [quantity, setQuantity] = useState(item.quantity || 0);
     const [isUpdating, setIsUpdating] = useState(false);
+    const [debugMode, setDebugMode] = useState(false);
+
     const itemColor =
       COLOR_PALETTE[
         Math.abs(item.name?.charCodeAt(0) || 0) % COLOR_PALETTE.length
@@ -27,29 +29,60 @@ export const InventoryItemCard = memo(
       }
     }, [item.lastUpdated]);
 
-    // Get counts that match this item's ID - FIXED COMPARISON LOGIC
+    // Get counts that match this item's ID - robust matching approach
     const itemCounts = useMemo(() => {
-      if (!inventoryCounts || !Array.isArray(inventoryCounts)) return [];
-      if (!item.id) return [];
+      // Safety checks
+      if (!inventoryCounts || !Array.isArray(inventoryCounts)) {
+        if (debugMode)
+          console.log(`[${item.name}] Invalid inventory counts array`);
+        return [];
+      }
 
-      // Convert item ID to string once for comparison
+      if (!item || !item.id) {
+        if (debugMode)
+          console.log(`[${item?.name}] Invalid item or missing ID`);
+        return [];
+      }
+
+      // Convert item ID to string for consistent comparison
       const itemIdStr = item.id.toString();
 
-      return inventoryCounts.filter((count) => {
-        // Check both possible property names
-        const countIngredientId =
-          count.masterIngredientId || count.master_ingredient_id;
+      // Get all counts where either masterIngredientId or master_ingredient_id matches the item's ID
+      const matchingCounts = inventoryCounts.filter((count) => {
+        // Check for the ID in either property format
+        const masterIngredientId = count.masterIngredientId;
+        const master_ingredient_id = count.master_ingredient_id;
 
-        if (!countIngredientId) return false;
+        // Skip if neither property exists
+        if (!masterIngredientId && !master_ingredient_id) return false;
 
-        // Convert count ID to string for comparison
-        const countIdStr = countIngredientId.toString();
+        // Convert both to strings if they exist
+        const masterIdStr = masterIngredientId
+          ? masterIngredientId.toString()
+          : null;
+        const master_idStr = master_ingredient_id
+          ? master_ingredient_id.toString()
+          : null;
 
-        return countIdStr === itemIdStr;
+        // Match if either format equals the item ID
+        return masterIdStr === itemIdStr || master_idStr === itemIdStr;
       });
-    }, [inventoryCounts, item.id]);
 
-    // Calculate pending counts - only those with status "pending"
+      if (debugMode) {
+        console.log(
+          `[${item.name}] Found ${matchingCounts.length} matching counts for ID ${itemIdStr}`,
+        );
+        matchingCounts.forEach((count, index) => {
+          console.log(
+            `  Count #${index + 1}: ID=${count.id}, Quantity=${count.quantity}, Status=${count.status}`,
+          );
+        });
+      }
+
+      return matchingCounts;
+    }, [inventoryCounts, item, debugMode]);
+
+    // Calculate pending counts
     const pendingCounts = useMemo(() => {
       return itemCounts.filter((count) => count.status === "pending").length;
     }, [itemCounts]);
@@ -83,6 +116,7 @@ export const InventoryItemCard = memo(
       // Create a count object and save it
       const countData = {
         master_ingredient_id: item.id,
+        masterIngredientId: item.id, // Include both formats for compatibility
         quantity: quantity,
         unitCost: item.unit_cost || item.inventory_unit_cost || 0,
         totalValue:
@@ -98,6 +132,11 @@ export const InventoryItemCard = memo(
       // Reset updating state after a short delay
       setTimeout(() => setIsUpdating(false), 300);
     }, [item, quantity, onAddCount, isUpdating]);
+
+    // Toggle debug mode
+    const toggleDebugMode = useCallback(() => {
+      setDebugMode((prev) => !prev);
+    }, []);
 
     return (
       <div className="card overflow-hidden hover:bg-gray-800/80 transition-all duration-200">
@@ -229,6 +268,13 @@ export const InventoryItemCard = memo(
                 {item.vendor}
               </div>
             )}
+            {/* Debug mode toggle button */}
+            <button
+              onClick={toggleDebugMode}
+              className="text-xs bg-gray-600/50 text-gray-300 px-2 py-0.5 rounded-full ml-auto"
+            >
+              {debugMode ? "Hide Debug" : "Debug"}
+            </button>
           </div>
 
           {/* All Counts List */}
@@ -240,11 +286,15 @@ export const InventoryItemCard = memo(
               </span>
             </div>
 
-            {/* Display helpful debug information only in development */}
-            {process.env.NODE_ENV === "development" && (
-              <div className="text-xs text-gray-500 mb-2">
+            {/* Debug information */}
+            {debugMode && (
+              <div className="text-xs text-gray-500 mb-2 p-2 bg-gray-900 rounded">
                 <div>Item ID: {item.id}</div>
+                <div>Item ID Type: {typeof item.id}</div>
                 <div>Matching Counts: {itemCounts.length}</div>
+                <div>Pending Counts: {pendingCounts}</div>
+                <div>Total Pending Quantity: {pendingQuantity.toFixed(2)}</div>
+                <div>Available Counts: {inventoryCounts.length}</div>
               </div>
             )}
 
@@ -309,15 +359,33 @@ export const InventoryItemCard = memo(
                         )}
                       </div>
 
-                      {process.env.NODE_ENV === "development" && (
+                      {/* Additional debug info when debug mode is on */}
+                      {debugMode && (
                         <>
                           <div className="text-gray-500 text-xs mt-1">
                             Unit Cost: $
-                            {parseFloat(count.unit_cost || 0).toFixed(2)}
+                            {parseFloat(
+                              count.unitCost || count.unit_cost || 0,
+                            ).toFixed(2)}
                           </div>
                           <div className="text-gray-500 text-xs mt-1">
                             Total Value: $
-                            {parseFloat(count.total_value || 0).toFixed(2)}
+                            {parseFloat(
+                              count.totalValue || count.total_value || 0,
+                            ).toFixed(2)}
+                          </div>
+                          <div className="text-gray-500 text-xs mt-1">
+                            masterIngredientId:{" "}
+                            {count.masterIngredientId
+                              ? count.masterIngredientId.substring(0, 8) + "..."
+                              : "undefined"}
+                          </div>
+                          <div className="text-gray-500 text-xs mt-1">
+                            master_ingredient_id:{" "}
+                            {count.master_ingredient_id
+                              ? count.master_ingredient_id.substring(0, 8) +
+                                "..."
+                              : "undefined"}
                           </div>
                         </>
                       )}
@@ -331,12 +399,30 @@ export const InventoryItemCard = memo(
               </div>
             )}
 
-            {/* Pending counts summary */}
+            {/* Pending counts summary with details */}
             {pendingCounts > 0 && (
               <div className="mt-2 text-xs text-amber-400 bg-amber-500/10 p-2 rounded">
                 <div className="font-semibold">
                   {pendingCounts} pending count{pendingCounts !== 1 ? "s" : ""}{" "}
                   totaling {pendingQuantity.toFixed(2)} {item.unit || "units"}
+                </div>
+                <div className="mt-1 text-xs text-gray-300">
+                  <span className="font-semibold">Pending Counts:</span>
+                  <div className="mt-1 break-all">
+                    {itemCounts
+                      .filter((c) => c.status === "pending")
+                      .map((c, i) => (
+                        <div
+                          key={i}
+                          className="border-t border-gray-700 pt-1 mt-1 first:border-0 first:pt-0 first:mt-0"
+                        >
+                          {c.id ? c.id.substring(0, 8) : "Unknown"} -{" "}
+                          {parseFloat(c.quantity || 0).toFixed(2)}{" "}
+                          {item.unit || "units"} (
+                          {c.location || "Unknown location"})
+                        </div>
+                      ))}
+                  </div>
                 </div>
               </div>
             )}

@@ -1658,14 +1658,47 @@ export const UserInventory: React.FC = () => {
                                     {subCategory}
                                   </h4>
                                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                                    {items.map((item) => (
-                                      <InventoryItemCard
-                                        key={item.id}
-                                        item={item}
-                                        onAddCount={handleAddCount}
-                                        inventoryCounts={inventoryCounts}
-                                      />
-                                    ))}
+                                    {items.map((item) => {
+                                      // Add debugging logs
+                                      console.log(
+                                        "=====================================================",
+                                      );
+                                      console.log(
+                                        `Rendering card for ${item.name} with ID ${item.id}`,
+                                      );
+                                      console.log(
+                                        `Total inventory counts available: ${inventoryCounts.length}`,
+                                      );
+                                      console.log(
+                                        "First 3 inventory counts:",
+                                        inventoryCounts.slice(0, 3),
+                                      );
+                                      console.log(
+                                        "Item counts with matching ID:",
+                                        inventoryCounts.filter((count) => {
+                                          const countId =
+                                            count.masterIngredientId ||
+                                            count.master_ingredient_id;
+                                          return (
+                                            countId &&
+                                            countId.toString() ===
+                                              item.id.toString()
+                                          );
+                                        }),
+                                      );
+                                      console.log(
+                                        "=====================================================",
+                                      );
+
+                                      return (
+                                        <InventoryItemCard
+                                          key={item.id}
+                                          item={item}
+                                          onAddCount={handleAddCount}
+                                          inventoryCounts={inventoryCounts}
+                                        />
+                                      );
+                                    })}
                                   </div>
                                 </div>
                               ),

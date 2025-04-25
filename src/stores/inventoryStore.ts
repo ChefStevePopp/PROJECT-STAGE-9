@@ -123,6 +123,8 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
       } = await supabase.auth.getUser();
       const organizationId = user?.user_metadata?.organizationId;
 
+      console.log("DEBUGGING - Current user organization ID:", organizationId);
+
       if (!organizationId) {
         throw new Error("No organization ID found");
       }
@@ -132,6 +134,11 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
         .from("inventory_counts")
         .select("id", { count: "exact", head: false })
         .eq("organization_id", organizationId);
+
+      console.log("DEBUGGING - Count query:", {
+        totalCount,
+        error: countError?.message,
+      });
 
       if (!countError && totalCount && totalCount > 0) {
         set({ totalItems: totalCount });
@@ -144,6 +151,20 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
             organizationId,
           );
 
+          // Try a direct query first without the join to see if data exists
+          const { data: directCounts, error: directError } = await supabase
+            .from("inventory_counts")
+            .select("*")
+            .eq("organization_id", organizationId)
+            .limit(5);
+
+          console.log("DEBUGGING - Direct inventory count query:", {
+            error: directError?.message,
+            countFound: directCounts?.length,
+            firstRecord: directCounts?.[0],
+          });
+
+          // Now try with the join
           const { data: inventoryCounts, error: fetchError } = await supabase
             .from("inventory_counts")
             .select("*, master_ingredients_with_categories(*)") // Removed !inner to get all counts
@@ -152,6 +173,12 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
 
           // Update progress after fetch completes
           set({ loadingProgress: totalCount });
+
+          console.log("DEBUGGING - Join query results:", {
+            error: fetchError?.message,
+            countFound: inventoryCounts?.length,
+            firstRecord: inventoryCounts?.[0],
+          });
 
           if (fetchError) {
             console.error("Error fetching inventory counts:", fetchError);
@@ -178,7 +205,7 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
               .map((count) => {
                 const ingredient = count.master_ingredients_with_categories;
 
-                // Skip items with missing ingredients
+                // Debug any missing ingredients
                 if (!ingredient) {
                   console.warn(
                     `Missing ingredient data for count ${count.id}, master_ingredient_id: ${count.master_ingredient_id}`,
@@ -189,6 +216,7 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
                 return {
                   id: count.id,
                   masterIngredientId: count.master_ingredient_id,
+                  master_ingredient_id: count.master_ingredient_id, // Include both formats for compatibility
                   quantity: parseFloat(count.quantity),
                   unitCost: parseFloat(count.unit_cost),
                   totalValue: parseFloat(count.total_value),
@@ -215,6 +243,11 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
                 };
               })
               .filter(Boolean); // Remove any null entries
+
+            console.log("DEBUGGING - Formatted counts:", {
+              totalFormatted: formattedCounts.length,
+              firstFormatted: formattedCounts[0],
+            });
 
             set({ items: formattedCounts, error: null, isLoading: false });
 
@@ -266,8 +299,9 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
 
       // Create mock inventory data based on master ingredients
       const mockInventoryData = masterIngredients.map((ingredient) => ({
-        id: ingredient.id,
+        id: crypto.randomUUID(), // FIXED: Generate unique IDs for mock data
         masterIngredientId: ingredient.id,
+        master_ingredient_id: ingredient.id, // Include both formats for compatibility
         quantity: 0, // Set to zero instead of random value
         unitCost: ingredient.current_price || 0,
         totalValue: 0, // Set to zero since quantity is zero
@@ -343,6 +377,7 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
               return {
                 id: count.id,
                 masterIngredientId: count.master_ingredient_id,
+                master_ingredient_id: count.master_ingredient_id, // Include both formats for compatibility
                 quantity: parseFloat(count.quantity),
                 unitCost: parseFloat(count.unit_cost),
                 totalValue: parseFloat(count.total_value),
@@ -393,7 +428,7 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
 
       // Create mock inventory data based on master ingredients
       const mockInventoryData = masterIngredients.map((ingredient) => ({
-        id: ingredient.id,
+        id: crypto.randomUUID(), // FIXED: Generate unique IDs for mock data
         masterIngredientId: ingredient.id,
         master_ingredient_id: ingredient.id, // Include both formats for compatibility
         quantity: 0,
@@ -538,6 +573,7 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
         id: crypto.randomUUID(),
         master_ingredient_id:
           count.master_ingredient_id || count.masterIngredientId,
+        masterIngredientId: count.masterIngredientId, // Include both formats for compatibility
         quantity: count.quantity,
         unitCost: count.unitCost,
         totalValue: count.quantity * count.unitCost,
@@ -767,6 +803,7 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
       const localCounts = validCounts.map((count) => ({
         id: crypto.randomUUID(),
         masterIngredientId: count.master_ingredient_id,
+        master_ingredient_id: count.master_ingredient_id, // Include both formats for compatibility
         quantity: count.quantity,
         unitCost: count.unit_cost,
         totalValue: count.quantity * count.unit_cost,
