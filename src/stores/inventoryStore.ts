@@ -189,9 +189,9 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
                 return {
                   id: count.id,
                   masterIngredientId: count.master_ingredient_id,
-                  quantity: count.quantity,
-                  unitCost: count.unit_cost,
-                  totalValue: count.total_value,
+                  quantity: parseFloat(count.quantity),
+                  unitCost: parseFloat(count.unit_cost),
+                  totalValue: parseFloat(count.total_value),
                   location:
                     count.location ||
                     ingredient?.storage_area ||
@@ -199,9 +199,9 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
                   countedBy: count.counted_by,
                   notes: count.notes || "",
                   status: count.status,
+                  lastUpdated: count.updated_at,
                   created_at: count.created_at,
                   updated_at: count.updated_at,
-                  lastUpdated: count.updated_at,
                   created_by: count.counted_by,
                   created_by_name: "User", // You might want to fetch user name
                   ingredient: {
@@ -343,9 +343,9 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
               return {
                 id: count.id,
                 masterIngredientId: count.master_ingredient_id,
-                quantity: count.quantity,
-                unitCost: count.unit_cost,
-                totalValue: count.total_value,
+                quantity: parseFloat(count.quantity),
+                unitCost: parseFloat(count.unit_cost),
+                totalValue: parseFloat(count.total_value),
                 location:
                   count.location || ingredient?.storage_area || "Main Storage",
                 countedBy: count.counted_by,
@@ -395,6 +395,7 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
       const mockInventoryData = masterIngredients.map((ingredient) => ({
         id: ingredient.id,
         masterIngredientId: ingredient.id,
+        master_ingredient_id: ingredient.id, // Include both formats for compatibility
         quantity: 0,
         unitCost: ingredient.current_price || 0,
         totalValue: 0,
@@ -496,12 +497,16 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
           .from("inventory_counts")
           .insert({
             organization_id: organizationId,
-            master_ingredient_id: count.masterIngredientId,
+            master_ingredient_id:
+              count.master_ingredient_id || count.masterIngredientId,
             quantity: count.quantity,
             unit_cost: count.unitCost,
+            total_value: count.quantity * count.unitCost,
             location: count.location,
             counted_by: user.id,
-            notes: count.notes,
+            notes:
+              count.notes ||
+              `Count added on ${new Date().toLocaleDateString()}`,
             status: count.status,
             count_date: new Date().toISOString(),
             // Note: created_at and updated_at have default values in the database
@@ -531,7 +536,16 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
       // Fallback: Add to local state if table doesn't exist
       const newCountLocal = {
         id: crypto.randomUUID(),
-        ...count,
+        master_ingredient_id:
+          count.master_ingredient_id || count.masterIngredientId,
+        quantity: count.quantity,
+        unitCost: count.unitCost,
+        totalValue: count.quantity * count.unitCost,
+        location: count.location,
+        countedBy: user.id,
+        notes:
+          count.notes || `Count added on ${new Date().toLocaleDateString()}`,
+        status: count.status,
         lastUpdated: new Date().toISOString(),
       };
 

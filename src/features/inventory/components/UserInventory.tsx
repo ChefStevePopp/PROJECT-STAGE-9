@@ -1064,15 +1064,14 @@ export const UserInventory: React.FC = () => {
 
       // Create a count object with the updated quantity
       const countData = {
-        masterIngredientId: updatedItem.id,
-        master_ingredient_id: updatedItem.id, // Add both formats to ensure compatibility
+        master_ingredient_id: updatedItem.id,
         quantity: updatedItem.quantity || 0,
         unitCost: updatedItem.inventory_unit_cost || updatedItem.unit_cost || 0,
         totalValue:
           (updatedItem.quantity || 0) *
           (updatedItem.inventory_unit_cost || updatedItem.unit_cost || 0),
         location: updatedItem.storage_area || "Main Storage",
-        notes: "",
+        notes: `Count added from inventory card on ${new Date().toLocaleDateString()}`,
         status: "pending",
       };
 
