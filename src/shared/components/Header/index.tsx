@@ -119,7 +119,7 @@ export const Header: React.FC<{
         className={`sticky top-0 z-40 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 ${className}`}
       >
         <div className="mx-auto px-4 sm:px-6 lg:px-8 max-w-screen-2xl">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-20 w-full w-[1920]">
             {/* ChefLife Logo */}
             <div className="flex items-center">
               <button
@@ -199,7 +199,6 @@ export const Header: React.FC<{
           </div>
         </div>
       </header>
-
       {/* Mobile Menu Overlay */}
       {isMenuOpen && (
         <div className="fixed inset-0 bg-gray-900/95 z-50 mobile-menu-overlay">

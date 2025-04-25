@@ -499,6 +499,20 @@ export const UserInventory: React.FC = () => {
     // Start loading data immediately
     fetchCounts();
     fetchInventoryItems();
+    // Reset to first page when filters change
+    setCurrentPage(1);
+  }, [
+    searchTerm,
+    filterByStorage,
+    filterByVendor,
+    filterByCategory,
+    filterBySubCategory,
+  ]);
+
+  // Initial data loading
+  useEffect(() => {
+    fetchCounts();
+    fetchInventoryItems();
   }, []);
 
   const fetchInventoryItems = async () => {
@@ -984,6 +998,13 @@ export const UserInventory: React.FC = () => {
       return sum + quantity * unitCost;
     }, 0);
   }, [inventoryCounts]);
+
+  // Update total pages when items per page changes
+  useEffect(() => {
+    if (inventoryItems.length > 0) {
+      setTotalPages(Math.ceil(inventoryItems.length / itemsPerPage));
+    }
+  }, [itemsPerPage, inventoryItems.length]);
 
   // Calculate pending inventory value
   const pendingInventoryValue = useMemo(() => {
@@ -1714,77 +1735,105 @@ export const UserInventory: React.FC = () => {
 
             {/* Pagination Controls */}
             {totalPages > 1 && (
-              <div className="flex justify-center items-center gap-2 mt-8 pb-12">
-                <button
-                  onClick={() =>
-                    setCurrentPage((prev) => Math.max(prev - 1, 1))
-                  }
-                  disabled={currentPage === 1}
-                  className={`p-2 rounded-md ${currentPage === 1 ? "bg-gray-700 text-gray-500" : "bg-gray-700 text-white hover:bg-gray-600"}`}
-                >
-                  Previous
-                </button>
-
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    // Show pages around current page
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`w-8 h-8 flex items-center justify-center rounded-md ${currentPage === pageNum ? "bg-primary-600 text-white" : "bg-gray-700 text-white hover:bg-gray-600"}`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
-
-                  {totalPages > 5 && currentPage < totalPages - 2 && (
-                    <>
-                      <span className="text-gray-400">...</span>
-                      <button
-                        onClick={() => setCurrentPage(totalPages)}
-                        className="w-8 h-8 flex items-center justify-center rounded-md bg-gray-700 text-white hover:bg-gray-600"
-                      >
-                        {totalPages}
-                      </button>
-                    </>
-                  )}
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-8 pb-12 bg-gray-800 p-4 rounded-lg">
+                <div className="text-gray-300 text-sm">
+                  Showing page {currentPage} of {totalPages}
                 </div>
 
-                <button
-                  onClick={() =>
-                    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-                  }
-                  disabled={currentPage === totalPages}
-                  className={`p-2 rounded-md ${currentPage === totalPages ? "bg-gray-700 text-gray-500" : "bg-gray-700 text-white hover:bg-gray-600"}`}
-                >
-                  Next
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className={`w-8 h-8 flex items-center justify-center rounded-md ${currentPage === 1 ? "bg-gray-700 text-gray-500" : "bg-gray-700 text-white hover:bg-gray-600"}`}
+                    title="First Page"
+                  >
+                    «
+                  </button>
 
-                <select
-                  value={itemsPerPage}
-                  onChange={(e) => {
-                    setItemsPerPage(Number(e.target.value));
-                    setCurrentPage(1); // Reset to first page when changing items per page
-                  }}
-                  className="bg-gray-700 text-white rounded-md p-2 ml-4"
-                >
-                  <option value="25">25 per page</option>
-                  <option value="50">50 per page</option>
-                  <option value="100">100 per page</option>
-                </select>
+                  <button
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.max(prev - 1, 1))
+                    }
+                    disabled={currentPage === 1}
+                    className={`p-2 rounded-md ${currentPage === 1 ? "bg-gray-700 text-gray-500" : "bg-gray-700 text-white hover:bg-gray-600"}`}
+                  >
+                    Previous
+                  </button>
+
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      // Show pages around current page
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`w-8 h-8 flex items-center justify-center rounded-md ${currentPage === pageNum ? "bg-primary-600 text-white" : "bg-gray-700 text-white hover:bg-gray-600"}`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+
+                    {totalPages > 5 && currentPage < totalPages - 2 && (
+                      <>
+                        <span className="text-gray-400">...</span>
+                        <button
+                          onClick={() => setCurrentPage(totalPages)}
+                          className="w-8 h-8 flex items-center justify-center rounded-md bg-gray-700 text-white hover:bg-gray-600"
+                        >
+                          {totalPages}
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                    }
+                    disabled={currentPage === totalPages}
+                    className={`p-2 rounded-md ${currentPage === totalPages ? "bg-gray-700 text-gray-500" : "bg-gray-700 text-white hover:bg-gray-600"}`}
+                  >
+                    Next
+                  </button>
+
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className={`w-8 h-8 flex items-center justify-center rounded-md ${currentPage === totalPages ? "bg-gray-700 text-gray-500" : "bg-gray-700 text-white hover:bg-gray-600"}`}
+                    title="Last Page"
+                  >
+                    »
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-400">Items per page:</span>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => {
+                      setItemsPerPage(Number(e.target.value));
+                      setCurrentPage(1); // Reset to first page when changing items per page
+                    }}
+                    className="bg-gray-700 text-white rounded-md p-2"
+                  >
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="200">200</option>
+                  </select>
+                </div>
               </div>
             )}
           </div>
