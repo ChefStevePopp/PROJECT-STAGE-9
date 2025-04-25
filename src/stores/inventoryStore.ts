@@ -418,7 +418,7 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
           master_ingredient_id: masterIngredientId,
           quantity: quantity,
           unit_cost: unitCost,
-          total_value: totalValue,
+          total_value: totalValue || 0, // Ensure we never send null or undefined
           location: count.location,
           counted_by: user.id,
           notes:
@@ -476,10 +476,7 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
             : parseFloat(String(updates.quantity) || "0");
 
         dbUpdates.quantity = newQuantity;
-
-        // Recalculate total_value if quantity changes
-        const unitCost = currentCount.unitCost || 0;
-        dbUpdates.total_value = newQuantity * unitCost;
+        // Note: total_value is a generated column and will be calculated by the database
       }
 
       // Handle unit cost updates
@@ -490,16 +487,7 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
             : parseFloat(String(updates.unitCost) || "0");
 
         dbUpdates.unit_cost = newUnitCost;
-
-        // Recalculate total_value if unit cost changes
-        const quantity =
-          updates.quantity !== undefined
-            ? typeof updates.quantity === "number"
-              ? updates.quantity
-              : parseFloat(String(updates.quantity) || "0")
-            : currentCount.quantity;
-
-        dbUpdates.total_value = quantity * newUnitCost;
+        // Note: total_value is a generated column and will be calculated by the database
       }
 
       // Handle other updates
@@ -627,7 +615,7 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
             master_ingredient_id: ingredientMap.get(row["Item ID"]),
             quantity: quantity,
             unit_cost: unitCost,
-            // total_value is a generated column, no need to insert it
+            // total_value is a generated column, do not include it
             location: row["Location"]?.toString() || "Main Storage",
             counted_by: user.id,
             notes: row["Notes"]?.toString() || "",

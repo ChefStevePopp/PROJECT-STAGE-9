@@ -1,4 +1,11 @@
-import React, { useEffect, useState, useCallback, useMemo, memo } from "react";
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  memo,
+  useRef,
+} from "react";
 import { LoadingScreen } from "../../../components/LoadingScreen";
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -19,10 +26,12 @@ import {
   Trash2,
   X,
   CheckCircle,
+  ChevronUp as ArrowUp,
 } from "lucide-react";
 import { Database } from "../../../types/supabase";
 import { useInventoryStore } from "../../../stores/inventoryStore";
 import toast from "react-hot-toast";
+import { debounce } from "lodash";
 
 type InventoryItem = {
   id: string;
@@ -416,27 +425,28 @@ const AddCountModal = memo(({ item, onClose, onSave }) => {
 });
 
 export const UserInventory: React.FC = () => {
+  // State for inventory data
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
-  const [loading, setLoading] = useState(false); // Start with no loading screen
+  const [loading, setLoading] = useState(false);
   const [backgroundLoading, setBackgroundLoading] = useState(true);
+
+  // Search and filter state
   const [searchTerm, setSearchTerm] = useState("");
   const [filterByStorage, setFilterByStorage] = useState<string>("");
   const [filterByVendor, setFilterByVendor] = useState<string>("");
   const [filterByCategory, setFilterByCategory] = useState<string>("");
   const [filterBySubCategory, setFilterBySubCategory] = useState<string>("");
+
+  // UI state
   const [showStats, setShowStats] = useState(false);
-  const [categories, setCategories] = useState<{
-    [majorCategory: string]: {
-      [category: string]: {
-        [subCategory: string]: InventoryItem[];
-      };
-    };
-  }>({});
   const [showCountModal, setShowCountModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [showCountsPanel, setShowCountsPanel] = useState(false);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [showScrollToTop, setShowScrollToTop] = useState(false);
+
+  // Filter options
   const [storageLocations, setStorageLocations] = useState<string[]>([]);
   const [vendors, setVendors] = useState<string[]>([]);
   const [categoryList, setCategoryList] = useState<string[]>([]);
@@ -444,11 +454,27 @@ export const UserInventory: React.FC = () => {
   const [filteredSubCategoryList, setFilteredSubCategoryList] = useState<
     string[]
   >([]);
+
+  // Timestamps
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(50);
-  const [totalPages, setTotalPages] = useState(1);
+
+  // Endless scroll state
+  const [hasMore, setHasMore] = useState(true);
+  const [flattenedItems, setFlattenedItems] = useState([]);
+  const [visibleItems, setVisibleItems] = useState([]);
+  const [itemsPerBatch, setItemsPerBatch] = useState(50);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const observer = useRef(null);
+  const loadingRef = useRef(null);
+
+  // Categorized items for display
+  const [categories, setCategories] = useState<{
+    [majorCategory: string]: {
+      [category: string]: {
+        [subCategory: string]: InventoryItem[];
+      };
+    };
+  }>({});
 
   // Get inventory store
   const {
@@ -467,7 +493,6 @@ export const UserInventory: React.FC = () => {
   // Debug inventory data when it's loaded
   useEffect(() => {
     if (inventoryCounts.length > 0) {
-      // Log sample counts for debugging
       console.log(`Total inventory counts: ${inventoryCounts.length}`);
       if (inventoryCounts.length > 0) {
         console.log("Sample inventory count:", inventoryCounts[0]);
@@ -480,27 +505,38 @@ export const UserInventory: React.FC = () => {
           "Quantity data types in inventory counts:",
           Array.from(quantityTypes),
         );
-
-        // Check some sample quantities
-        console.log(
-          "Sample quantities:",
-          inventoryCounts.slice(0, 5).map((count) => ({
-            id: count.id,
-            quantity: count.quantity,
-            type: typeof count.quantity,
-          })),
-        );
       }
     }
   }, [inventoryCounts]);
 
-  // Initial data loading - start immediately with no loading screen
+  // Show/hide scroll-to-top button based on scroll position
   useEffect(() => {
-    // Start loading data immediately
+    const handleScroll = debounce(() => {
+      setShowScrollToTop(window.scrollY > 500);
+    }, 100);
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Initial data loading
+  useEffect(() => {
     fetchCounts();
     fetchInventoryItems();
-    // Reset to first page when filters change
-    setCurrentPage(1);
+  }, []);
+
+  // Reset filters when needed
+  useEffect(() => {
+    // Reset to first batch when filters change
+    if (
+      searchTerm ||
+      filterByStorage ||
+      filterByVendor ||
+      filterByCategory ||
+      filterBySubCategory
+    ) {
+      fetchInventoryItems();
+    }
   }, [
     searchTerm,
     filterByStorage,
@@ -509,19 +545,179 @@ export const UserInventory: React.FC = () => {
     filterBySubCategory,
   ]);
 
-  // Initial data loading
+  // Update subcategory list when category filter changes
   useEffect(() => {
-    fetchCounts();
-    fetchInventoryItems();
-  }, []);
+    if (!filterByCategory) {
+      // If no category is selected, show all subcategories
+      setFilteredSubCategoryList(subCategoryList);
+    } else {
+      // Filter subcategories based on selected category
+      const filteredSubcategories: string[] = [];
 
+      Object.entries(categories).forEach(([majorCategory, categoryObj]) => {
+        if (categoryObj[filterByCategory]) {
+          Object.keys(categoryObj[filterByCategory]).forEach((subCategory) => {
+            if (!filteredSubcategories.includes(subCategory)) {
+              filteredSubcategories.push(subCategory);
+            }
+          });
+        }
+      });
+
+      setFilteredSubCategoryList(filteredSubcategories);
+
+      // If current subcategory is not in the filtered list, reset it
+      if (
+        filterBySubCategory &&
+        !filteredSubcategories.includes(filterBySubCategory)
+      ) {
+        setFilterBySubCategory("");
+      }
+    }
+  }, [filterByCategory, categories, subCategoryList, filterBySubCategory]);
+
+  // Process and flatten the filtered categories for endless scrolling
+  useEffect(() => {
+    if (Object.keys(categories).length === 0) {
+      setFlattenedItems([]);
+      setVisibleItems([]);
+      setHasMore(false);
+      return;
+    }
+
+    // Apply filters to the categories
+    const filteredCategories = filterCategories(categories);
+
+    // Flatten the filtered categories into a single array
+    const flattened = [];
+
+    Object.entries(filteredCategories).forEach(
+      ([majorCategory, categoryObj]) => {
+        Object.entries(categoryObj).forEach(([category, subCategoryObj]) => {
+          Object.entries(subCategoryObj).forEach(([subCategory, items]) => {
+            items.forEach((item) => {
+              flattened.push({
+                item,
+                majorCategory,
+                category,
+                subCategory,
+              });
+            });
+          });
+        });
+      },
+    );
+
+    console.log(`Flattened ${flattened.length} items for endless scrolling`);
+    setFlattenedItems(flattened);
+
+    // Initialize visible items with the first batch
+    setVisibleItems(flattened.slice(0, itemsPerBatch));
+    setHasMore(flattened.length > itemsPerBatch);
+  }, [
+    categories,
+    searchTerm,
+    filterByStorage,
+    filterByVendor,
+    filterByCategory,
+    filterBySubCategory,
+    itemsPerBatch,
+  ]);
+
+  // Filter categories based on search and filter criteria
+  const filterCategories = (categoriesData) => {
+    if (
+      !searchTerm &&
+      !filterByStorage &&
+      !filterByVendor &&
+      !filterByCategory &&
+      !filterBySubCategory
+    ) {
+      return categoriesData;
+    }
+
+    const filtered = {};
+
+    Object.entries(categoriesData).forEach(([majorCategory, categoryObj]) => {
+      Object.entries(categoryObj).forEach(([category, subCategoryObj]) => {
+        Object.entries(subCategoryObj).forEach(([subCategory, items]) => {
+          const filteredItems = items.filter((item) => {
+            // Apply search term filter
+            const matchesSearch =
+              !searchTerm ||
+              item.name.toLowerCase().includes(searchTerm.toLowerCase());
+
+            // Apply storage location filter
+            const matchesStorage =
+              !filterByStorage || item.storage_area === filterByStorage;
+
+            // Apply vendor filter
+            const matchesVendor =
+              !filterByVendor || item.vendor === filterByVendor;
+
+            // Apply category filter
+            const matchesCategory =
+              !filterByCategory || category === filterByCategory;
+
+            // Apply subcategory filter
+            const matchesSubCategory =
+              !filterBySubCategory || subCategory === filterBySubCategory;
+
+            return (
+              matchesSearch &&
+              matchesStorage &&
+              matchesVendor &&
+              matchesCategory &&
+              matchesSubCategory
+            );
+          });
+
+          if (filteredItems.length > 0) {
+            if (!filtered[majorCategory]) filtered[majorCategory] = {};
+            if (!filtered[majorCategory][category])
+              filtered[majorCategory][category] = {};
+            filtered[majorCategory][category][subCategory] = filteredItems;
+          }
+        });
+      });
+    });
+
+    return filtered;
+  };
+
+  // Fetch inventory items from Supabase
   const fetchInventoryItems = async () => {
     try {
-      // Fetch master ingredients with joined category information
-      const { data, error } = await supabase
+      setBackgroundLoading(true);
+
+      // Build query with filters
+      let query = supabase
         .from("master_ingredients_with_categories")
         .select("*")
         .order("product", { ascending: true });
+
+      // Apply filters if they exist
+      if (searchTerm) {
+        query = query.ilike("product", `%${searchTerm}%`);
+      }
+
+      if (filterByStorage) {
+        query = query.eq("storage_area", filterByStorage);
+      }
+
+      if (filterByVendor) {
+        query = query.eq("vendor", filterByVendor);
+      }
+
+      if (filterByCategory) {
+        query = query.eq("category_name", filterByCategory);
+      }
+
+      if (filterBySubCategory) {
+        query = query.eq("sub_category_name", filterBySubCategory);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -675,6 +871,7 @@ export const UserInventory: React.FC = () => {
 
                 // Background loading is complete
                 setBackgroundLoading(false);
+                setLastRefreshTime(new Date());
                 return;
               }
 
@@ -737,6 +934,7 @@ export const UserInventory: React.FC = () => {
           } else {
             // Only one chunk, so we're already done
             setBackgroundLoading(false);
+            setLastRefreshTime(new Date());
 
             // Extract filter data
             const storageLocations = Array.from(
@@ -764,11 +962,13 @@ export const UserInventory: React.FC = () => {
         } else {
           // No data
           setBackgroundLoading(false);
+          setLastRefreshTime(new Date());
         }
       }
     } catch (error) {
       console.error("Error fetching inventory items:", error);
       setBackgroundLoading(false);
+      toast.error("Failed to load inventory items");
     }
   };
 
@@ -824,103 +1024,6 @@ export const UserInventory: React.FC = () => {
 
     setCategories(categorized);
   }, []);
-
-  // Update subcategory list when category filter changes
-  useEffect(() => {
-    if (!filterByCategory) {
-      // If no category is selected, show all subcategories
-      setFilteredSubCategoryList(subCategoryList);
-    } else {
-      // Filter subcategories based on selected category
-      const filteredSubcategories: string[] = [];
-
-      Object.entries(categories).forEach(([majorCategory, categoryObj]) => {
-        if (categoryObj[filterByCategory]) {
-          Object.keys(categoryObj[filterByCategory]).forEach((subCategory) => {
-            if (!filteredSubcategories.includes(subCategory)) {
-              filteredSubcategories.push(subCategory);
-            }
-          });
-        }
-      });
-
-      setFilteredSubCategoryList(filteredSubcategories);
-
-      // If current subcategory is not in the filtered list, reset it
-      if (
-        filterBySubCategory &&
-        !filteredSubcategories.includes(filterBySubCategory)
-      ) {
-        setFilterBySubCategory("");
-      }
-    }
-  }, [filterByCategory, categories, subCategoryList, filterBySubCategory]);
-
-  const filteredCategories = useMemo(() => {
-    if (
-      !searchTerm &&
-      !filterByStorage &&
-      !filterByVendor &&
-      !filterByCategory &&
-      !filterBySubCategory
-    )
-      return categories;
-
-    const filtered: typeof categories = {};
-
-    Object.entries(categories).forEach(([majorCategory, categoryObj]) => {
-      Object.entries(categoryObj).forEach(([category, subCategoryObj]) => {
-        Object.entries(subCategoryObj).forEach(([subCategory, items]) => {
-          const filteredItems = items.filter((item) => {
-            // Apply search term filter
-            const matchesSearch =
-              !searchTerm ||
-              item.name.toLowerCase().includes(searchTerm.toLowerCase());
-
-            // Apply storage location filter
-            const matchesStorage =
-              !filterByStorage || item.storage_area === filterByStorage;
-
-            // Apply vendor filter
-            const matchesVendor =
-              !filterByVendor || item.vendor === filterByVendor;
-
-            // Apply category filter
-            const matchesCategory =
-              !filterByCategory || category === filterByCategory;
-
-            // Apply subcategory filter
-            const matchesSubCategory =
-              !filterBySubCategory || subCategory === filterBySubCategory;
-
-            return (
-              matchesSearch &&
-              matchesStorage &&
-              matchesVendor &&
-              matchesCategory &&
-              matchesSubCategory
-            );
-          });
-
-          if (filteredItems.length > 0) {
-            if (!filtered[majorCategory]) filtered[majorCategory] = {};
-            if (!filtered[majorCategory][category])
-              filtered[majorCategory][category] = {};
-            filtered[majorCategory][category][subCategory] = filteredItems;
-          }
-        });
-      });
-    });
-
-    return filtered;
-  }, [
-    categories,
-    searchTerm,
-    filterByStorage,
-    filterByVendor,
-    filterByCategory,
-    filterBySubCategory,
-  ]);
 
   // Get counts for the current inventory
   const currentCounts = useMemo(
@@ -999,13 +1102,6 @@ export const UserInventory: React.FC = () => {
     }, 0);
   }, [inventoryCounts]);
 
-  // Update total pages when items per page changes
-  useEffect(() => {
-    if (inventoryItems.length > 0) {
-      setTotalPages(Math.ceil(inventoryItems.length / itemsPerPage));
-    }
-  }, [itemsPerPage, inventoryItems.length]);
-
   // Calculate pending inventory value
   const pendingInventoryValue = useMemo(() => {
     return inventoryCounts
@@ -1068,6 +1164,85 @@ export const UserInventory: React.FC = () => {
     return sortedCategories;
   }, [inventoryItems]);
 
+  // Intersection observer for endless scrolling
+  const lastItemRef = useCallback(
+    (node) => {
+      if (backgroundLoading || !node) return;
+
+      if (observer.current) observer.current.disconnect();
+
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasMore) {
+          console.log("Reached bottom, loading more items");
+          loadMoreItems();
+        }
+      });
+
+      observer.current.observe(node);
+    },
+    [backgroundLoading, hasMore],
+  );
+
+  // Function to load more items
+  const loadMoreItems = useCallback(() => {
+    if (!hasMore || loadingMore) return;
+
+    setLoadingMore(true);
+
+    setTimeout(() => {
+      const currentSize = visibleItems.length;
+      const nextBatchSize = Math.min(
+        itemsPerBatch,
+        flattenedItems.length - currentSize,
+      );
+
+      if (nextBatchSize <= 0) {
+        setHasMore(false);
+        setLoadingMore(false);
+        return;
+      }
+
+      console.log(`Loading next batch of ${nextBatchSize} items`);
+      const nextBatch = flattenedItems.slice(
+        currentSize,
+        currentSize + nextBatchSize,
+      );
+
+      setVisibleItems((prev) => [...prev, ...nextBatch]);
+      setHasMore(currentSize + nextBatchSize < flattenedItems.length);
+      setLoadingMore(false);
+    }, 300); // Small delay to show loading indicator
+  }, [
+    flattenedItems,
+    hasMore,
+    itemsPerBatch,
+    visibleItems.length,
+    loadingMore,
+  ]);
+
+  // Group visible items by their categories for rendering
+  const groupedVisibleItems = useMemo(() => {
+    const grouped = {};
+
+    visibleItems.forEach(({ item, majorCategory, category, subCategory }) => {
+      if (!grouped[majorCategory]) {
+        grouped[majorCategory] = {};
+      }
+
+      if (!grouped[majorCategory][category]) {
+        grouped[majorCategory][category] = {};
+      }
+
+      if (!grouped[majorCategory][category][subCategory]) {
+        grouped[majorCategory][category][subCategory] = [];
+      }
+
+      grouped[majorCategory][category][subCategory].push(item);
+    });
+
+    return grouped;
+  }, [visibleItems]);
+
   // Handle adding a new count
   const handleAddCount = useCallback(
     (updatedItem) => {
@@ -1092,9 +1267,7 @@ export const UserInventory: React.FC = () => {
         master_ingredient_id: updatedItem.id,
         quantity: updatedItem.quantity || 0,
         unitCost: updatedItem.inventory_unit_cost || updatedItem.unit_cost || 0,
-        totalValue:
-          (updatedItem.quantity || 0) *
-          (updatedItem.inventory_unit_cost || updatedItem.unit_cost || 0),
+        // Remove totalValue as it's calculated by the database
         location: updatedItem.storage_area || "Main Storage",
         notes: `Count added from inventory card on ${new Date().toLocaleDateString()}`,
         status: "pending",
@@ -1134,6 +1307,116 @@ export const UserInventory: React.FC = () => {
     backgroundLoading,
     isBackgroundLoading,
   ]);
+
+  // Scroll to top function
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // Render function for endless scroll items
+  const renderEndlessScrollItems = () => {
+    if (visibleItems.length === 0) {
+      return (
+        <div className="card p-8 text-center">
+          <h3 className="text-lg font-medium text-white mb-2">
+            {backgroundLoading
+              ? "Loading inventory items..."
+              : searchTerm ||
+                  filterByStorage ||
+                  filterByVendor ||
+                  filterByCategory ||
+                  filterBySubCategory
+                ? "No matching items found"
+                : "No inventory items available"}
+          </h3>
+          <p className="text-gray-400">
+            {backgroundLoading
+              ? "You can use the filters above while data loads"
+              : searchTerm ||
+                  filterByStorage ||
+                  filterByVendor ||
+                  filterByCategory ||
+                  filterBySubCategory
+                ? "Try adjusting your filter criteria"
+                : "Add items to your inventory to see them here"}
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-12">
+        {Object.entries(groupedVisibleItems).map(
+          ([majorCategory, categoryObj], majorIndex) => (
+            <div key={majorCategory} className="mb-8">
+              <CategoryHeader title={majorCategory} colorIndex={majorIndex} />
+
+              <div className="space-y-8">
+                {Object.entries(categoryObj).map(
+                  ([category, subCategoryObj], categoryIndex) => (
+                    <div key={category} className="mb-6">
+                      <SubcategoryHeader
+                        title={category}
+                        colorIndex={categoryIndex}
+                      />
+
+                      <div className="space-y-6">
+                        {Object.entries(subCategoryObj).map(
+                          ([subCategory, items], subCategoryIndex) => (
+                            <div key={subCategory} className="mb-4">
+                              <h4 className="text-md font-medium text-gray-300 mb-3">
+                                {subCategory}
+                              </h4>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                {items.map((item, itemIndex) => {
+                                  // Check if this is the very last visible item
+                                  const isLastVisibleItem =
+                                    majorIndex ===
+                                      Object.keys(groupedVisibleItems).length -
+                                        1 &&
+                                    categoryIndex ===
+                                      Object.keys(categoryObj).length - 1 &&
+                                    subCategoryIndex ===
+                                      Object.keys(subCategoryObj).length - 1 &&
+                                    itemIndex === items.length - 1;
+
+                                  return (
+                                    <div
+                                      key={item.id}
+                                      ref={
+                                        isLastVisibleItem ? lastItemRef : null
+                                      }
+                                    >
+                                      <InventoryItemCard
+                                        item={item}
+                                        onAddCount={handleAddCount}
+                                        inventoryCounts={inventoryCounts}
+                                      />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    </div>
+                  ),
+                )}
+              </div>
+            </div>
+          ),
+        )}
+
+        {/* Loading indicator at the bottom */}
+        {hasMore && (
+          <div ref={loadingRef} className="flex justify-center my-8 py-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-500"></div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="p-6 min-h-screen bg-gray-900">
@@ -1542,6 +1825,27 @@ export const UserInventory: React.FC = () => {
                   ))}
                 </select>
               </div>
+              <div className="flex-1">
+                <label className="text-sm text-gray-400 block mb-2">
+                  Items Per Batch
+                </label>
+                <select
+                  className="input w-full"
+                  value={itemsPerBatch}
+                  onChange={(e) => {
+                    const newBatchSize = Number(e.target.value);
+                    setItemsPerBatch(newBatchSize);
+                    // Reset visible items to just the first batch with the new size
+                    setVisibleItems(flattenedItems.slice(0, newBatchSize));
+                    setHasMore(flattenedItems.length > newBatchSize);
+                  }}
+                >
+                  <option value="25">25 items</option>
+                  <option value="50">50 items</option>
+                  <option value="100">100 items</option>
+                  <option value="200">200 items</option>
+                </select>
+              </div>
               <button
                 className="btn-ghost-red"
                 onClick={() => {
@@ -1549,6 +1853,7 @@ export const UserInventory: React.FC = () => {
                   setFilterByVendor("");
                   setFilterByCategory("");
                   setFilterBySubCategory("");
+                  setSearchTerm("");
                 }}
               >
                 Clear All Filters
@@ -1634,7 +1939,7 @@ export const UserInventory: React.FC = () => {
             message="Loading inventory items..."
           />
         ) : (
-          <div className="space-y-12">
+          <>
             {/* Small, non-intrusive loading indicator */}
             {/* Show loading indicator for both background data fetching states */}
             {(backgroundLoading || isBackgroundLoading) &&
@@ -1656,194 +1961,47 @@ export const UserInventory: React.FC = () => {
               </div>
             )}
 
-            {/* Last updated time moved to header */}
+            {/* Render items with endless scrolling */}
+            {renderEndlessScrollItems()}
 
-            {Object.entries(filteredCategories).map(
-              ([majorCategory, categoryObj], majorIndex) => (
-                <div key={majorCategory} className="mb-8">
-                  <CategoryHeader
-                    title={majorCategory}
-                    colorIndex={majorIndex}
-                  />
-
-                  <div className="space-y-8">
-                    {Object.entries(categoryObj).map(
-                      ([category, subCategoryObj], categoryIndex) => (
-                        <div key={category} className="mb-6">
-                          <SubcategoryHeader
-                            title={category}
-                            colorIndex={categoryIndex}
-                          />
-
-                          <div className="space-y-6">
-                            {Object.entries(subCategoryObj).map(
-                              ([subCategory, items], subCategoryIndex) => (
-                                <div key={subCategory} className="mb-4">
-                                  <h4 className="text-md font-medium text-gray-300 mb-3">
-                                    {subCategory}
-                                  </h4>
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                                    {items.map((item) => {
-                                      return (
-                                        <InventoryItemCard
-                                          key={item.id}
-                                          item={item}
-                                          onAddCount={handleAddCount}
-                                          inventoryCounts={inventoryCounts}
-                                        />
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              ),
-                            )}
-                          </div>
-                        </div>
-                      ),
-                    )}
-                  </div>
-                </div>
-              ),
-            )}
-
-            {Object.keys(filteredCategories).length === 0 && (
-              <div className="card p-8 text-center">
-                <h3 className="text-lg font-medium text-white mb-2">
-                  {backgroundLoading
-                    ? "Loading inventory items..."
-                    : searchTerm ||
-                        filterByStorage ||
-                        filterByVendor ||
-                        filterByCategory ||
-                        filterBySubCategory
-                      ? "No matching items found"
-                      : "No inventory items available"}
-                </h3>
-                <p className="text-gray-400">
-                  {backgroundLoading
-                    ? "You can use the filters above while data loads"
-                    : searchTerm ||
-                        filterByStorage ||
-                        filterByVendor ||
-                        filterByCategory ||
-                        filterBySubCategory
-                      ? "Try adjusting your filter criteria"
-                      : "Add items to your inventory to see them here"}
-                </p>
+            {/* Load More button for explicit loading */}
+            {hasMore && visibleItems.length > 0 && (
+              <div className="flex justify-center my-8">
+                <button
+                  onClick={loadMoreItems}
+                  className="btn-primary px-6 py-2"
+                  disabled={loadingMore || backgroundLoading}
+                >
+                  {loadingMore || backgroundLoading ? (
+                    <span className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                      Loading...
+                    </span>
+                  ) : (
+                    "Load More Items"
+                  )}
+                </button>
               </div>
             )}
-
-            {/* Pagination Controls */}
-            {totalPages > 1 && (
-              <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-8 pb-12 bg-gray-800 p-4 rounded-lg">
-                <div className="text-gray-300 text-sm">
-                  Showing page {currentPage} of {totalPages}
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setCurrentPage(1)}
-                    disabled={currentPage === 1}
-                    className={`w-8 h-8 flex items-center justify-center rounded-md ${currentPage === 1 ? "bg-gray-700 text-gray-500" : "bg-gray-700 text-white hover:bg-gray-600"}`}
-                    title="First Page"
-                  >
-                    «
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      setCurrentPage((prev) => Math.max(prev - 1, 1))
-                    }
-                    disabled={currentPage === 1}
-                    className={`p-2 rounded-md ${currentPage === 1 ? "bg-gray-700 text-gray-500" : "bg-gray-700 text-white hover:bg-gray-600"}`}
-                  >
-                    Previous
-                  </button>
-
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      // Show pages around current page
-                      let pageNum;
-                      if (totalPages <= 5) {
-                        pageNum = i + 1;
-                      } else if (currentPage <= 3) {
-                        pageNum = i + 1;
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i;
-                      } else {
-                        pageNum = currentPage - 2 + i;
-                      }
-
-                      return (
-                        <button
-                          key={pageNum}
-                          onClick={() => setCurrentPage(pageNum)}
-                          className={`w-8 h-8 flex items-center justify-center rounded-md ${currentPage === pageNum ? "bg-primary-600 text-white" : "bg-gray-700 text-white hover:bg-gray-600"}`}
-                        >
-                          {pageNum}
-                        </button>
-                      );
-                    })}
-
-                    {totalPages > 5 && currentPage < totalPages - 2 && (
-                      <>
-                        <span className="text-gray-400">...</span>
-                        <button
-                          onClick={() => setCurrentPage(totalPages)}
-                          className="w-8 h-8 flex items-center justify-center rounded-md bg-gray-700 text-white hover:bg-gray-600"
-                        >
-                          {totalPages}
-                        </button>
-                      </>
-                    )}
-                  </div>
-
-                  <button
-                    onClick={() =>
-                      setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-                    }
-                    disabled={currentPage === totalPages}
-                    className={`p-2 rounded-md ${currentPage === totalPages ? "bg-gray-700 text-gray-500" : "bg-gray-700 text-white hover:bg-gray-600"}`}
-                  >
-                    Next
-                  </button>
-
-                  <button
-                    onClick={() => setCurrentPage(totalPages)}
-                    disabled={currentPage === totalPages}
-                    className={`w-8 h-8 flex items-center justify-center rounded-md ${currentPage === totalPages ? "bg-gray-700 text-gray-500" : "bg-gray-700 text-white hover:bg-gray-600"}`}
-                    title="Last Page"
-                  >
-                    »
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-400">Items per page:</span>
-                  <select
-                    value={itemsPerPage}
-                    onChange={(e) => {
-                      setItemsPerPage(Number(e.target.value));
-                      setCurrentPage(1); // Reset to first page when changing items per page
-                    }}
-                    className="bg-gray-700 text-white rounded-md p-2"
-                  >
-                    <option value="25">25</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                    <option value="200">200</option>
-                  </select>
-                </div>
-              </div>
-            )}
-          </div>
+          </>
         )}
 
         {/* Last updated time at bottom left */}
         {lastFetched && (
-          <div className="fixed bottom-4 left-4 text-xs text-gray-400 bg-gray-800/70 px-3 py-1.5 rounded-md shadow-md z-10">
+          <div className="fixed bottom-4 right-4 text-xs text-gray-400 bg-gray-800/70 px-3 py-1.5 rounded-md shadow-md z-10">
             Last updated: {new Date(lastFetched).toLocaleTimeString()}
           </div>
+        )}
+
+        {/* Scroll to top button */}
+        {showScrollToTop && (
+          <button
+            onClick={scrollToTop}
+            className="fixed bottom-16 right-4 bg-primary-500 text-white p-3 rounded-full shadow-lg z-20 hover:bg-primary-600 transition-colors"
+            aria-label="Scroll to top"
+          >
+            <ArrowUp size={20} />
+          </button>
         )}
       </div>
 

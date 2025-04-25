@@ -13,6 +13,7 @@ export const InventoryItemCard = memo(
     const [quantity, setQuantity] = useState(item.quantity || 0);
     const [isUpdating, setIsUpdating] = useState(false);
     const [debugMode, setDebugMode] = useState(false);
+    const [isCountsExpanded, setIsCountsExpanded] = useState(false);
 
     const itemColor =
       COLOR_PALETTE[
@@ -114,6 +115,16 @@ export const InventoryItemCard = memo(
         }, 0);
     }, [itemCounts]);
 
+    // Calculate total quantity from all counts
+    const totalQuantity = useMemo(() => {
+      return itemCounts
+        .reduce((total, count) => {
+          const countQuantity = parseFloat(count.quantity?.toString() || "0");
+          return total + (isNaN(countQuantity) ? 0 : countQuantity);
+        }, 0)
+        .toFixed(2);
+    }, [itemCounts]);
+
     // Handle quantity change and save
     const handleQuantityChange = useCallback(
       (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,7 +147,7 @@ export const InventoryItemCard = memo(
         masterIngredientId: item.id, // Include both formats for compatibility
         quantity: quantity,
         unitCost: item.unit_cost || item.inventory_unit_cost || 0,
-        // Note: totalValue is a generated column in the database, no need to set it here
+        // totalValue is a generated column in the database, do not include it
         location: item.storage_area || "Main Storage",
         notes: `Count added on ${new Date().toLocaleDateString()}`,
         status: "pending",
@@ -154,20 +165,18 @@ export const InventoryItemCard = memo(
       setDebugMode((prev) => !prev);
     }, []);
 
+    // Toggle counts expanded state
+    const toggleCountsExpanded = useCallback(() => {
+      setIsCountsExpanded((prev) => !prev);
+    }, []);
+
     return (
       <div className="card overflow-hidden hover:bg-gray-800/80 transition-all duration-200">
         {/* Total Quantity Badge */}
         {itemCounts.length > 0 && (
-          <div className="absolute top-2 right-2 z-10 bg-blue-600/90 text-white px-2 py-1 rounded-md text-sm font-medium shadow-lg">
-            {itemCounts
-              .reduce((total, count) => {
-                const countQuantity = parseFloat(
-                  count.quantity?.toString() || "0",
-                );
-                return total + (isNaN(countQuantity) ? 0 : countQuantity);
-              }, 0)
-              .toFixed(2)}{" "}
-            {item.unit || "units"}
+          <div className="absolute top-0 left-0 right-0 z-10 bg-gray-800/90 text-center text-gray-300 px-3 py-1 text-sm font-medium shadow-lg w-full">
+            {totalQuantity} {item.unit || "units"}
+            <span className="text-sm text-gray-300"> Counted</span>
           </div>
         )}
         <div className="aspect-square bg-gray-800 relative">
@@ -268,15 +277,9 @@ export const InventoryItemCard = memo(
 
           {/* Status and Tags */}
           <div className="flex flex-wrap gap-2">
-            {/* Pending Quantity Badge */}
-            {pendingQuantity > 0 && (
-              <div className="inline-block px-2 py-1 rounded-md text-xs font-medium bg-green-500/20 text-green-400">
-                {pendingQuantity.toFixed(2)} {item.unit || "units"} counted
-              </div>
-            )}
             {item.status && (
               <div
-                className={`inline-block px-2 py-1 rounded-md text-xs font-medium capitalize
+                className={`inline-block px-2 py-1 rounded-md text-xs capitalize
               ${
                 item.status === "completed"
                   ? "bg-green-500/20 text-green-400"
@@ -289,173 +292,187 @@ export const InventoryItemCard = memo(
               </div>
             )}
             {item.storage_area && (
-              <div className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full">
+              <div className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded-full">
                 {item.storage_area}
               </div>
             )}
             {item.vendor && (
-              <div className="text-xs bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full">
+              <div className="text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded-full">
                 {item.vendor}
               </div>
             )}
-            {/* Debug mode toggle button */}
-            <button
-              onClick={toggleDebugMode}
-              className="text-xs bg-gray-600/50 text-gray-300 px-2 py-0.5 rounded-full ml-auto"
-            >
-              {debugMode ? "Hide Debug" : "Debug"}
-            </button>
           </div>
 
-          {/* All Counts List */}
+          {/* All Counts Expandable Section */}
           <div className="mt-3 border-t border-gray-700 pt-2">
-            <div className="flex justify-between items-center mb-2">
-              <h6 className="text-sm font-medium text-white">All Counts</h6>
-              <span className="text-xs text-gray-400">
-                {itemCounts.length} total
-              </span>
-            </div>
-
-            {/* Debug information */}
-            {debugMode && (
-              <div className="text-xs text-gray-500 mb-2 p-2 bg-gray-900 rounded">
-                <div>Item ID: {item.id}</div>
-                <div>Item ID Type: {typeof item.id}</div>
-                <div>Matching Counts: {itemCounts.length}</div>
-                <div>Pending Counts: {pendingCounts}</div>
-                <div>Total Pending Quantity: {pendingQuantity.toFixed(2)}</div>
-                <div>Available Counts: {inventoryCounts.length}</div>
-              </div>
-            )}
-
-            {/* Show ALL counts that match this item's master_ingredient_id */}
-            {itemCounts.length > 0 ? (
-              itemCounts
-                .sort((a, b) => {
-                  // Sort by date, newest first
-                  const dateA = new Date(a.count_date || a.created_at || 0);
-                  const dateB = new Date(b.count_date || b.created_at || 0);
-                  return dateB.getTime() - dateA.getTime();
-                })
-                .map((count, index) => {
-                  // Parse quantity to ensure it's displayed as a number
-                  const displayQuantity = parseFloat(
-                    count.quantity?.toString() || "0",
-                  );
-
-                  return (
-                    <div
-                      key={count.id || index}
-                      className="text-xs mb-2 p-2 bg-gray-800 rounded border border-gray-700"
-                    >
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-300 font-medium">
-                          {isNaN(displayQuantity)
-                            ? 0
-                            : displayQuantity.toFixed(2)}{" "}
-                          {item.unit || "units"}
-                        </span>
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-xs capitalize ${
-                            count.status === "completed"
-                              ? "bg-green-500/20 text-green-400"
-                              : count.status === "verified"
-                                ? "bg-blue-500/20 text-blue-400"
-                                : "bg-amber-500/20 text-amber-400"
-                          }`}
-                        >
-                          {count.status || "pending"}
-                        </span>
-                      </div>
-
-                      <div className="mt-1 text-gray-400">
-                        Location:{" "}
-                        <span className="text-gray-300">
-                          {count.location || "Main Storage"}
-                        </span>
-                      </div>
-
-                      <div className="flex justify-between mt-1">
-                        <span className="text-gray-500">
-                          Date:{" "}
-                          {new Date(
-                            count.count_date || count.created_at || Date.now(),
-                          ).toLocaleDateString()}
-                        </span>
-                        {count.id && (
-                          <span className="text-gray-500 font-mono truncate">
-                            ID: {(count.id.toString() || "").substring(0, 8)}...
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Additional debug info when debug mode is on */}
-                      {debugMode && (
-                        <>
-                          <div className="text-gray-500 text-xs mt-1">
-                            Unit Cost: $
-                            {parseFloat(
-                              count.unitCost || count.unit_cost || 0,
-                            ).toFixed(2)}
-                          </div>
-                          <div className="text-gray-500 text-xs mt-1">
-                            Total Value: $
-                            {parseFloat(
-                              count.totalValue || count.total_value || 0,
-                            ).toFixed(2)}
-                          </div>
-                          <div className="text-gray-500 text-xs mt-1">
-                            masterIngredientId:{" "}
-                            {count.masterIngredientId
-                              ? count.masterIngredientId.substring(0, 8) + "..."
-                              : "undefined"}
-                          </div>
-                          <div className="text-gray-500 text-xs mt-1">
-                            master_ingredient_id:{" "}
-                            {count.master_ingredient_id
-                              ? count.master_ingredient_id.substring(0, 8) +
-                                "..."
-                              : "undefined"}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  );
-                })
-            ) : (
-              /* No counts message */
-              <div className="text-xs text-gray-500 italic text-center py-1">
-                No counts for this item
-              </div>
-            )}
-
-            {/* Pending counts summary with details */}
-            {pendingCounts > 0 && (
-              <div className="mt-2 text-xs text-amber-400 bg-amber-500/10 p-2 rounded">
-                <div className="font-semibold">
-                  {pendingCounts} pending count{pendingCounts !== 1 ? "s" : ""}{" "}
-                  totaling {pendingQuantity.toFixed(2)} {item.unit || "units"}
+            <div className="expandable-info-section bg-gray-800">
+              <button
+                className="expandable-info-header mb-3"
+                onClick={toggleCountsExpanded}
+                aria-expanded={isCountsExpanded}
+              >
+                <div className="flex-none text-gray-600 mt-0.5">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className={`transition-transform ${isCountsExpanded ? "rotate-90" : ""}`}
+                  >
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                  </svg>
                 </div>
-                <div className="mt-1 text-xs text-gray-300">
-                  <span className="font-semibold">Pending Counts:</span>
-                  <div className="mt-1 break-all">
-                    {itemCounts
-                      .filter((c) => c.status === "pending")
-                      .map((c, i) => (
-                        <div
-                          key={i}
-                          className="border-t border-gray-700 pt-1 mt-1 first:border-0 first:pt-0 first:mt-0"
-                        >
-                          {c.id ? c.id.substring(0, 8) : "Unknown"} -{" "}
-                          {parseFloat(c.quantity || 0).toFixed(2)}{" "}
-                          {item.unit || "units"} (
-                          {c.location || "Unknown location"})
-                        </div>
-                      ))}
+                <div className="flex-1">
+                  <div className="flex justify-between items-center">
+                    <h6 className="text-sm font-medium text-white">
+                      Count History
+                    </h6>
+                    <span className="text-xs text-gray-400">
+                      {itemCounts.length} total
+                    </span>
                   </div>
+                  {pendingCounts > 0 && <></>}
                 </div>
-              </div>
-            )}
+              </button>
+
+              {isCountsExpanded && (
+                <div className="expandable-info-content bg-gray-800">
+                  {/* Debug information */}
+                  {debugMode && (
+                    <div className="text-xs text-gray-500 mb-2 p-2 bg-gray-900 rounded">
+                      <div>Item ID: {item.id}</div>
+                      <div>Item ID Type: {typeof item.id}</div>
+                      <div>Matching Counts: {itemCounts.length}</div>
+                      <div>Pending Counts: {pendingCounts}</div>
+                      <div>
+                        Total Pending Quantity: {pendingQuantity.toFixed(2)}
+                      </div>
+                      <div>Available Counts: {inventoryCounts.length}</div>
+                    </div>
+                  )}
+
+                  {/* Show ALL counts that match this item's master_ingredient_id */}
+                  {itemCounts.length > 0 ? (
+                    itemCounts
+                      .sort((a, b) => {
+                        // Sort by date, newest first
+                        const dateA = new Date(
+                          a.count_date || a.created_at || 0,
+                        );
+                        const dateB = new Date(
+                          b.count_date || b.created_at || 0,
+                        );
+                        return dateB.getTime() - dateA.getTime();
+                      })
+                      .map((count, index) => {
+                        // Parse quantity to ensure it's displayed as a number
+                        const displayQuantity = parseFloat(
+                          count.quantity?.toString() || "0",
+                        );
+
+                        return (
+                          <div
+                            key={count.id || index}
+                            className="text-xs mb-2 p-2 bg-gray-800 rounded border border-gray-700"
+                          >
+                            <div className="flex justify-between items-center">
+                              <span className="text-gray-300 font-medium">
+                                {isNaN(displayQuantity)
+                                  ? 0
+                                  : displayQuantity.toFixed(2)}{" "}
+                                {item.unit || "units"}
+                              </span>
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-xs capitalize ${
+                                  count.status === "completed"
+                                    ? "bg-green-500/20 text-green-400"
+                                    : count.status === "verified"
+                                      ? "bg-blue-500/20 text-blue-400"
+                                      : "bg-amber-500/20 text-amber-400"
+                                }`}
+                              >
+                                {count.status || "pending"}
+                              </span>
+                            </div>
+                            <div className="mt-1 text-gray-400">
+                              Location:{" "}
+                              <span className="text-gray-300">
+                                {count.location || "Main Storage"}
+                              </span>
+                            </div>
+                            <div className="flex flex-col mt-1">
+                              <div className="text-gray-500">
+                                Time:{" "}
+                                {new Date(
+                                  count.count_date ||
+                                    count.created_at ||
+                                    Date.now(),
+                                ).toLocaleTimeString()}{" "}
+                                on{" "}
+                                {new Date(
+                                  count.count_date ||
+                                    count.created_at ||
+                                    Date.now(),
+                                ).toLocaleDateString()}
+                              </div>
+                              {count.id && (
+                                <div className="text-gray-500 font-mono truncate">
+                                  ID:{" "}
+                                  {(count.id.toString() || "").substring(0, 8)}
+                                  ...
+                                </div>
+                              )}
+                            </div>
+                            {/* Additional debug info when debug mode is on */}
+                            {debugMode && (
+                              <>
+                                <div className="text-gray-500 text-xs mt-1">
+                                  Unit Cost: $
+                                  {parseFloat(
+                                    count.unitCost || count.unit_cost || 0,
+                                  ).toFixed(2)}
+                                </div>
+                                <div className="text-gray-500 text-xs mt-1">
+                                  Total Value: $
+                                  {parseFloat(
+                                    count.totalValue || count.total_value || 0,
+                                  ).toFixed(2)}
+                                </div>
+                                <div className="text-gray-500 text-xs mt-1">
+                                  masterIngredientId:{" "}
+                                  {count.masterIngredientId
+                                    ? count.masterIngredientId.substring(0, 8) +
+                                      "..."
+                                    : "undefined"}
+                                </div>
+                                <div className="text-gray-500 text-xs mt-1">
+                                  master_ingredient_id:{" "}
+                                  {count.master_ingredient_id
+                                    ? count.master_ingredient_id.substring(
+                                        0,
+                                        8,
+                                      ) + "..."
+                                    : "undefined"}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })
+                  ) : (
+                    /* No counts message */
+                    <div className="text-xs text-gray-500 italic text-center py-1">
+                      No counts for this item
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
