@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo, memo } from "react";
 import "./styles.css";
 import { COLOR_PALETTE } from "./constants";
+import { Plus, Minus, Edit, Save, Trash2, X } from "lucide-react";
 
 interface InventoryItemProps {
   item: any;
@@ -141,20 +142,13 @@ export const InventoryItemCard = memo(
 
       setIsUpdating(true);
 
-      // Create a count object and save it
-      const countData = {
-        master_ingredient_id: item.id,
-        masterIngredientId: item.id, // Include both formats for compatibility
-        quantity: quantity,
-        unitCost: item.unit_cost || item.inventory_unit_cost || 0,
-        // totalValue is a generated column in the database, do not include it
-        location: item.storage_area || "Main Storage",
-        notes: `Count added on ${new Date().toLocaleDateString()}`,
-        status: "pending",
-      };
-
       // Call the onAddCount function with the updated item
-      onAddCount({ ...item, quantity: quantity });
+      onAddCount({
+        ...item,
+        quantity: quantity,
+        master_ingredient_id: item.id,
+        masterIngredientId: item.id,
+      });
 
       // Reset updating state after a short delay
       setTimeout(() => setIsUpdating(false), 300);
@@ -168,6 +162,33 @@ export const InventoryItemCard = memo(
     // Toggle counts expanded state
     const toggleCountsExpanded = useCallback(() => {
       setIsCountsExpanded((prev) => !prev);
+    }, []);
+
+    // Handle input focus - clear the field if value is 0
+    const handleInputFocus = useCallback(() => {
+      if (quantity === 0) {
+        setQuantity(0);
+        // Use empty string for display but keep state as 0
+        const input = document.activeElement as HTMLInputElement;
+        if (input) input.value = "";
+      }
+    }, [quantity]);
+
+    // Handle input blur - restore 0 if field is empty and trigger save
+    const handleInputBlur = useCallback(
+      (e: React.FocusEvent<HTMLInputElement>) => {
+        if (e.target.value === "") {
+          setQuantity(0);
+        }
+        // Don't automatically save on blur anymore
+        // This was removed to use explicit save button instead
+      },
+      [],
+    );
+
+    // Reset quantity to 0
+    const handleResetQuantity = useCallback(() => {
+      setQuantity(0);
     }, []);
 
     return (
@@ -238,16 +259,35 @@ export const InventoryItemCard = memo(
           <div className="mb-3">
             <label className="text-sm text-gray-400 block mb-1">Count:</label>
             <div className="flex items-center gap-2">
-              <input
-                type="number"
-                value={quantity}
-                onChange={handleQuantityChange}
-                onBlur={handleSaveChanges}
-                className="input w-full text-white"
-                min="0"
-                step="0.01"
-                inputMode="decimal"
-              />
+              <div className="relative flex-1">
+                <input
+                  type="number"
+                  value={quantity}
+                  onChange={handleQuantityChange}
+                  onFocus={handleInputFocus}
+                  onBlur={handleInputBlur}
+                  className="input w-full text-white pr-16"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                />
+                <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-1">
+                  <button
+                    onClick={handleSaveChanges}
+                    className="p-1 bg-green-500/20 hover:bg-green-500/40 rounded-md transition-colors"
+                    title="Save count"
+                  >
+                    <Plus size={16} className="text-green-400" />
+                  </button>
+                  <button
+                    onClick={handleResetQuantity}
+                    className="p-1 bg-rose-500/20 hover:bg-rose-500/40 rounded-md transition-colors"
+                    title="Reset count"
+                  >
+                    <X size={16} className="text-rose-400" />
+                  </button>
+                </div>
+              </div>
               <span className="text-gray-400 whitespace-nowrap">
                 {item.unit || "units"}
               </span>
