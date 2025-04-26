@@ -525,17 +525,40 @@ export const UserInventory: React.FC = () => {
     fetchInventoryItems();
   }, []);
 
-  // Reset filters when needed
+  // Apply filters client-side when filter criteria change
   useEffect(() => {
-    // Reset to first batch when filters change
-    if (
-      searchTerm ||
-      filterByStorage ||
-      filterByVendor ||
-      filterByCategory ||
-      filterBySubCategory
-    ) {
-      fetchInventoryItems();
+    // Don't refetch from server, just apply filters to existing data
+    if (inventoryItems.length > 0) {
+      // Apply filters to existing data
+      const filteredCategories = filterCategories(categories);
+
+      // Flatten the filtered categories
+      const flattened = [];
+      Object.entries(filteredCategories).forEach(
+        ([majorCategory, categoryObj]) => {
+          Object.entries(categoryObj).forEach(([category, subCategoryObj]) => {
+            Object.entries(subCategoryObj).forEach(([subCategory, items]) => {
+              items.forEach((item) => {
+                flattened.push({
+                  item,
+                  majorCategory,
+                  category,
+                  subCategory,
+                });
+              });
+            });
+          });
+        },
+      );
+
+      console.log(
+        `Filtered to ${flattened.length} items based on current criteria`,
+      );
+      setFlattenedItems(flattened);
+
+      // Reset to first batch of items
+      setVisibleItems(flattened.slice(0, itemsPerBatch));
+      setHasMore(flattened.length > itemsPerBatch);
     }
   }, [
     searchTerm,
@@ -543,6 +566,9 @@ export const UserInventory: React.FC = () => {
     filterByVendor,
     filterByCategory,
     filterBySubCategory,
+    categories,
+    inventoryItems,
+    itemsPerBatch,
   ]);
 
   // Update subcategory list when category filter changes
