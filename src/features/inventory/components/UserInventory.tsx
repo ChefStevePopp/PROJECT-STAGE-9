@@ -1633,10 +1633,12 @@ export const UserInventory: React.FC = () => {
               {/* Stats Toggle Button - Desktop Only */}
               <button
                 onClick={() => setShowStats(!showStats)}
-                className={`p-1.5 rounded-lg ${showStats ? "bg-purple-500/30 text-purple-300 border border-purple-500/50" : "bg-gray-800/50 text-gray-400 border border-gray-700"} flex items-center gap-1.5`}
+                className={`p-1.5 rounded-lg ${showStats ? "bg-gray-500/30 text-gray-300 border border-gray-500/50" : "bg-gray-800/50 text-gray-400 border border-gray-700"} flex items-center gap-1.5`}
               >
                 <PieChart className="w-5 h-5" />
-                <span>{showStats ? "Hide" : "Show"} Stats</span>
+                <span className="text-xs">
+                  {showStats ? "Hide" : "Show"} Stats
+                </span>
               </button>
             </div>
           </div>

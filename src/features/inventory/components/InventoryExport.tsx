@@ -215,10 +215,10 @@ export const InventoryExport: React.FC<InventoryExportProps> = ({
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1">
       <button
         onClick={handlePrint}
-        className="flex items-center gap-1 p-2 rounded-lg bg-gray-800/50 text-gray-400 border border-gray-700 hover:bg-gray-800/50 hover:border hover:border-gray-300/40 transition-colors"
+        className="flex items-center gap-1 p-1.5 rounded-lg bg-gray-800/50 text-gray-400 border border-gray-700 hover:bg-gray-800/50 hover:border hover:border-gray-300/40 transition-colors"
         title="Print Inventory Form"
       >
         <Printer className="w-5 h-5" />
@@ -226,7 +226,7 @@ export const InventoryExport: React.FC<InventoryExportProps> = ({
 
       <button
         onClick={handleExportBlank}
-        className="flex items-center gap-1 p-2 rounded-lg bg-gray-800/50 text-gray-400 border border-gray-700 hover:bg-gray-800/50 hover:border hover:border-gray-300/40 transition-colors"
+        className="flex items-center gap-1 p-1.5 rounded-lg bg-gray-800/50 text-gray-400 border border-gray-700 hover:bg-gray-800/50 hover:border hover:border-gray-300/40 transition-colors"
         title="Export Blank Inventory"
       >
         <FileDown className="w-5 h-5" />
@@ -234,7 +234,7 @@ export const InventoryExport: React.FC<InventoryExportProps> = ({
 
       <button
         onClick={handleExportWithCounts}
-        className="flex items-center gap-1 p-2 rounded-lg bg-gray-800/50 text-gray-400 border border-gray-700 hover:bg-gray-800/50 hover:border hover:border-gray-300/40 transition-colors"
+        className="flex items-center gap-1 p-1.5 rounded-lg bg-gray-800/50 text-gray-400 border border-gray-700 hover:bg-gray-800/50 hover:border hover:border-gray-300/40 transition-colors"
         title="Export Inventory with Current Counts"
       >
         <BookDown className="w-5 h-5" />
