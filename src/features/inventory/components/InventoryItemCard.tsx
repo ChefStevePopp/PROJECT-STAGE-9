@@ -67,26 +67,38 @@ export const InventoryItemCard = memo(
           : null;
 
         // Check if either ID matches the item's ID
-        return (
+        const isMatch =
           (normalizedCountId === normalizedItemId ||
             normalizedAltId === normalizedItemId) &&
           // Ensure this is an actual inventory count record, not just a master ingredient
-          count.quantity !== undefined
-        );
+          count.quantity !== undefined;
+
+        return isMatch;
       });
 
-      if (debugMode) {
-        console.log(
-          `[${item.name}] (ID: ${normalizedItemId}) has ${matchingCounts.length} matching counts`,
-        );
-        if (matchingCounts.length > 0) {
-          console.log(`First matching count:`, {
-            countId: matchingCounts[0]?.id,
-            master_ingredient_id: matchingCounts[0]?.master_ingredient_id,
-            masterIngredientId: matchingCounts[0]?.masterIngredientId,
-            quantity: matchingCounts[0]?.quantity,
-          });
-        }
+      // Always log count matching info to help debug issues
+      console.log(
+        `[${item.name}] (ID: ${normalizedItemId}) has ${matchingCounts.length} matching counts out of ${inventoryCounts.length} total counts`,
+      );
+      if (matchingCounts.length > 0) {
+        console.log(`First matching count:`, {
+          countId: matchingCounts[0]?.id,
+          master_ingredient_id: matchingCounts[0]?.master_ingredient_id,
+          masterIngredientId: matchingCounts[0]?.masterIngredientId,
+          quantity: matchingCounts[0]?.quantity,
+          itemId: item.id,
+          itemIdType: typeof item.id,
+        });
+      } else if (inventoryCounts.length > 0) {
+        // Log a sample of the first inventory count to help debug
+        console.log(`Sample inventory count (no match):`, {
+          countId: inventoryCounts[0]?.id,
+          master_ingredient_id: inventoryCounts[0]?.master_ingredient_id,
+          masterIngredientId: inventoryCounts[0]?.masterIngredientId,
+          quantity: inventoryCounts[0]?.quantity,
+          itemId: item.id,
+          itemIdType: typeof item.id,
+        });
       }
 
       return matchingCounts;
@@ -149,6 +161,14 @@ export const InventoryItemCard = memo(
         master_ingredient_id: item.id,
         masterIngredientId: item.id,
       });
+
+      // Reset quantity to 0 and clear the input field
+      setQuantity(0);
+      // Clear the input field to show the placeholder
+      const input = document.querySelector(
+        'input[type="number"]',
+      ) as HTMLInputElement;
+      if (input) input.value = "";
 
       // Reset updating state after a short delay
       setTimeout(() => setIsUpdating(false), 300);

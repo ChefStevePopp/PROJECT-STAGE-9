@@ -410,6 +410,31 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
           : parseFloat(String(count.unitCost) || "0");
       const totalValue = quantity * unitCost;
 
+      console.log("Adding inventory count with data:", {
+        masterIngredientId,
+        quantity,
+        unitCost,
+        totalValue,
+        location: count.location,
+        status: count.status || "pending",
+      });
+
+      // First, fetch existing counts for this ingredient to calculate the correct total
+      const { data: existingCounts, error: fetchError } = await supabase
+        .from("inventory_counts")
+        .select("*")
+        .eq("master_ingredient_id", masterIngredientId)
+        .eq("organization_id", organizationId);
+
+      if (fetchError) {
+        console.warn("Error fetching existing counts:", fetchError);
+        // Continue with the insert even if we couldn't fetch existing counts
+      } else {
+        console.log(
+          `Found ${existingCounts?.length || 0} existing counts for this ingredient`,
+        );
+      }
+
       // Insert into inventory_counts table
       const { data: newCount, error: insertError } = await supabase
         .from("inventory_counts")
@@ -435,8 +460,34 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
         );
       }
 
-      // Refresh the inventory items
-      await get().fetchItems();
+      console.log("Successfully added inventory count:", newCount);
+
+      // Get the current master ingredient data from the store
+      const currentItems = get().items;
+
+      // Format the new count
+      const newCountFormatted = {
+        id: newCount.id,
+        masterIngredientId: masterIngredientId,
+        master_ingredient_id: masterIngredientId,
+        quantity: quantity,
+        unitCost: unitCost,
+        totalValue: totalValue,
+        location: count.location || "Main Storage",
+        countedBy: user.id,
+        notes:
+          count.notes || `Count added on ${new Date().toLocaleDateString()}`,
+        status: count.status || "pending",
+        lastUpdated: newCount.updated_at,
+        created_at: newCount.created_at,
+        updated_at: newCount.updated_at,
+        count_date: newCount.count_date,
+        ingredient: count.ingredient, // Preserve ingredient info if available
+      };
+
+      // Instead of just adding the new count, do a full refresh to get all counts
+      // This ensures we have the complete and accurate data
+      await get().fetchItems(true); // Force refresh to get the latest data including the new count
       toast.success("Inventory count added successfully");
     } catch (error) {
       console.error("Error adding count:", error);

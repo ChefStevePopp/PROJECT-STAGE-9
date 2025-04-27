@@ -1290,9 +1290,13 @@ export const UserInventory: React.FC = () => {
         return;
       }
 
+      // Ensure the ID is properly formatted
+      const masterIngredientId = String(updatedItem.id).trim();
+
       // Create a count object with the updated quantity
       const countData = {
-        master_ingredient_id: updatedItem.id,
+        master_ingredient_id: masterIngredientId,
+        masterIngredientId: masterIngredientId, // Include both formats to ensure compatibility
         quantity: updatedItem.quantity || 0,
         unitCost: updatedItem.inventory_unit_cost || updatedItem.unit_cost || 0,
         // Remove totalValue as it's calculated by the database
