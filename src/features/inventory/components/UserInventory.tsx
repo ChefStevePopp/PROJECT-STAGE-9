@@ -11,6 +11,7 @@ import { createClient } from "@supabase/supabase-js";
 import {
   Image,
   Search,
+  Tally5,
   Package,
   Info,
   PieChart,
@@ -78,6 +79,7 @@ const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
 
 // Import the standalone InventoryItemCard component
 import { InventoryItemCard } from "./InventoryItemCard";
+import { InventoryExport } from "./InventoryExport";
 
 // Count Entry Component
 const CountEntryItem = memo(
@@ -265,13 +267,13 @@ const CategoryHeader = memo(
     const color = COLOR_PALETTE[colorIndex % COLOR_PALETTE.length];
 
     return (
-      <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-700/30">
+      <div className="flex items-center gap-2 mb-4 p-2 rounded-lg bg-gray-800/30 border border-gray-700/30">
         <div
           className={`w-10 h-10 rounded-xl ${color.bg} flex items-center justify-center`}
         >
           <Package className={`w-5 h-5 ${color.text}`} />
         </div>
-        <h2 className="text-xl font-semibold text-white">{title}</h2>
+        <h2 className="text-xl font-semibold text-gray-300/40">{title}</h2>
       </div>
     );
   },
@@ -1448,8 +1450,8 @@ export const UserInventory: React.FC = () => {
     <div className="p-6 min-h-screen bg-gray-900">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col p-3 gap-4 mb-4 sticky top-0 rounded-lg z-10 bg-gray-900 shadow-lg">
-          <div className="flex flex-col md:flex-row md:justify-between md:items-center">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center p-2 bg-gray-800/30 rounded-lg border border-gray-700/30">
+            <div className="flex flex-col items-center gap-3">
               <h1 className="text-xl sm:text-3xl font-bold text-white">
                 Kitchen Inventory
               </h1>
@@ -1462,6 +1464,16 @@ export const UserInventory: React.FC = () => {
 
             {/* Desktop Header */}
             <div className="hidden md:flex items-center gap-3 w-auto">
+              {/* Inventory Export Buttons */}
+              <InventoryExport
+                inventoryItems={inventoryItems}
+                currentCounts={currentCounts}
+                filterByCategory={filterByCategory}
+                filterBySubCategory={filterBySubCategory}
+                filterByStorage={filterByStorage}
+                filterByVendor={filterByVendor}
+                searchTerm={searchTerm}
+              />
               <div className="relative w-64">
                 <Search
                   className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
@@ -1607,20 +1619,23 @@ export const UserInventory: React.FC = () => {
               {/* Toggle Counts Panel Button */}
               <button
                 onClick={() => setShowCountsPanel(!showCountsPanel)}
-                className={`btn ${showCountsPanel ? "btn-primary" : "btn-outline-primary"}`}
+                className={`p-1.5 rounded-lg ${showCountsPanel ? "bg-gray-500/30 text-gray-300 border border-gray-500/50" : "bg-gray-800/50 text-gray-400 border border-gray-700"} flex items-center gap-1.5`}
               >
-                {showCountsPanel ? "Hide Counts" : "Show Counts"}
-                <span className="ml-2 text-white text-xs px-2 py-0.5 rounded-full bg-blue-600">
+                <Tally5 className="w-5 h-5" />
+                <span className="text-xs">
+                  {showCountsPanel ? "Hide" : "Show"} Counts
+                </span>
+                <span className="text-amber-300 text-xs px-2 py-0.5 rounded-full bg-amber-600/30 border border-amber-600/50">
                   {currentCounts.length}
                 </span>
               </button>
 
               {/* Stats Toggle Button - Desktop Only */}
               <button
-                className="flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors"
                 onClick={() => setShowStats(!showStats)}
+                className={`p-1.5 rounded-lg ${showStats ? "bg-purple-500/30 text-purple-300 border border-purple-500/50" : "bg-gray-800/50 text-gray-400 border border-gray-700"} flex items-center gap-1.5`}
               >
-                <Info className="w-5 h-5" />
+                <PieChart className="w-5 h-5" />
                 <span>{showStats ? "Hide" : "Show"} Stats</span>
               </button>
             </div>
