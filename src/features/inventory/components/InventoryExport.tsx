@@ -210,8 +210,62 @@ export const InventoryExport: React.FC<InventoryExportProps> = ({
 
   // Export inventory with current counts
   const handleExportWithCounts = () => {
-    // This will be implemented in the next phase
-    console.log("Export inventory with current counts");
+    // Filter items based on current filters
+    const filteredItems = inventoryItems.filter((item) => {
+      const matchesSearch =
+        !searchTerm ||
+        item.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStorage =
+        !filterByStorage || item.storage_area === filterByStorage;
+      const matchesVendor = !filterByVendor || item.vendor === filterByVendor;
+      const matchesCategory =
+        !filterByCategory || item.category === filterByCategory;
+      const matchesSubCategory =
+        !filterBySubCategory || item.sub_category === filterBySubCategory;
+
+      return (
+        matchesSearch &&
+        matchesStorage &&
+        matchesVendor &&
+        matchesCategory &&
+        matchesSubCategory
+      );
+    });
+
+    // Create a map of item_id to count for quick lookup
+    const countMap = new Map();
+    currentCounts.forEach((count) => {
+      countMap.set(count.item_id, count);
+    });
+
+    // Create worksheet data
+    const worksheetData = filteredItems.map((item) => {
+      const count = countMap.get(item.id);
+      return {
+        Item: item.name,
+        Unit: item.unit || "",
+        "Storage Location": item.storage_area || "",
+        Category: item.category || "Uncategorized",
+        "Sub-Category": item.sub_category || "General",
+        Count: count ? count.quantity : "",
+        Notes: count ? count.notes || "" : "",
+      };
+    });
+
+    // Create worksheet
+    const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+
+    // Create workbook
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Inventory Count");
+
+    // Generate filename in snake_case
+    const date = new Date();
+    const dateStr = date.toISOString().split("T")[0]; // YYYY-MM-DD
+    const fileName = `inventory_count_with_data_${dateStr}.xlsx`;
+
+    // Export to file
+    XLSX.writeFile(workbook, fileName);
   };
 
   return (
