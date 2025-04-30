@@ -262,7 +262,10 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
   useEffect(() => {
     const uniqueRoles = members
       .flatMap((member) => member.roles || [])
-      .filter((role, index, self) => self.indexOf(role) === index)
+      .filter(
+        (role, index, self) =>
+          self.indexOf(role) === index && typeof role === "string",
+      )
       .sort();
 
     const filtered = uniqueRoles.filter((role) =>

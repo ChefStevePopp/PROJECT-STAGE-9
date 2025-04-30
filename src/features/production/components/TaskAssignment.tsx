@@ -65,10 +65,22 @@ export const TaskAssignment: React.FC<TaskAssignmentProps> = ({
       // Update local task state after successful API call
       task.assignment_type = "station";
       task.assignee_station = stationName; // Use assignee_station for the assigned station
-      task.kitchen_station = stationName; // Update kitchen_station for consistency
-      task.station = stationName; // Keep station updated for backward compatibility
+      task.kitchen_station = stationName; // Update kitchen_station for the reassigned station
+      // Don't update task.station as it should remain the original default from prep_list_templates
       task.assignee_id = null;
       task.lottery = false;
+
+      // Update the database directly to ensure kitchen_station is updated
+      await supabase
+        .from("prep_list_template_tasks")
+        .update({
+          kitchen_station: stationName,
+          assignee_station: stationName,
+          assignment_type: "station",
+          assignee_id: null,
+          lottery: false,
+        })
+        .eq("id", task.id);
 
       // Visual feedback
       const taskElement = document.querySelector(`[data-task-id="${task.id}"]`);
@@ -111,8 +123,20 @@ export const TaskAssignment: React.FC<TaskAssignmentProps> = ({
       task.assignee_id = memberId;
       task.kitchen_station = null;
       task.assignee_station = null;
-      task.station = null;
+      // Don't modify task.station as it should remain the original default from prep_list_templates
       task.lottery = false;
+
+      // Update the database directly to ensure fields are updated
+      await supabase
+        .from("prep_list_template_tasks")
+        .update({
+          assignment_type: "direct",
+          assignee_id: memberId,
+          kitchen_station: null,
+          assignee_station: null,
+          lottery: false,
+        })
+        .eq("id", task.id);
 
       // Visual feedback
       const taskElement = document.querySelector(`[data-task-id="${task.id}"]`);
@@ -155,7 +179,19 @@ export const TaskAssignment: React.FC<TaskAssignmentProps> = ({
       task.assignee_id = null;
       task.kitchen_station = null;
       task.assignee_station = null;
-      task.station = null;
+      // Don't modify task.station as it should remain the original default from prep_list_templates
+
+      // Update the database directly to ensure fields are updated
+      await supabase
+        .from("prep_list_template_tasks")
+        .update({
+          assignment_type: "lottery",
+          lottery: true,
+          assignee_id: null,
+          kitchen_station: null,
+          assignee_station: null,
+        })
+        .eq("id", task.id);
 
       // Visual feedback
       const taskElement = document.querySelector(`[data-task-id="${task.id}"]`);

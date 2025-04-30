@@ -364,8 +364,8 @@ export const AssignmentStatus: React.FC<AssignmentStatusProps> = ({
             <div className="flex items-center gap-2 text-white bg-blue-500/20 p-2 rounded-lg border border-blue-500/50 shadow-sm">
               <MapPin className="w-4 h-4 text-blue-400" />
               <span className="font-medium truncate">
-                {task.assignee_station ||
-                  task.kitchen_station ||
+                {task.kitchen_station ||
+                  task.assignee_station ||
                   task.station ||
                   ""}
               </span>
