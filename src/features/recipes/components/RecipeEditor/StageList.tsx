@@ -165,13 +165,29 @@ export const StageList: React.FC<StageListProps> = ({ recipe, onChange }) => {
     const stage = updatedStages[index];
     if (stage.id && recipe.id) {
       try {
-        await supabase
+        // Create a clean update object without any circular references
+        const updateData = {};
+
+        // Only include primitive values and safe objects
+        if (updates.name !== undefined) updateData.name = updates.name;
+        if (updates.is_prep_list_task !== undefined)
+          updateData.is_prep_list_task = updates.is_prep_list_task;
+        if (updates.sort_order !== undefined)
+          updateData.sort_order = updates.sort_order;
+        if (updates.total_time !== undefined)
+          updateData.total_time = updates.total_time;
+        if (updates.color !== undefined) updateData.color = updates.color;
+        if (updates.description !== undefined)
+          updateData.description = updates.description;
+
+        const { error } = await supabase
           .from("recipe_stages")
-          .update({
-            ...updates,
-            recipe_id: recipe.id,
-          })
+          .update(updateData)
           .eq("id", stage.id);
+
+        if (error) {
+          console.error("Error updating stage in database:", error);
+        }
       } catch (error) {
         console.error("Failed to update stage in database:", error);
       }
@@ -195,7 +211,7 @@ export const StageList: React.FC<StageListProps> = ({ recipe, onChange }) => {
     // Add the new stage to the database if recipe has an ID
     if (recipe.id) {
       try {
-        await supabase.from("recipe_stages").insert({
+        const { error } = await supabase.from("recipe_stages").insert({
           id: newStage.id,
           name: newStage.name,
           is_prep_list_task: newStage.is_prep_list_task,
@@ -203,6 +219,10 @@ export const StageList: React.FC<StageListProps> = ({ recipe, onChange }) => {
           total_time: 0,
           recipe_id: recipe.id,
         });
+
+        if (error) {
+          console.error("Error adding stage to database:", error);
+        }
       } catch (error) {
         console.error("Failed to add stage to database:", error);
       }
@@ -231,13 +251,24 @@ export const StageList: React.FC<StageListProps> = ({ recipe, onChange }) => {
     if (recipe.id && stageId) {
       try {
         // First update any steps that reference this stage
-        await supabase
+        const { error: stepError } = await supabase
           .from("recipe_steps")
           .update({ stage_id: null })
           .eq("stage_id", stageId);
 
+        if (stepError) {
+          console.error("Error updating steps:", stepError);
+        }
+
         // Then delete the stage
-        await supabase.from("recipe_stages").delete().eq("id", stageId);
+        const { error: deleteError } = await supabase
+          .from("recipe_stages")
+          .delete()
+          .eq("id", stageId);
+
+        if (deleteError) {
+          console.error("Error deleting stage:", deleteError);
+        }
       } catch (error) {
         console.error("Failed to remove stage from database:", error);
       }
@@ -270,12 +301,15 @@ export const StageList: React.FC<StageListProps> = ({ recipe, onChange }) => {
             // Update each stage in the database with its new sort_order and total_time
             const updates = updatedStages.map((stage) => {
               if (stage.id) {
+                // Create a clean update object with only the necessary fields
                 return supabase
                   .from("recipe_stages")
                   .update({
                     sort_order: stage.sort_order,
-                    total_time: stage.total_time || 0,
-                    recipe_id: recipe.id,
+                    total_time:
+                      typeof stage.total_time === "number"
+                        ? stage.total_time
+                        : 0,
                   })
                   .eq("id", stage.id);
               }

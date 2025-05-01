@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Book,
   Plus,
@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Save,
 } from "lucide-react";
+import { supabase } from "@/config/supabase";
 // Removed DnD imports
 import { arrayMove } from "@dnd-kit/sortable";
 import type { Recipe, RecipeStep, RecipeStage } from "../../types/recipe";
@@ -126,85 +127,90 @@ export const InstructionEditor: React.FC<InstructionEditorProps> = ({
 
   const { stepsWithoutStage, stepsByStage } = getStepsByStage();
 
-  // Calculate total time for each stage
-  useEffect(() => {
+  // Function to calculate total time for each stage
+  const calculateStageTotalTimes = useCallback(() => {
     if (
-      recipe.stages &&
-      recipe.stages.length > 0 &&
-      recipe.steps &&
-      recipe.steps.length > 0
+      !recipe.stages ||
+      recipe.stages.length === 0 ||
+      !recipe.steps ||
+      recipe.steps.length === 0
     ) {
-      const stageTotalTimes = {};
-
-      // Initialize total times to 0
-      recipe.stages.forEach((stage) => {
-        stageTotalTimes[stage.id] = 0;
-      });
-
-      // Calculate total time for each stage
-      recipe.steps.forEach((step) => {
-        if (step.stage_id && step.time_in_minutes) {
-          stageTotalTimes[step.stage_id] =
-            (stageTotalTimes[step.stage_id] || 0) + step.time_in_minutes;
-        }
-      });
-
-      // Check if any total times need to be updated
-      let hasChanges = false;
-      const updatedStages = recipe.stages.map((stage) => {
-        if (stageTotalTimes[stage.id] !== stage.total_time) {
-          hasChanges = true;
-          return { ...stage, total_time: stageTotalTimes[stage.id] };
-        }
-        return stage;
-      });
-
-      // Only update if there are changes
-      if (hasChanges) {
-        onChange({ stages: updatedStages });
-      }
+      return {};
     }
+
+    const stageTotalTimes = {};
+
+    // Initialize total times to 0
+    recipe.stages.forEach((stage) => {
+      stageTotalTimes[stage.id] = 0;
+    });
+
+    // Calculate total time for each stage
+    recipe.steps.forEach((step) => {
+      if (step.stage_id && step.time_in_minutes) {
+        // Ensure time_in_minutes is treated as a number
+        const stepTime =
+          typeof step.time_in_minutes === "number"
+            ? step.time_in_minutes
+            : parseInt(step.time_in_minutes as any, 10) || 0;
+        stageTotalTimes[step.stage_id] =
+          (stageTotalTimes[step.stage_id] || 0) + stepTime;
+      }
+    });
+
+    return stageTotalTimes;
   }, [recipe.steps, recipe.stages]);
 
-  // Calculate total time for each stage
+  // Calculate and update total time for each stage
   useEffect(() => {
-    if (
-      recipe.stages &&
-      recipe.stages.length > 0 &&
-      recipe.steps &&
-      recipe.steps.length > 0
-    ) {
-      const stageTotalTimes = {};
+    const stageTotalTimes = calculateStageTotalTimes();
 
-      // Initialize total times to 0
-      recipe.stages.forEach((stage) => {
-        stageTotalTimes[stage.id] = 0;
-      });
+    // Check if any total times need to be updated
+    let hasChanges = false;
+    const updatedStages = (recipe.stages || []).map((stage) => {
+      if (stageTotalTimes[stage.id] !== stage.total_time) {
+        hasChanges = true;
+        return { ...stage, total_time: stageTotalTimes[stage.id] || 0 };
+      }
+      return stage;
+    });
 
-      // Calculate total time for each stage
-      recipe.steps.forEach((step) => {
-        if (step.stage_id && step.time_in_minutes) {
-          stageTotalTimes[step.stage_id] =
-            (stageTotalTimes[step.stage_id] || 0) + step.time_in_minutes;
-        }
-      });
+    // Only update if there are changes
+    if (hasChanges) {
+      onChange({ stages: updatedStages });
 
-      // Check if any total times need to be updated
-      let hasChanges = false;
-      const updatedStages = recipe.stages.map((stage) => {
-        if (stageTotalTimes[stage.id] !== stage.total_time) {
-          hasChanges = true;
-          return { ...stage, total_time: stageTotalTimes[stage.id] };
-        }
-        return stage;
-      });
+      // Update stages in the database if recipe has an ID
+      if (recipe.id) {
+        updatedStages.forEach(async (stage) => {
+          if (stage.id) {
+            try {
+              const { error } = await supabase
+                .from("recipe_stages")
+                .update({
+                  total_time: stage.total_time || 0,
+                })
+                .eq("id", stage.id);
 
-      // Only update if there are changes
-      if (hasChanges) {
-        onChange({ stages: updatedStages });
+              if (error) {
+                console.error("Error updating stage total time:", error);
+                toast.error(`Failed to update stage time: ${error.message}`);
+              } else {
+                console.log(
+                  `Successfully updated stage ${stage.id} total time to ${stage.total_time}`,
+                );
+              }
+            } catch (error) {
+              console.error(
+                "Failed to update stage total time in database:",
+                error,
+              );
+              toast.error("Failed to update stage time");
+            }
+          }
+        });
       }
     }
-  }, [recipe.steps, recipe.stages]);
+  }, [recipe.steps, recipe.stages, calculateStageTotalTimes, recipe.id]);
 
   // Step slider state
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
