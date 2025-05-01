@@ -5,7 +5,8 @@ export interface Task {
   description?: string;
   due_date: string;
   assignee_id?: string;
-  station?: string;
+  default_station?: string;
+  station?: string; // Deprecated: Use default_station instead - kept for backward compatibility
   kitchen_station_id?: string; // ID of the kitchen station this task is assigned to
   kitchen_station?: string; // Name of the kitchen station this task is assigned to
   priority: "low" | "medium" | "high";

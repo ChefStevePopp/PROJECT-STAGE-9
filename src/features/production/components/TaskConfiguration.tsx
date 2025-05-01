@@ -109,6 +109,9 @@ export const TaskConfiguration: React.FC<TaskConfigurationProps> = ({
         const wasLate = task.isLate;
         const originalDaysLate = task.daysLate;
 
+        // Save current unit of measure to preserve user input
+        const currentUnitOfMeasure = unitOfMeasure;
+
         // Update local task object with fresh data
         task.cases = data.cases || 0;
         task.units = data.units || 0;
@@ -118,13 +121,23 @@ export const TaskConfiguration: React.FC<TaskConfigurationProps> = ({
         task.prep_system = data.prep_system || "as_needed";
         task.due_date = data.due_date || "";
         task.auto_advance = data.auto_advance !== false;
-        task.unit_of_measure =
-          data.unit_of_measure ||
-          masterIngredientData?.unit_of_measure ||
-          "units";
+        task.default_station = data.default_station || "";
+        task.assignee_station = data.assignee_station || "";
+        task.kitchen_station = data.kitchen_station || "";
 
-        // Update the local state for unit of measure
-        setUnitOfMeasure(task.unit_of_measure);
+        // Only update unit_of_measure if prep_unit_measure exists in the database
+        // Otherwise keep the current user input
+        if (data.prep_unit_measure) {
+          task.unit_of_measure = data.prep_unit_measure;
+          setUnitOfMeasure(data.prep_unit_measure);
+        } else {
+          // Keep the current user input if it exists
+          task.unit_of_measure =
+            currentUnitOfMeasure ||
+            data.unit_of_measure ||
+            masterIngredientData?.unit_of_measure ||
+            "units";
+        }
 
         // Preserve late status
         task.isLate = wasLate !== undefined ? wasLate : data.isLate;
@@ -826,8 +839,9 @@ export const TaskConfiguration: React.FC<TaskConfigurationProps> = ({
                                 par_level: task.par_level || 0,
                                 current_level: task.current_level || 0,
                                 assignee_id: task.assignee_id,
-                                kitchen_station: task.kitchen_station,
-                                station: task.station,
+                                default_station: task.default_station,
+                                assignee_station: task.assignee_station,
+
                                 assignment_type: task.assignment_type,
                                 lottery: task.lottery || false,
                                 auto_advance: autoAdvance,
@@ -911,6 +925,83 @@ export const TaskConfiguration: React.FC<TaskConfigurationProps> = ({
                         </span>
                       </div>
                     )}
+                    <div className="flex justify-center mt-3">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Update task in database with current values - same as Confirm & Update Task button
+                          setIsUpdating(true);
+                          supabase
+                            .from("prep_list_template_tasks")
+                            .update({
+                              title: task.title,
+                              description: task.description,
+                              priority: task.priority || "medium",
+                              estimated_time: task.estimated_time || 0,
+                              prep_system:
+                                task.prep_system || "scheduled_production",
+                              amount_required: task.amount_required || 0,
+                              cases: task.cases || 0,
+                              units: task.units || 0,
+                              par_level: task.par_level || 0,
+                              current_level: task.current_level || 0,
+                              assignee_id: task.assignee_id,
+                              default_station: task.default_station,
+                              assignee_station: task.assignee_station,
+
+                              assignment_type: task.assignment_type,
+                              lottery: task.lottery || false,
+                              auto_advance: autoAdvance,
+                              due_date: dueDate || null,
+                              prep_unit_measure: unitOfMeasure, // Use the state value here
+                            })
+                            .eq("id", task.id)
+                            .then(({ error }) => {
+                              setIsUpdating(false);
+                              if (error) {
+                                console.error("Error updating task:", error);
+                                toast.error("Failed to update task");
+                              } else {
+                                console.log("Task scheduled successfully");
+                                setIsUpdated(true);
+                                toast.success(
+                                  `Prep Item Scheduled for ${dueDate || "(no date set)"}`,
+                                );
+                                // Reset the updated flag after 3 seconds
+                                setTimeout(() => setIsUpdated(false), 3000);
+                                // Show visual feedback on the task card
+                                const taskElement = document.querySelector(
+                                  `[data-task-id="${task.id}"]`,
+                                );
+                                if (taskElement) {
+                                  taskElement.classList.add("task-updated");
+                                  setTimeout(
+                                    () =>
+                                      taskElement.classList.remove(
+                                        "task-updated",
+                                      ),
+                                    3000,
+                                  );
+                                }
+                              }
+                            });
+                        }}
+                        disabled={isUpdating}
+                        className={`flex items-center gap-2 text-xs px-4 py-2 rounded transition-colors ${isUpdating ? "bg-gray-500/20 text-gray-400 cursor-not-allowed" : "bg-purple-500/20 text-purple-400 hover:bg-purple-500/30"}`}
+                      >
+                        {isUpdating ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                            Scheduling...
+                          </>
+                        ) : (
+                          <>
+                            <CalendarClock className="w-4 h-4" />
+                            Schedule Task
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -944,8 +1035,8 @@ export const TaskConfiguration: React.FC<TaskConfigurationProps> = ({
       </div>
       {/* Action Buttons */}
       <div className="bg-gray-800/50 p-3 rounded border border-gray-700">
-        <div className="flex justify-between">
-          <div className="flex items-center gap-2">
+        <div className="flex justify-evenly">
+          <div className="flex items-center gap-6">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -985,6 +1076,11 @@ export const TaskConfiguration: React.FC<TaskConfigurationProps> = ({
                     auto_advance: autoAdvance,
                     due_date: dueDate || null,
                     prep_unit_measure: unitOfMeasure, // Use the state value here
+                    default_station: task.default_station,
+                    assignee_station: task.assignee_station,
+                    // kitchen_station field has been removed as it is deprecated
+                    assignment_type: task.assignment_type,
+                    lottery: task.lottery || false,
                   })
                   .eq("id", task.id)
                   .then(({ error }) => {
@@ -1023,7 +1119,7 @@ export const TaskConfiguration: React.FC<TaskConfigurationProps> = ({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                // Update task in database with current values
+                // Update task in database with current values - same as Confirm & Update Task button
                 setIsUpdating(true);
                 supabase
                   .from("prep_list_template_tasks")
@@ -1039,8 +1135,8 @@ export const TaskConfiguration: React.FC<TaskConfigurationProps> = ({
                     par_level: task.par_level || 0,
                     current_level: task.current_level || 0,
                     assignee_id: task.assignee_id,
-                    kitchen_station: task.kitchen_station,
-                    station: task.station,
+                    default_station: task.default_station,
+                    assignee_station: task.assignee_station,
                     assignment_type: task.assignment_type,
                     lottery: task.lottery || false,
                     auto_advance: autoAdvance,

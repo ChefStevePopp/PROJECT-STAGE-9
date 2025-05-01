@@ -87,11 +87,16 @@ export const TaskScheduler: React.FC<TaskSchedulerProps> = ({
   };
 
   // Handle priority change
+  const [localPriority, setLocalPriority] = React.useState<string>(
+    priority || "medium",
+  );
+
   const handlePriorityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     e.stopPropagation();
-    // Update priority in database
     // Update local state first for immediate feedback
     const newPriority = e.target.value;
+    setLocalPriority(newPriority);
+    setIsUpdated(true);
 
     // Then update in database
     supabase
@@ -101,12 +106,12 @@ export const TaskScheduler: React.FC<TaskSchedulerProps> = ({
       .then(() => {
         // Show success message
         console.log(`Updated priority to ${newPriority}`);
-        // Force re-render to update the badge
-        setIsUpdated(true);
         setTimeout(() => setIsUpdated(false), 1000);
       })
       .catch((error) => {
         console.error("Error updating priority:", error);
+        // Revert on error
+        setLocalPriority(priority || "medium");
       });
 
     // Call the callback if provided
@@ -199,28 +204,11 @@ export const TaskScheduler: React.FC<TaskSchedulerProps> = ({
           <CalendarClock className="w-5 h-5 text-emerald-400" />
         </div>
         <span className="text-m text-white pl-1 p-1 font-medium">
-          Prep Summary & Confirmation
+          Prep Task Planning
         </span>
       </div>
 
-      {/* Auto-advance toggle */}
-      <div className="flex items-center justify-between mb-4 bg-gray-700/30 p-2 rounded border border-gray-600">
-        <div className="flex items-center gap-1 text-xs text-gray-300">
-          <CalendarClock className="w-3 h-3 text-blue-400" />
-          <span>Auto-advance to next day if not completed</span>
-        </div>
-        <label className="relative inline-flex items-center cursor-pointer">
-          <input
-            type="checkbox"
-            className="sr-only peer"
-            checked={localAutoAdvance}
-            onChange={handleAutoAdvanceChange}
-          />
-          <div className="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500/50"></div>
-        </label>
-      </div>
-
-      {/* Task Planning Section */}
+      {/* Prep Task Planning Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         {/* Due Date Selector */}
         <div>
@@ -250,15 +238,17 @@ export const TaskScheduler: React.FC<TaskSchedulerProps> = ({
         {/* Priority Selector */}
         <div>
           <label className="text-xs text-gray-400 block mb-1">Priority</label>
-          <select
-            value={priority || "medium"}
-            onChange={handlePriorityChange}
-            className="w-full bg-gray-700/50 border border-gray-600 rounded px-2 py-1 text-white text-xs"
-          >
-            <option value="low">Low Priority</option>
-            <option value="medium">Medium Priority</option>
-            <option value="high">High Priority</option>
-          </select>
+          <div className="relative">
+            <select
+              value={localPriority}
+              onChange={handlePriorityChange}
+              className="w-full bg-gray-700/50 border border-gray-600 rounded px-2 py-1 text-white text-xs"
+            >
+              <option value="low">Low Priority</option>
+              <option value="medium">Medium Priority</option>
+              <option value="high">High Priority</option>
+            </select>
+          </div>
         </div>
 
         {/* Estimated Time Input */}
@@ -275,6 +265,22 @@ export const TaskScheduler: React.FC<TaskSchedulerProps> = ({
             placeholder="Enter time in minutes"
           />
         </div>
+      </div>
+      {/* Auto-advance toggle */}
+      <div className="flex items-center justify-between mb-4 bg-gray-700/30 p-2 rounded border border-gray-600">
+        <div className="flex items-center gap-1 text-xs text-gray-300">
+          <CalendarClock className="w-3 h-3 text-blue-400" />
+          <span>Auto-advance to next day if not completed</span>
+        </div>
+        <label className="relative inline-flex items-center cursor-pointer">
+          <input
+            type="checkbox"
+            className="sr-only peer"
+            checked={localAutoAdvance}
+            onChange={handleAutoAdvanceChange}
+          />
+          <div className="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500/50"></div>
+        </label>
       </div>
     </div>
   );

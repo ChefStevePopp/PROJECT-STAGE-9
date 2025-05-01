@@ -96,7 +96,8 @@ export const AssignmentStatus: React.FC<AssignmentStatusProps> = ({
       task.assignee_id = data.user.id;
       task.kitchen_station = null;
       task.assignee_station = null;
-      task.station = null;
+      task.default_station = null;
+      task.station = null; // Keeping for backward compatibility
       task.lottery = false;
 
       // Log the task acceptance activity
@@ -344,29 +345,35 @@ export const AssignmentStatus: React.FC<AssignmentStatusProps> = ({
 
             {/* Station Assignment - Only show if available */}
             {(task.assignee_station ||
-              task.kitchen_station ||
-              task.station) && (
+              task.default_station ||
+              task.station ||
+              task.kitchen_station) && (
               <div className="flex items-center gap-2 text-white bg-blue-500/20 p-2 rounded-lg border border-blue-500/50 shadow-sm">
                 <MapPin className="w-4 h-4 text-blue-400" />
                 <span className="font-medium truncate">
                   {task.assignee_station ||
-                    task.kitchen_station ||
-                    task.station}
+                    task.default_station ||
+                    task.station ||
+                    task.kitchen_station}
                 </span>
               </div>
             )}
           </div>
         ) : task.assignment_type === "station" ||
           (!task.assignment_type &&
-            (task.assignee_station || task.kitchen_station || task.station)) ? (
+            (task.assignee_station ||
+              task.default_station ||
+              task.station ||
+              task.kitchen_station)) ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
             {/* Station Assignment - Primary Card */}
             <div className="flex items-center gap-2 text-white bg-blue-500/20 p-2 rounded-lg border border-blue-500/50 shadow-sm">
               <MapPin className="w-4 h-4 text-blue-400" />
               <span className="font-medium truncate">
-                {task.kitchen_station ||
-                  task.assignee_station ||
+                {task.assignee_station ||
+                  task.default_station ||
                   task.station ||
+                  task.kitchen_station ||
                   ""}
               </span>
             </div>
@@ -403,22 +410,25 @@ export const AssignmentStatus: React.FC<AssignmentStatusProps> = ({
         {/* Original station info - only show if different from assigned station */}
         {task.assignment_type === "station" &&
         task.assignee_station &&
-        (task.kitchen_station || task.station) &&
-        task.assignee_station !== (task.kitchen_station || task.station) ? (
+        (task.default_station || task.station || task.kitchen_station) &&
+        task.assignee_station !==
+          (task.default_station || task.station || task.kitchen_station) ? (
           <div className="flex items-center gap-2 mt-1 pt-2 border-t border-gray-700/50 text-xs text-gray-400">
             <MapPin className="w-3 h-3 text-gray-500" />
             <span>
-              Original station: {task.kitchen_station || task.station}
+              Original station:{" "}
+              {task.default_station || task.station || task.kitchen_station}
             </span>
           </div>
         ) : !task.assignment_type &&
           !task.assignee_station &&
-          (task.kitchen_station || task.station) ? (
+          (task.default_station || task.kitchen_station || task.station) ? (
           <div className="flex items-center justify-between mt-1 pt-2 border-t border-gray-700/50 text-xs text-gray-400">
             <div className="flex items-center gap-2">
               <MapPin className="w-3 h-3 text-gray-500" />
               <span>
-                Default station: {task.kitchen_station || task.station}
+                Default station:{" "}
+                {task.default_station || task.station || task.kitchen_station}
               </span>
             </div>
             {task.auto_advance !== false && (
@@ -435,7 +445,10 @@ export const AssignmentStatus: React.FC<AssignmentStatusProps> = ({
           task.lottery ||
           (task.assignment_type === "station" && !task.assignee_id) ||
           (!task.assignment_type &&
-            (task.assignee_station || task.kitchen_station || task.station) &&
+            (task.assignee_station ||
+              task.default_station ||
+              task.station ||
+              task.kitchen_station) &&
             !task.assignee_id)) && (
           <div className="mt-2 pt-2 border-t border-gray-700/50">
             <button

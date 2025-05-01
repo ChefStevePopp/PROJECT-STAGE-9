@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Book,
   Plus,
@@ -29,6 +29,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Recipe, RecipeStage } from "../../types/recipe";
+import { supabase } from "@/config/supabase";
 
 interface StageListProps {
   recipe: Recipe;
@@ -103,6 +104,11 @@ const SortableStage: React.FC<{
         ) : (
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-white">{stage.name}</span>
+            {stage.total_time > 0 && (
+              <span className="text-xs text-gray-400 ml-2">
+                {stage.total_time} min
+              </span>
+            )}
             <button
               onClick={() => setIsEditing(true)}
               className="text-blue-400 hover:text-blue-300 transition-colors"
@@ -147,27 +153,63 @@ export const StageList: React.FC<StageListProps> = ({ recipe, onChange }) => {
 
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const handleStageChange = (index: number, updates: Partial<RecipeStage>) => {
+  const handleStageChange = async (
+    index: number,
+    updates: Partial<RecipeStage>,
+  ) => {
     const updatedStages = [...(recipe.stages || [])];
     updatedStages[index] = { ...updatedStages[index], ...updates };
     onChange({ stages: updatedStages });
+
+    // Update the stage in the database if it has an ID
+    const stage = updatedStages[index];
+    if (stage.id && recipe.id) {
+      try {
+        await supabase
+          .from("recipe_stages")
+          .update({
+            ...updates,
+            recipe_id: recipe.id,
+          })
+          .eq("id", stage.id);
+      } catch (error) {
+        console.error("Failed to update stage in database:", error);
+      }
+    }
   };
 
-  const addStage = () => {
+  const addStage = async () => {
     const newStage: RecipeStage = {
       id: `stage-${Date.now()}`,
       name: `Stage ${(recipe.stages || []).length + 1}`,
       is_prep_list_task: false,
       sort_order: (recipe.stages || []).length,
+      total_time: 0,
     };
 
     onChange({
       stages: [...(recipe.stages || []), newStage],
     });
     setIsExpanded(true); // Auto-expand when adding a new stage
+
+    // Add the new stage to the database if recipe has an ID
+    if (recipe.id) {
+      try {
+        await supabase.from("recipe_stages").insert({
+          id: newStage.id,
+          name: newStage.name,
+          is_prep_list_task: newStage.is_prep_list_task,
+          sort_order: newStage.sort_order,
+          total_time: 0,
+          recipe_id: recipe.id,
+        });
+      } catch (error) {
+        console.error("Failed to add stage to database:", error);
+      }
+    }
   };
 
-  const removeStage = (index: number) => {
+  const removeStage = async (index: number) => {
     // Get the stage ID that's being removed
     const stageId = recipe.stages[index].id;
 
@@ -184,9 +226,25 @@ export const StageList: React.FC<StageListProps> = ({ recipe, onChange }) => {
       stages: updatedStages,
       steps: updatedSteps,
     });
+
+    // Remove the stage from the database
+    if (recipe.id && stageId) {
+      try {
+        // First update any steps that reference this stage
+        await supabase
+          .from("recipe_steps")
+          .update({ stage_id: null })
+          .eq("stage_id", stageId);
+
+        // Then delete the stage
+        await supabase.from("recipe_stages").delete().eq("id", stageId);
+      } catch (error) {
+        console.error("Failed to remove stage from database:", error);
+      }
+    }
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
       const oldIndex = recipe.stages?.findIndex(
@@ -205,6 +263,30 @@ export const StageList: React.FC<StageListProps> = ({ recipe, onChange }) => {
         }));
 
         onChange({ stages: updatedStages });
+
+        // Update stages in the database
+        if (recipe.id) {
+          try {
+            // Update each stage in the database with its new sort_order and total_time
+            const updates = updatedStages.map((stage) => {
+              if (stage.id) {
+                return supabase
+                  .from("recipe_stages")
+                  .update({
+                    sort_order: stage.sort_order,
+                    total_time: stage.total_time || 0,
+                    recipe_id: recipe.id,
+                  })
+                  .eq("id", stage.id);
+              }
+              return Promise.resolve();
+            });
+
+            await Promise.all(updates);
+          } catch (error) {
+            console.error("Failed to update stages in database:", error);
+          }
+        }
       }
     }
   };

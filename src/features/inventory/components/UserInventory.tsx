@@ -28,6 +28,7 @@ import {
   X,
   CheckCircle,
   ChevronUp as ArrowUp,
+  Database as DatabaseIcon,
 } from "lucide-react";
 import { Database } from "../../../types/supabase";
 import { useInventoryStore } from "../../../stores/inventoryStore";
@@ -426,6 +427,85 @@ const AddCountModal = memo(({ item, onClose, onSave }) => {
   );
 });
 
+// Multi-select dropdown component for Major Groups
+const MajorGroupSelector = memo(({ selectedGroups, onChange, majorGroups }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const toggleGroup = (group) => {
+    const newSelection = selectedGroups.includes(group)
+      ? selectedGroups.filter((g) => g !== group)
+      : [...selectedGroups, group];
+    onChange(newSelection);
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        title="Major Group"
+        className={`p-1.5 rounded-lg ${selectedGroups.length > 0 ? "bg-indigo-500/30 text-indigo-300 border border-indigo-500/50" : "bg-gray-800/50 text-gray-400 border border-gray-700"} flex items-center gap-1.5`}
+      >
+        <DatabaseIcon className="w-5 h-5" />
+        {selectedGroups.length > 0 && (
+          <span className="text-xs">{selectedGroups.length} selected</span>
+        )}
+      </button>
+
+      {isOpen && (
+        <div className="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-700 rounded-md shadow-lg z-50 w-64 max-h-60 overflow-y-auto">
+          <div className="p-2">
+            <div className="text-sm font-medium text-gray-300 mb-2 border-b border-gray-700 pb-1">
+              Major Groups
+            </div>
+            {majorGroups.map((group) => (
+              <div key={group} className="flex items-center py-1">
+                <input
+                  type="checkbox"
+                  id={`major-group-${group}`}
+                  checked={selectedGroups.includes(group)}
+                  onChange={() => toggleGroup(group)}
+                  className="mr-2"
+                />
+                <label
+                  htmlFor={`major-group-${group}`}
+                  className="text-sm text-gray-300 cursor-pointer"
+                >
+                  {group}
+                </label>
+              </div>
+            ))}
+            {majorGroups.length === 0 && (
+              <div className="text-sm text-gray-400 py-1">
+                No major groups available
+              </div>
+            )}
+          </div>
+          <div className="border-t border-gray-700 p-2 flex justify-between">
+            <button
+              onClick={() => onChange([])}
+              className="text-xs text-gray-400 hover:text-gray-300"
+            >
+              Clear All
+            </button>
+            <button
+              onClick={() => onChange(majorGroups)}
+              className="text-xs text-blue-400 hover:text-blue-300"
+            >
+              Select All
+            </button>
+            <button
+              onClick={() => setIsOpen(false)}
+              className="text-xs text-gray-400 hover:text-gray-300"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
+
 export const UserInventory: React.FC = () => {
   // State for inventory data
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
@@ -436,6 +516,7 @@ export const UserInventory: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterByStorage, setFilterByStorage] = useState<string>("");
   const [filterByVendor, setFilterByVendor] = useState<string>("");
+  const [filterByMajorGroups, setFilterByMajorGroups] = useState<string[]>([]);
   const [filterByCategory, setFilterByCategory] = useState<string>("");
   const [filterBySubCategory, setFilterBySubCategory] = useState<string>("");
 
@@ -451,8 +532,12 @@ export const UserInventory: React.FC = () => {
   // Filter options
   const [storageLocations, setStorageLocations] = useState<string[]>([]);
   const [vendors, setVendors] = useState<string[]>([]);
+  const [majorGroupList, setMajorGroupList] = useState<string[]>([]);
   const [categoryList, setCategoryList] = useState<string[]>([]);
   const [subCategoryList, setSubCategoryList] = useState<string[]>([]);
+  const [filteredCategoryList, setFilteredCategoryList] = useState<string[]>(
+    [],
+  );
   const [filteredSubCategoryList, setFilteredSubCategoryList] = useState<
     string[]
   >([]);
@@ -566,12 +651,42 @@ export const UserInventory: React.FC = () => {
     searchTerm,
     filterByStorage,
     filterByVendor,
+    filterByMajorGroups,
     filterByCategory,
     filterBySubCategory,
     categories,
     inventoryItems,
     itemsPerBatch,
   ]);
+
+  // Update category list when major group filter changes
+  useEffect(() => {
+    if (filterByMajorGroups.length === 0) {
+      // If no major group is selected, show all categories
+      setFilteredCategoryList(categoryList);
+    } else {
+      // Filter categories based on selected major groups
+      const filteredCategories: string[] = [];
+
+      Object.entries(categories).forEach(([majorCategory, categoryObj]) => {
+        if (filterByMajorGroups.includes(majorCategory)) {
+          Object.keys(categoryObj).forEach((category) => {
+            if (!filteredCategories.includes(category)) {
+              filteredCategories.push(category);
+            }
+          });
+        }
+      });
+
+      setFilteredCategoryList(filteredCategories);
+
+      // If current category is not in the filtered list, reset it
+      if (filterByCategory && !filteredCategories.includes(filterByCategory)) {
+        setFilterByCategory("");
+        setFilterBySubCategory("");
+      }
+    }
+  }, [filterByMajorGroups, categories, categoryList, filterByCategory]);
 
   // Update subcategory list when category filter changes
   useEffect(() => {
@@ -583,12 +698,20 @@ export const UserInventory: React.FC = () => {
       const filteredSubcategories: string[] = [];
 
       Object.entries(categories).forEach(([majorCategory, categoryObj]) => {
-        if (categoryObj[filterByCategory]) {
-          Object.keys(categoryObj[filterByCategory]).forEach((subCategory) => {
-            if (!filteredSubcategories.includes(subCategory)) {
-              filteredSubcategories.push(subCategory);
-            }
-          });
+        // Only consider major categories that are selected (or all if none selected)
+        if (
+          filterByMajorGroups.length === 0 ||
+          filterByMajorGroups.includes(majorCategory)
+        ) {
+          if (categoryObj[filterByCategory]) {
+            Object.keys(categoryObj[filterByCategory]).forEach(
+              (subCategory) => {
+                if (!filteredSubcategories.includes(subCategory)) {
+                  filteredSubcategories.push(subCategory);
+                }
+              },
+            );
+          }
         }
       });
 
@@ -602,7 +725,13 @@ export const UserInventory: React.FC = () => {
         setFilterBySubCategory("");
       }
     }
-  }, [filterByCategory, categories, subCategoryList, filterBySubCategory]);
+  }, [
+    filterByMajorGroups,
+    filterByCategory,
+    categories,
+    subCategoryList,
+    filterBySubCategory,
+  ]);
 
   // Process and flatten the filtered categories for endless scrolling
   useEffect(() => {
@@ -647,6 +776,7 @@ export const UserInventory: React.FC = () => {
     searchTerm,
     filterByStorage,
     filterByVendor,
+    filterByMajorGroups,
     filterByCategory,
     filterBySubCategory,
     itemsPerBatch,
@@ -658,6 +788,7 @@ export const UserInventory: React.FC = () => {
       !searchTerm &&
       !filterByStorage &&
       !filterByVendor &&
+      filterByMajorGroups.length === 0 &&
       !filterByCategory &&
       !filterBySubCategory
     ) {
@@ -667,6 +798,13 @@ export const UserInventory: React.FC = () => {
     const filtered = {};
 
     Object.entries(categoriesData).forEach(([majorCategory, categoryObj]) => {
+      // Apply major group filter
+      const matchesMajorGroup =
+        filterByMajorGroups.length === 0 ||
+        filterByMajorGroups.includes(majorCategory);
+
+      if (!matchesMajorGroup) return;
+
       Object.entries(categoryObj).forEach(([category, subCategoryObj]) => {
         Object.entries(subCategoryObj).forEach(([subCategory, items]) => {
           const filteredItems = items.filter((item) => {
@@ -883,12 +1021,20 @@ export const UserInventory: React.FC = () => {
                 ).sort();
                 setVendors(vendors as string[]);
 
+                const majorGroups = Array.from(
+                  new Set(
+                    data.map((item) => item.major_group_name).filter(Boolean),
+                  ),
+                ).sort();
+                setMajorGroupList(majorGroups as string[]);
+
                 const categories = Array.from(
                   new Set(
                     data.map((item) => item.category_name).filter(Boolean),
                   ),
                 ).sort();
                 setCategoryList(categories as string[]);
+                setFilteredCategoryList(categories as string[]);
 
                 const subCategories = Array.from(
                   new Set(
@@ -896,6 +1042,7 @@ export const UserInventory: React.FC = () => {
                   ),
                 ).sort();
                 setSubCategoryList(subCategories as string[]);
+                setFilteredSubCategoryList(subCategories as string[]);
 
                 // Background loading is complete
                 setBackgroundLoading(false);
@@ -974,6 +1121,13 @@ export const UserInventory: React.FC = () => {
               new Set(data.map((item) => item.vendor).filter(Boolean)),
             ).sort();
             setVendors(vendors as string[]);
+
+            const majorGroups = Array.from(
+              new Set(
+                data.map((item) => item.major_group_name).filter(Boolean),
+              ),
+            ).sort();
+            setMajorGroupList(majorGroups as string[]);
 
             const categories = Array.from(
               new Set(data.map((item) => item.category_name).filter(Boolean)),
@@ -1494,6 +1648,13 @@ export const UserInventory: React.FC = () => {
 
               {/* Filter Controls */}
               <div className="flex items-center gap-1 flex-wrap">
+                {/* Major Group Filter - Multi-select */}
+                <MajorGroupSelector
+                  selectedGroups={filterByMajorGroups}
+                  onChange={setFilterByMajorGroups}
+                  majorGroups={majorGroupList}
+                />
+
                 {/* Storage Location Filter */}
                 <div className="relative">
                   <button
@@ -1564,7 +1725,7 @@ export const UserInventory: React.FC = () => {
                     aria-label="Select category"
                   >
                     <option value="">All Categories</option>
-                    {categoryList.map((category) => (
+                    {filteredCategoryList.map((category) => (
                       <option key={category} value={category}>
                         {category}
                       </option>
@@ -1601,6 +1762,7 @@ export const UserInventory: React.FC = () => {
                 {/* Clear Filters Button */}
                 {(filterByStorage ||
                   filterByVendor ||
+                  filterByMajorGroups.length > 0 ||
                   filterByCategory ||
                   filterBySubCategory ||
                   searchTerm) && (
@@ -1608,6 +1770,7 @@ export const UserInventory: React.FC = () => {
                     onClick={() => {
                       setFilterByStorage("");
                       setFilterByVendor("");
+                      setFilterByMajorGroups([]);
                       setFilterByCategory("");
                       setFilterBySubCategory("");
                       setSearchTerm("");
@@ -1673,7 +1836,7 @@ export const UserInventory: React.FC = () => {
             {/* Filter Icons for Mobile - No Dropdowns */}
             <button
               onClick={() => setShowMobileFilters(!showMobileFilters)}
-              className={`p-2 rounded-lg ${filterByStorage || filterByVendor || filterByCategory || filterBySubCategory ? "bg-amber-500/30 text-amber-300" : "bg-gray-800/50 text-gray-400"}`}
+              className={`p-2 rounded-lg ${filterByStorage || filterByVendor || filterByCategory || filterBySubCategory || filterByMajorGroups.length > 0 ? "bg-amber-500/30 text-amber-300" : "bg-gray-800/50 text-gray-400"}`}
             >
               <Filter className="w-5 h-5" />
             </button>
@@ -1718,6 +1881,41 @@ export const UserInventory: React.FC = () => {
               <div className="space-y-3">
                 <div>
                   <label className="text-sm text-gray-400 block mb-1">
+                    Major Groups
+                  </label>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {majorGroupList.map((group) => (
+                      <button
+                        key={group}
+                        onClick={() => {
+                          if (filterByMajorGroups.includes(group)) {
+                            setFilterByMajorGroups(
+                              filterByMajorGroups.filter((g) => g !== group),
+                            );
+                          } else {
+                            setFilterByMajorGroups([
+                              ...filterByMajorGroups,
+                              group,
+                            ]);
+                          }
+                        }}
+                        className={`px-2 py-1 text-xs rounded-full ${filterByMajorGroups.includes(group) ? "bg-indigo-500/30 text-indigo-300 border border-indigo-500/50" : "bg-gray-800/50 text-gray-400 border border-gray-700"}`}
+                      >
+                        {group}
+                      </button>
+                    ))}
+                  </div>
+                  {filterByMajorGroups.length > 0 && (
+                    <button
+                      onClick={() => setFilterByMajorGroups([])}
+                      className="text-xs text-gray-400 hover:text-gray-300"
+                    >
+                      Clear Major Groups
+                    </button>
+                  )}
+                </div>
+                <div>
+                  <label className="text-sm text-gray-400 block mb-1">
                     Storage Location
                   </label>
                   <select
@@ -1760,7 +1958,7 @@ export const UserInventory: React.FC = () => {
                     onChange={(e) => setFilterByCategory(e.target.value)}
                   >
                     <option value="">All Categories</option>
-                    {categoryList.map((category) => (
+                    {filteredCategoryList.map((category) => (
                       <option key={category} value={category}>
                         {category}
                       </option>
@@ -1789,6 +1987,7 @@ export const UserInventory: React.FC = () => {
                   onClick={() => {
                     setFilterByStorage("");
                     setFilterByVendor("");
+                    setFilterByMajorGroups([]);
                     setFilterByCategory("");
                     setFilterBySubCategory("");
                     setSearchTerm("");
@@ -1804,6 +2003,49 @@ export const UserInventory: React.FC = () => {
           {/* Desktop Advanced Filters Panel - Hidden on Mobile */}
           <div className="hidden md:block card p-4">
             <div className="flex flex-col md:flex-row gap-4 items-end">
+              <div className="flex-1">
+                <label className="text-sm text-gray-400 block mb-2">
+                  Major Groups
+                </label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {majorGroupList.slice(0, 5).map((group) => (
+                    <button
+                      key={group}
+                      onClick={() => {
+                        if (filterByMajorGroups.includes(group)) {
+                          setFilterByMajorGroups(
+                            filterByMajorGroups.filter((g) => g !== group),
+                          );
+                        } else {
+                          setFilterByMajorGroups([
+                            ...filterByMajorGroups,
+                            group,
+                          ]);
+                        }
+                      }}
+                      className={`px-2 py-1 text-xs rounded-full ${filterByMajorGroups.includes(group) ? "bg-indigo-500/30 text-indigo-300 border border-indigo-500/50" : "bg-gray-800/50 text-gray-400 border border-gray-700"}`}
+                    >
+                      {group}
+                    </button>
+                  ))}
+                  {majorGroupList.length > 5 && (
+                    <button
+                      onClick={() => {
+                        // Open the dropdown in the header
+                        const majorGroupSelector = document.querySelector(
+                          ".MajorGroupSelector",
+                        );
+                        if (majorGroupSelector) {
+                          majorGroupSelector.click();
+                        }
+                      }}
+                      className="px-2 py-1 text-xs rounded-full bg-gray-800/50 text-gray-400 border border-gray-700"
+                    >
+                      +{majorGroupList.length - 5} more
+                    </button>
+                  )}
+                </div>
+              </div>
               <div className="flex-1">
                 <label className="text-sm text-gray-400 block mb-2">
                   Storage Location
@@ -1848,7 +2090,7 @@ export const UserInventory: React.FC = () => {
                   onChange={(e) => setFilterByCategory(e.target.value)}
                 >
                   <option value="">All Categories</option>
-                  {categoryList.map((category) => (
+                  {filteredCategoryList.map((category) => (
                     <option key={category} value={category}>
                       {category}
                     </option>
@@ -1898,6 +2140,7 @@ export const UserInventory: React.FC = () => {
                 onClick={() => {
                   setFilterByStorage("");
                   setFilterByVendor("");
+                  setFilterByMajorGroups([]);
                   setFilterByCategory("");
                   setFilterBySubCategory("");
                   setSearchTerm("");

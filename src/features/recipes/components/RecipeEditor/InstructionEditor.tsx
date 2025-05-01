@@ -100,7 +100,7 @@ export const InstructionEditor: React.FC<InstructionEditorProps> = ({
     }
   };
 
-  // Group steps by stage
+  // Group steps by stage and calculate total time for each stage
   const getStepsByStage = () => {
     const stepsWithoutStage = (recipe.steps || []).filter(
       (step) => !step.stage_id,
@@ -125,6 +125,86 @@ export const InstructionEditor: React.FC<InstructionEditorProps> = ({
   };
 
   const { stepsWithoutStage, stepsByStage } = getStepsByStage();
+
+  // Calculate total time for each stage
+  useEffect(() => {
+    if (
+      recipe.stages &&
+      recipe.stages.length > 0 &&
+      recipe.steps &&
+      recipe.steps.length > 0
+    ) {
+      const stageTotalTimes = {};
+
+      // Initialize total times to 0
+      recipe.stages.forEach((stage) => {
+        stageTotalTimes[stage.id] = 0;
+      });
+
+      // Calculate total time for each stage
+      recipe.steps.forEach((step) => {
+        if (step.stage_id && step.time_in_minutes) {
+          stageTotalTimes[step.stage_id] =
+            (stageTotalTimes[step.stage_id] || 0) + step.time_in_minutes;
+        }
+      });
+
+      // Check if any total times need to be updated
+      let hasChanges = false;
+      const updatedStages = recipe.stages.map((stage) => {
+        if (stageTotalTimes[stage.id] !== stage.total_time) {
+          hasChanges = true;
+          return { ...stage, total_time: stageTotalTimes[stage.id] };
+        }
+        return stage;
+      });
+
+      // Only update if there are changes
+      if (hasChanges) {
+        onChange({ stages: updatedStages });
+      }
+    }
+  }, [recipe.steps, recipe.stages]);
+
+  // Calculate total time for each stage
+  useEffect(() => {
+    if (
+      recipe.stages &&
+      recipe.stages.length > 0 &&
+      recipe.steps &&
+      recipe.steps.length > 0
+    ) {
+      const stageTotalTimes = {};
+
+      // Initialize total times to 0
+      recipe.stages.forEach((stage) => {
+        stageTotalTimes[stage.id] = 0;
+      });
+
+      // Calculate total time for each stage
+      recipe.steps.forEach((step) => {
+        if (step.stage_id && step.time_in_minutes) {
+          stageTotalTimes[step.stage_id] =
+            (stageTotalTimes[step.stage_id] || 0) + step.time_in_minutes;
+        }
+      });
+
+      // Check if any total times need to be updated
+      let hasChanges = false;
+      const updatedStages = recipe.stages.map((stage) => {
+        if (stageTotalTimes[stage.id] !== stage.total_time) {
+          hasChanges = true;
+          return { ...stage, total_time: stageTotalTimes[stage.id] };
+        }
+        return stage;
+      });
+
+      // Only update if there are changes
+      if (hasChanges) {
+        onChange({ stages: updatedStages });
+      }
+    }
+  }, [recipe.steps, recipe.stages]);
 
   // Step slider state
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -373,14 +453,12 @@ export const InstructionEditor: React.FC<InstructionEditorProps> = ({
                     Prep List Task
                   </span>
                 )}
+                {stage.total_time > 0 && (
+                  <span className="text-2xs bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded-full">
+                    {stage.total_time} min
+                  </span>
+                )}
               </div>
-              <button
-                onClick={() => addStepToStage(stage.id)}
-                className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
-              >
-                <Plus className="w-3 h-3" />
-                Add Step
-              </button>
             </div>
 
             {(stepsByStage[stage.id] || []).length > 0 ? (

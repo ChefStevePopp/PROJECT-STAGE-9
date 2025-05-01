@@ -120,6 +120,7 @@ export interface RecipeStage {
   sort_order: number;
   color?: string;
   description?: string;
+  total_time?: number; // Total time in minutes for all steps in this stage
 }
 
 export interface QualityStandards {

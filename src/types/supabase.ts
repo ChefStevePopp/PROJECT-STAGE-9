@@ -567,6 +567,7 @@ export type Database = {
           current_price: number
           id: string
           image_url: string | null
+          inventory_unit_cost: number | null
           item_code: string
           major_group: string | null
           organization_id: string
@@ -618,6 +619,7 @@ export type Database = {
           current_price?: number
           id?: string
           image_url?: string | null
+          inventory_unit_cost?: number | null
           item_code: string
           major_group?: string | null
           organization_id: string
@@ -669,6 +671,7 @@ export type Database = {
           current_price?: number
           id?: string
           image_url?: string | null
+          inventory_unit_cost?: number | null
           item_code?: string
           major_group?: string | null
           organization_id?: string
@@ -1045,6 +1048,7 @@ export type Database = {
           due_date: string | null
           estimated_time: number | null
           id: string
+          kitchen_role: string | null
           kitchen_station: string | null
           lottery: boolean | null
           master_ingredient_id: string | null
@@ -1066,6 +1070,7 @@ export type Database = {
           started_at: string | null
           station: string | null
           status: string | null
+          stopped_at: string | null
           storage_area: string | null
           team_member_role: string | null
           template_id: string
@@ -1092,6 +1097,7 @@ export type Database = {
           due_date?: string | null
           estimated_time?: number | null
           id?: string
+          kitchen_role?: string | null
           kitchen_station?: string | null
           lottery?: boolean | null
           master_ingredient_id?: string | null
@@ -1113,6 +1119,7 @@ export type Database = {
           started_at?: string | null
           station?: string | null
           status?: string | null
+          stopped_at?: string | null
           storage_area?: string | null
           team_member_role?: string | null
           template_id: string
@@ -1139,6 +1146,7 @@ export type Database = {
           due_date?: string | null
           estimated_time?: number | null
           id?: string
+          kitchen_role?: string | null
           kitchen_station?: string | null
           lottery?: boolean | null
           master_ingredient_id?: string | null
@@ -1160,6 +1168,7 @@ export type Database = {
           started_at?: string | null
           station?: string | null
           status?: string | null
+          stopped_at?: string | null
           storage_area?: string | null
           team_member_role?: string | null
           template_id?: string
@@ -1184,13 +1193,6 @@ export type Database = {
             columns: ["master_ingredient_id"]
             isOneToOne: false
             referencedRelation: "master_ingredients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "prep_list_template_tasks_master_ingredient_id_fkey"
-            columns: ["master_ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "master_ingredients_with_categories"
             referencedColumns: ["id"]
           },
           {
@@ -1303,13 +1305,6 @@ export type Database = {
             columns: ["master_ingredient_id"]
             isOneToOne: false
             referencedRelation: "master_ingredients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "prep_list_templates_master_ingredient_id_fkey"
-            columns: ["master_ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "master_ingredients_with_categories"
             referencedColumns: ["id"]
           },
           {
@@ -2085,13 +2080,6 @@ export type Database = {
             referencedRelation: "master_ingredients"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "umbrella_ingredient_master_ingredient_master_ingredient_id_fkey"
-            columns: ["master_ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "master_ingredients_with_categories"
-            referencedColumns: ["id"]
-          },
         ]
       }
       umbrella_ingredients: {
@@ -2254,13 +2242,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "umbrella_ingredients_primary_master_ingredient_id_fkey"
-            columns: ["primary_master_ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "master_ingredients_with_categories"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "umbrella_ingredients_sub_category_fkey"
             columns: ["sub_category"]
             isOneToOne: false
@@ -2327,13 +2308,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "vendor_code_changes_ingredient_id_fkey"
-            columns: ["ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "master_ingredients_with_categories"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "vendor_code_changes_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
@@ -2379,13 +2353,6 @@ export type Database = {
             columns: ["master_ingredient_id"]
             isOneToOne: false
             referencedRelation: "master_ingredients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "vendor_codes_master_ingredient_id_fkey"
-            columns: ["master_ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "master_ingredients_with_categories"
             referencedColumns: ["id"]
           },
           {
@@ -2520,13 +2487,6 @@ export type Database = {
             referencedRelation: "master_ingredients"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "vendor_invoice_items_master_ingredient_id_fkey"
-            columns: ["master_ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "master_ingredients_with_categories"
-            referencedColumns: ["id"]
-          },
         ]
       }
       vendor_invoices: {
@@ -2643,13 +2603,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "vendor_price_changes_ingredient_id_fkey"
-            columns: ["ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "master_ingredients_with_categories"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "vendor_price_changes_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
@@ -2704,13 +2657,6 @@ export type Database = {
             columns: ["master_ingredient_id"]
             isOneToOne: false
             referencedRelation: "master_ingredients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "vendor_price_history_master_ingredient_id_fkey"
-            columns: ["master_ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "master_ingredients_with_categories"
             referencedColumns: ["id"]
           },
           {
@@ -2799,13 +2745,6 @@ export type Database = {
             referencedRelation: "master_ingredients"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "vendor_invoice_items_master_ingredient_id_fkey"
-            columns: ["ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "master_ingredients_with_categories"
-            referencedColumns: ["id"]
-          },
         ]
       }
       current_vendor_codes: {
@@ -2825,13 +2764,6 @@ export type Database = {
             columns: ["master_ingredient_id"]
             isOneToOne: false
             referencedRelation: "master_ingredients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "vendor_codes_master_ingredient_id_fkey"
-            columns: ["master_ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "master_ingredients_with_categories"
             referencedColumns: ["id"]
           },
           {
@@ -2873,6 +2805,7 @@ export type Database = {
           allergen_sulphite: boolean | null
           allergen_treenut: boolean | null
           allergen_wheat: boolean | null
+          archived: boolean | null
           case_size: string | null
           category: string | null
           category_name: string | null
@@ -2881,6 +2814,8 @@ export type Database = {
           current_price: number | null
           id: string | null
           image_url: string | null
+          ingredient_type: string | null
+          inventory_unit_cost: number | null
           item_code: string | null
           major_group: string | null
           major_group_name: string | null
@@ -2898,36 +2833,7 @@ export type Database = {
           vendor_codes: Json | null
           yield_percent: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "master_ingredients_category_fkey"
-            columns: ["category"]
-            isOneToOne: false
-            referencedRelation: "food_categories"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "master_ingredients_major_group_fkey"
-            columns: ["major_group"]
-            isOneToOne: false
-            referencedRelation: "food_category_groups"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "master_ingredients_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "master_ingredients_sub_category_fkey"
-            columns: ["sub_category"]
-            isOneToOne: false
-            referencedRelation: "food_sub_categories"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       price_alerts: {
         Row: {
@@ -2944,13 +2850,6 @@ export type Database = {
             columns: ["ingredient_id"]
             isOneToOne: false
             referencedRelation: "master_ingredients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "vendor_invoice_items_master_ingredient_id_fkey"
-            columns: ["ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "master_ingredients_with_categories"
             referencedColumns: ["id"]
           },
         ]
@@ -3103,13 +3002,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "umbrella_ingredients_primary_master_ingredient_id_fkey"
-            columns: ["primary_master_ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "master_ingredients_with_categories"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "umbrella_ingredients_sub_category_fkey"
             columns: ["sub_category"]
             isOneToOne: false
@@ -3138,13 +3030,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "vendor_price_history_master_ingredient_id_fkey"
-            columns: ["master_ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "master_ingredients_with_categories"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "vendor_price_history_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
@@ -3155,6 +3040,10 @@ export type Database = {
       }
     }
     Functions: {
+      extract_numeric: {
+        Args: { text_val: string }
+        Returns: number
+      }
       generate_unique_item_code: {
         Args: { org_id: string; base_code: string }
         Returns: string

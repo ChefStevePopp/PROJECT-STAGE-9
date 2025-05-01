@@ -291,11 +291,12 @@ const SortableStep: React.FC<SortableStepProps> = ({
               <input
                 type="number"
                 value={step.time_in_minutes || ""}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const newTime = parseInt(e.target.value) || null;
                   onUpdate(index, {
-                    time_in_minutes: parseInt(e.target.value) || null,
-                  })
-                }
+                    time_in_minutes: newTime,
+                  });
+                }}
                 className="input w-full"
                 placeholder="Enter time..."
               />

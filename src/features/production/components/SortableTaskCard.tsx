@@ -91,18 +91,29 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
     setAssignmentType(task.assignment_type || "");
 
     // If assignment_type is undefined but we have station information, set it to station type
-    if (!task.assignment_type && (task.station || task.kitchen_station)) {
+    if (
+      !task.assignment_type &&
+      (task.default_station || task.kitchen_station || task.station)
+    ) {
       setAssignmentType("station");
       task.assignment_type = "station";
     }
-  }, [task.assignment_type, task.station, task.kitchen_station]);
+  }, [
+    task.assignment_type,
+    task.default_station,
+    task.kitchen_station,
+    task.station,
+  ]);
 
   // Keep assignment type in sync with task properties
   useEffect(() => {
     // If assignment_type is undefined but we have station information, set it to station type
     if (
       !task.assignment_type &&
-      (task.station || task.kitchen_station || task.assignee_station)
+      (task.default_station ||
+        task.kitchen_station ||
+        task.assignee_station ||
+        task.station)
     ) {
       setAssignmentType("station");
       task.assignment_type = "station";
@@ -111,7 +122,7 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
     }
   }, [
     task.assignment_type,
-    task.station,
+    task.default_station,
     task.kitchen_station,
     task.assignee_station,
   ]);
@@ -308,7 +319,8 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
       task.assignee_id = data.user.id;
       task.kitchen_station = null;
       task.assignee_station = null;
-      task.station = null;
+      task.default_station = null;
+      task.station = null; // Keeping for backward compatibility
       task.lottery = false;
 
       handleTaskUpdate(task);
