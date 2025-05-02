@@ -92,10 +92,12 @@ export interface PrepListTemplate {
   schedule_days?: number[]; // For As-Needed templates (days of week: 0-6)
   advance_days?: number; // For As-Needed templates (how many days in advance)
   recipe_id?: string; // Reference to an associated recipe
+  prep_stage?: string; // Reference to a specific prep stage within the recipe
   master_ingredient_id?: string; // Reference to an associated master ingredient
   kitchen_role?: string; // Reference to a kitchen role
   kitchen_stations?: string[]; // Kitchen stations that have access to this template
   auto_advance?: boolean; // Whether tasks from this template should automatically advance to the next day if not completed
+  estimated_time?: number; // Estimated time in minutes for the template
 }
 
 export interface PrepListTemplateTask {

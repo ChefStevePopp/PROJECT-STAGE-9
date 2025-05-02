@@ -12,14 +12,21 @@ import {
   Search,
   MapPin,
   X,
+  ChevronDown,
+  ChevronUp,
+  GripVertical,
+  Settings,
+  CheckCircle,
+  BrainCog,
+  NotebookPen,
 } from "lucide-react";
+import RecipeSelector from "./RecipeSelector";
 import toast from "react-hot-toast";
 import { usePrepListTemplateStore } from "../../../../../../stores/prepListTemplateStore";
 import { useOperationsStore } from "../../../../../../stores/operationsStore";
 import { useTeamStore } from "../../../../../../stores/teamStore";
 import { useRecipeStore } from "@/features/recipes/stores/recipeStore";
 import { useMasterIngredientsStore } from "@/stores/masterIngredientsStore";
-// Using team member roles from the team store instead of kitchen roles
 import {
   PrepListTemplate,
   PrepListTemplateTask,
@@ -50,6 +57,22 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
   const { recipes, fetchRecipes } = useRecipeStore();
   const { ingredients, fetchIngredients } = useMasterIngredientsStore();
 
+  // Expanded sections state
+  const [expanded, setExpanded] = useState({
+    basicInfo: true,
+    scheduling: false,
+    assignments: false,
+    ingredients: false,
+    recipe: false,
+  });
+
+  const toggleSection = (section) => {
+    setExpanded((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  };
+
   const [formData, setFormData] = useState<Partial<PrepListTemplate>>({
     title: "",
     description: "",
@@ -61,10 +84,12 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
     schedule_days: [],
     advance_days: 1,
     recipe_id: "",
+    prep_stage: "",
     master_ingredient_id: "",
     kitchen_role: "",
     kitchen_stations: [],
     auto_advance: false,
+    estimated_time: 0,
   });
 
   // Search states
@@ -178,10 +203,12 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
         schedule_days: selectedTemplate.schedule_days,
         advance_days: selectedTemplate.advance_days,
         recipe_id: selectedTemplate.recipe_id || "",
+        prep_stage: selectedTemplate.prep_stage || "",
         master_ingredient_id: selectedTemplate.master_ingredient_id || "",
         kitchen_role: selectedTemplate.kitchen_role || "",
         kitchen_stations: selectedTemplate.kitchen_stations || [],
         auto_advance: selectedTemplate.auto_advance || false,
+        estimated_time: selectedTemplate.estimated_time || 0,
       });
 
       // Set search fields based on selected values
@@ -274,6 +301,9 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
     setFilteredRoles(filtered);
   }, [roleSearch, members]);
 
+  // State for selected stage
+  const [selectedStage, setSelectedStage] = useState<any>(null);
+
   // Filter recipes based on search
   useEffect(() => {
     // Filter recipes
@@ -296,6 +326,8 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
             name: `${recipe.name} - ${stage.name}`,
             isStage: true,
             recipeId: recipe.id,
+            total_time: stage.total_time || null,
+            stageData: stage,
           })),
       );
 
@@ -368,16 +400,18 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
     }
 
     try {
-      // Ensure kitchen_role and master_ingredient_id are included in the submission
+      // Ensure kitchen_role, master_ingredient_id, and prep_stage are included in the submission
       const dataToSubmit = {
         ...formData,
         kitchen_role: formData.kitchen_role || null,
         master_ingredient_id: formData.master_ingredient_id || null,
+        prep_stage: formData.prep_stage || null,
       };
 
       // Log the data being submitted for debugging
       console.log("Submitting form data:", dataToSubmit);
       console.log("Recipe ID being saved:", dataToSubmit.recipe_id);
+      console.log("Prep stage being saved:", dataToSubmit.prep_stage);
 
       if (selectedTemplate) {
         await updateTemplate(selectedTemplate.id, dataToSubmit);
@@ -435,11 +469,44 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
     );
   }
 
+  // Function to render a section header
+  const renderSectionHeader = (title, icon, section) => (
+    <div
+      className="flex items-center justify-between cursor-pointer p-3 bg-slate-700/30 border border-gray-500/30 rounded-lg mb-4"
+      onClick={() => toggleSection(section)}
+    >
+      <div className="flex items-center gap-2">
+        <div className="w-8 h-8 flex items-center justify-center bg-primary-400/30 rounded-full border border-primary-300/50">
+          {icon}
+        </div>
+        <span className="font-medium text-white">{title}</span>
+      </div>
+      <div>
+        {expanded[section] ? (
+          <ChevronUp className="w-5 h-5 text-gray-400" />
+        ) : (
+          <ChevronDown className="w-5 h-5 text-gray-400" />
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="bg-gray-900 rounded-lg border border-gray-700 p-6 max-w-4xl mx-auto">
-      <h2 className="text-2xl font-bold text-white mb-6">
-        {selectedTemplate ? "Edit List Module" : "Create New List Module"}
-      </h2>
+      {/* Header section */}
+      <div className="expandable-kanban-header mb-6">
+        <div className="flex flex-col sm:flex-row w-full">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="cursor-grab active:cursor-grabbing text-gray-500 hover:text-gray-300 flex-shrink-0">
+              <GripVertical className="w-4 h-4" />
+            </div>
+            <h2 className="text-2xl font-bold text-white">
+              {selectedTemplate ? "Edit List Module" : "Create New List Module"}
+            </h2>
+          </div>
+        </div>
+      </div>
+
       {selectedTemplate && (
         <div className="mb-4 bg-blue-500/20 p-3 rounded-lg border border-blue-500/30">
           <p className="text-blue-300">
@@ -454,539 +521,397 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
       )}
 
       <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div>
-            <label className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-1">
-              <FileText className="w-3 h-3 text-blue-400" />
-              Module Name
-            </label>
-            <input
-              type="text"
-              name="title"
-              value={formData.title}
-              onChange={handleInputChange}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white"
-              placeholder="e.g., Morning Prep Module"
-              required
-            />
-          </div>
+        {/* Basic Information Section */}
+        <div className="card p-4 border border-gray-700 bg-slate-900/40 rounded-lg mb-4">
+          {renderSectionHeader(
+            "Basic Module Information",
+            <NotebookPen className="text-primary-500 w-5 h-5" />,
+            "basicInfo",
+          )}
 
-          <div>
-            <label className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-1">
-              <Gauge className="w-3 h-3 text-blue-400" />
-              Category
-            </label>
-            <select
-              name="category"
-              value={formData.category}
-              onChange={handleInputChange}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white"
-            >
-              <option value="prep">Prep</option>
-              <option value="production">Production</option>
-              <option value="opening">Opening</option>
-              <option value="closing">Closing</option>
-              <option value="custom">Custom</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-1">
-              <ChefHat className="w-3 h-3 text-blue-400" />
-              Station (Optional)
-            </label>
-            <div className="relative" ref={stationRef}>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Type to search stations..."
-                  value={stationSearch}
-                  onChange={(e) => {
-                    setStationSearch(e.target.value);
-                    setStationDropdownOpen(true);
-                  }}
-                  onFocus={() => setStationDropdownOpen(true)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white pr-8"
-                />
-                <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              </div>
-
-              {stationDropdownOpen && filteredStations.length > 0 && (
-                <div className="absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg max-h-60 overflow-auto">
-                  {filteredStations.map((station) => (
-                    <div
-                      key={station}
-                      className={`p-2 hover:bg-gray-700 cursor-pointer ${formData.station === station ? "bg-gray-700" : ""}`}
-                      onClick={() => {
-                        setFormData((prev) => ({ ...prev, station }));
-                        setStationSearch(station);
-                        setStationDropdownOpen(false);
-                      }}
-                    >
-                      {station}
-                    </div>
-                  ))}
+          {expanded.basicInfo && (
+            <div className="p-4 bg-gray-800/50 rounded-lg border border-gray-700 mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-1">
+                    <FileText className="w-3 h-3 text-blue-400" />
+                    Module Name
+                  </label>
+                  <input
+                    type="text"
+                    name="title"
+                    value={formData.title}
+                    onChange={handleInputChange}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white"
+                    placeholder="e.g., Morning Prep Module"
+                    required
+                  />
                 </div>
-              )}
-            </div>
-          </div>
 
-          <div>
-            <label className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-1">
-              <MapPin className="w-3 h-3 text-blue-400" />
-              Kitchen Stations Access
-            </label>
-            <div className="relative" ref={kitchenStationRef}>
-              {/* Selected stations */}
-              <div className="flex flex-wrap gap-1 mb-2">
-                {(formData.kitchen_stations || []).map((station) => (
-                  <div
-                    key={station}
-                    className="bg-blue-900/30 border border-blue-500/30 rounded-full px-2 py-1 text-sm flex items-center"
+                <div>
+                  <label className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-1">
+                    <Gauge className="w-3 h-3 text-blue-400" />
+                    Category
+                  </label>
+                  <select
+                    name="category"
+                    value={formData.category}
+                    onChange={handleInputChange}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white"
                   >
-                    <span className="text-blue-300 mr-1">{station}</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          kitchen_stations: (
-                            prev.kitchen_stations || []
-                          ).filter((s) => s !== station),
-                        }));
-                      }}
-                      className="text-blue-400 hover:text-blue-300"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Type to add kitchen stations..."
-                  value={kitchenStationSearch}
-                  onChange={(e) => {
-                    setKitchenStationSearch(e.target.value);
-                    setKitchenStationDropdownOpen(true);
-                  }}
-                  onFocus={() => setKitchenStationDropdownOpen(true)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white pr-8"
-                />
-                <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              </div>
-
-              {kitchenStationDropdownOpen &&
-                filteredKitchenStations.length > 0 && (
-                  <div className="absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg max-h-60 overflow-auto">
-                    {filteredKitchenStations.map((station) => (
-                      <div
-                        key={station}
-                        className="p-2 hover:bg-gray-700 cursor-pointer"
-                        onClick={() => {
-                          setFormData((prev) => ({
-                            ...prev,
-                            kitchen_stations: [
-                              ...(prev.kitchen_stations || []),
-                              station,
-                            ],
-                          }));
-                          setKitchenStationSearch("");
-                        }}
-                      >
-                        {station}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-              {kitchenStationDropdownOpen &&
-                kitchenStationSearch &&
-                filteredKitchenStations.length === 0 && (
-                  <div className="absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-gray-400">
-                    No matching stations found
-                  </div>
-                )}
-            </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Select which kitchen stations have access to this module
-            </p>
-          </div>
-
-          <div>
-            <label className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-1">
-              <User className="w-3 h-3 text-blue-400" />
-              Team Member Role
-            </label>
-            <div className="relative" ref={roleRef}>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Type to search roles..."
-                  value={roleSearch}
-                  onChange={(e) => {
-                    setRoleSearch(e.target.value);
-                    setRoleDropdownOpen(true);
-                  }}
-                  onFocus={() => setRoleDropdownOpen(true)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white pr-8"
-                />
-                <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              </div>
-
-              {roleDropdownOpen && filteredRoles.length > 0 && (
-                <div className="absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg max-h-60 overflow-auto">
-                  {filteredRoles.map((role) => (
-                    <div
-                      key={role}
-                      className={`p-2 hover:bg-gray-700 cursor-pointer ${formData.kitchen_role === role ? "bg-gray-700" : ""}`}
-                      onClick={() => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          kitchen_role: role,
-                        }));
-                        setRoleSearch(role);
-                        setRoleDropdownOpen(false);
-                        console.log("Selected kitchen role:", role); // Debug log
-                      }}
-                    >
-                      {role}
-                    </div>
-                  ))}
+                    <option value="prep">Prep</option>
+                    <option value="production">Production</option>
+                    <option value="opening">Opening</option>
+                    <option value="closing">Closing</option>
+                    <option value="custom">Custom</option>
+                  </select>
                 </div>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <label className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-1">
-              <LibraryBig className="w-3 h-3 text-blue-400" />
-              Associated Recipe Library Item
-            </label>
-            <div className="relative" ref={recipeRef}>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Type to search recipes or stages..."
-                  value={recipeSearch}
-                  onChange={(e) => {
-                    setRecipeSearch(e.target.value);
-                    setRecipeDropdownOpen(true);
-                  }}
-                  onFocus={() => setRecipeDropdownOpen(true)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white pr-8"
-                />
-                <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               </div>
 
-              {recipeDropdownOpen && filteredRecipes.length > 0 && (
-                <div className="absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg max-h-60 overflow-auto">
-                  {filteredRecipes.map((item) => (
-                    <div
-                      key={item.id}
-                      className={`p-2 hover:bg-gray-700 cursor-pointer ${formData.recipe_id === item.id ? "bg-gray-700" : ""}`}
-                      onClick={() => {
-                        const newRecipeId = item.id;
-                        console.log(`Setting recipe_id to: ${newRecipeId}`);
-                        setFormData((prev) => ({
-                          ...prev,
-                          recipe_id: newRecipeId,
-                        }));
-                        setRecipeSearch(item.name);
-                        setRecipeDropdownOpen(false);
-                      }}
-                    >
-                      {item.isStage ? (
-                        <span className="pl-4">{item.name}</span>
-                      ) : (
-                        item.name
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <label className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-1">
-              <Database className="w-3 h-3 text-blue-400" />
-              Associated Master Ingredient
-            </label>
-            <div className="relative" ref={ingredientRef}>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Type to search ingredients..."
-                  value={ingredientSearch}
-                  onChange={(e) => {
-                    setIngredientSearch(e.target.value);
-                    setIngredientDropdownOpen(true);
-                  }}
-                  onFocus={() => setIngredientDropdownOpen(true)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white pr-8"
-                />
-                <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              </div>
-
-              {ingredientDropdownOpen && filteredIngredients.length > 0 && (
-                <div className="absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg max-h-60 overflow-auto">
-                  {filteredIngredients.map((ingredient) => (
-                    <div
-                      key={ingredient.id}
-                      className={`p-2 hover:bg-gray-700 cursor-pointer ${formData.master_ingredient_id === ingredient.id ? "bg-gray-700" : ""}`}
-                      onClick={() => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          master_ingredient_id: ingredient.id,
-                        }));
-                        setIngredientSearch(ingredient.product);
-                        setIngredientDropdownOpen(false);
-                        console.log(
-                          "Selected master ingredient ID:",
-                          ingredient.id,
-                        ); // Debug log
-                      }}
-                    >
-                      {ingredient.product}{" "}
-                      {ingredient.item_code && `(${ingredient.item_code})`}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-1">
-              <AlignLeft className="w-3 h-3 text-blue-400" />
-              Description
-            </label>
-            <textarea
-              name="description"
-              value={formData.description || ""}
-              onChange={handleInputChange}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white h-24"
-              placeholder="Describe the purpose of this list module"
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <div className="flex items-center mb-4">
-              <input
-                type="checkbox"
-                id="auto_advance"
-                name="auto_advance"
-                checked={formData.auto_advance || false}
-                onChange={(e) => {
-                  setFormData((prev) => ({
-                    ...prev,
-                    auto_advance: e.target.checked,
-                  }));
-                }}
-                className="mr-2 h-4 w-4 rounded border-gray-700 bg-gray-800 text-blue-500 focus:ring-blue-500"
-              />
-              <label
-                htmlFor="auto_advance"
-                className="text-sm font-medium text-gray-400 flex items-center gap-1"
-              >
-                <Clock className="w-3 h-3 text-blue-400" />
-                Auto-advance task to next day if not completed
-                <span className="ml-2 text-xs text-gray-500">
-                  (Task will automatically move to the current date if it was
-                  due in the past)
-                </span>
-              </label>
-            </div>
-            <label className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-1">
-              <Gauge className="w-3 h-3 text-blue-400" />
-              Prep System
-            </label>
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="w-full md:w-1/3">
-                <select
-                  name="prep_system"
-                  value={formData.prep_system}
-                  onChange={handleInputChange}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white"
-                >
-                  <option value="par">PAR-based</option>
-                  <option value="scheduled_production">
-                    Scheduled Production
-                  </option>
-                  <option value="as_needed">As-Needed</option>
-                  <option value="hybrid">Hybrid</option>
-                </select>
-              </div>
-              <div className="w-full md:w-2/3 bg-gray-800/50 p-3 rounded-lg border border-gray-700 line-clamp-4">
-                {formData.prep_system === "par" && (
-                  <div className="flex items-start gap-2">
-                    <div className="h-5 w-5 mt-0.5 flex-shrink-0 rounded-full bg-blue-500/20 flex items-center justify-center">
-                      <span className="text-blue-400 text-xs font-bold">P</span>
-                    </div>
-                    <p className="text-sm text-gray-300">
-                      <span className="font-medium text-blue-400">
-                        PAR-based:
-                      </span>{" "}
-                      Prep items to maintain set inventory levels. System
-                      calculates needed amounts based on current levels vs.
-                      target PAR levels.
-                    </p>
-                  </div>
-                )}
-                {formData.prep_system === "scheduled_production" && (
-                  <div className="flex items-start gap-2">
-                    <div className="h-5 w-5 mt-0.5 flex-shrink-0 rounded-full bg-green-500/20 flex items-center justify-center">
-                      <span className="text-green-400 text-xs font-bold">
-                        S
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-300">
-                      <span className="font-medium text-green-400">
-                        Scheduled Production:
-                      </span>{" "}
-                      Prep items according to a regular schedule on specific
-                      days of the week with advance planning.
-                    </p>
-                  </div>
-                )}
-                {formData.prep_system === "as_needed" && (
-                  <div className="flex items-start gap-2">
-                    <div className="h-5 w-5 mt-0.5 flex-shrink-0 rounded-full bg-amber-500/20 flex items-center justify-center">
-                      <span className="text-amber-400 text-xs font-bold">
-                        A
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-300">
-                      <span className="font-medium text-amber-400">
-                        As-Needed:
-                      </span>{" "}
-                      Flexible prep system where items are prepared when
-                      required, based on user determination rather than
-                      automated calculations.
-                    </p>
-                  </div>
-                )}
-                {formData.prep_system === "hybrid" && (
-                  <div className="flex items-start gap-2">
-                    <div className="h-5 w-5 mt-0.5 flex-shrink-0 rounded-full bg-purple-500/20 flex items-center justify-center">
-                      <span className="text-purple-400 text-xs font-bold">
-                        H
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-300">
-                      <span className="font-medium text-purple-400">
-                        Hybrid:
-                      </span>{" "}
-                      Combines scheduled production with PAR-based approach,
-                      allowing both regular prep schedules and inventory-based
-                      calculations.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Conditional fields based on prep system */}
-        {formData.prep_system === "scheduled_production" ||
-        formData.prep_system === "hybrid" ? (
-          <div className="mb-6 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
-            <h3 className="text-lg font-medium text-white mb-3 flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-blue-400" />
-              Schedule Settings
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-2">
-                  <Calendar className="w-3 h-3 text-blue-400" />
-                  Days of Week
+              <div className="mb-4">
+                <label className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-1">
+                  <AlignLeft className="w-3 h-3 text-blue-400" />
+                  Description
                 </label>
-                <div className="flex flex-wrap gap-2">
-                  {dayNames.map((day, index) => (
-                    <button
-                      key={day}
-                      type="button"
-                      onClick={() => handleScheduleDayToggle(index)}
-                      className={`px-3 py-1 rounded-full text-sm ${(formData.schedule_days || []).includes(index) ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-300"}`}
-                    >
-                      {day}
-                    </button>
-                  ))}
-                </div>
+                <textarea
+                  name="description"
+                  value={formData.description || ""}
+                  onChange={handleInputChange}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white h-20"
+                  placeholder="Describe the purpose of this list module"
+                />
               </div>
 
-              <div>
+              <div className="mb-4">
                 <label className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-2">
                   <Clock className="w-3 h-3 text-blue-400" />
-                  Advance Days
-                  <span className="text-xs text-gray-500 ml-2">
-                    (How many days in advance to schedule)
-                  </span>
+                  Estimated Time (minutes)
                 </label>
                 <input
                   type="number"
-                  name="advance_days"
-                  value={formData.advance_days || 1}
+                  name="estimated_time"
+                  value={formData.estimated_time || 0}
                   onChange={handleInputChange}
                   min="0"
-                  max="14"
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white"
+                  placeholder="Enter estimated time in minutes"
                 />
+                {selectedStage && selectedStage.total_time && (
+                  <p className="text-xs text-blue-400 mt-1">
+                    Auto-populated from recipe stage time
+                  </p>
+                )}
               </div>
             </div>
-          </div>
-        ) : null}
+          )}
+        </div>
 
-        {formData.prep_system === "par" || formData.prep_system === "hybrid" ? (
-          <div className="mb-6 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
-            <h3 className="text-lg font-medium text-white mb-3 flex items-center gap-2">
-              <FileText className="h-5 w-5 text-green-400" />
-              PAR Level Settings
-            </h3>
-            <p className="text-gray-400 text-sm mb-4">
-              PAR levels will be configured for individual list items after
-              creating the module. The system will use On Hand, Par Level, and
-              Amount to Prep variables.
-            </p>
-          </div>
-        ) : null}
+        {/* Prep System Section */}
+        <div className="card p-4 border border-gray-700 bg-slate-900/40 rounded-lg mb-4">
+          {renderSectionHeader(
+            "Prep System Configuration",
+            <BrainCog className="text-green-500 w-5 h-5" />,
+            "scheduling",
+          )}
 
-        {/* Note about list items - shown when editing an existing template */}
-        {selectedTemplate && (
-          <div className="mb-6">
-            <div className="text-center p-6 border border-dashed border-gray-700 rounded-lg">
-              <p className="text-gray-300 font-medium">
-                List items can be added in the Prep List Builder tab after
-                saving this module.
-              </p>
-              <p className="text-gray-500 text-sm mt-2">
-                This module currently has{" "}
-                {selectedTemplate.tasks ? selectedTemplate.tasks.length : 0}{" "}
-                list items.
-              </p>
+          {expanded.scheduling && (
+            <div className="p-4 bg-gray-800/50 rounded-lg border border-gray-700 mb-4">
+              <div className="flex items-center mb-4">
+                <input
+                  type="checkbox"
+                  id="auto_advance"
+                  name="auto_advance"
+                  checked={formData.auto_advance || false}
+                  onChange={(e) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      auto_advance: e.target.checked,
+                    }));
+                  }}
+                  className="mr-2 h-4 w-4 rounded border-gray-700 bg-gray-800 text-blue-500 focus:ring-blue-500"
+                />
+                <label
+                  htmlFor="auto_advance"
+                  className="text-sm font-medium text-gray-400 flex items-center gap-1"
+                >
+                  <Clock className="w-3 h-3 text-blue-400" />
+                  Auto-advance task to next day if not completed
+                  <span className="ml-2 text-xs text-gray-500">
+                    (Task will automatically move to the current date if it was
+                    due in the past)
+                  </span>
+                </label>
+              </div>
+
+              <div className="mb-4">
+                <label className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-1">
+                  <Gauge className="w-3 h-3 text-blue-400" />
+                  Prep System
+                </label>
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="w-full md:w-1/3">
+                    <select
+                      name="prep_system"
+                      value={formData.prep_system}
+                      onChange={handleInputChange}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white"
+                    >
+                      <option value="par">PAR-based</option>
+                      <option value="scheduled_production">
+                        Scheduled Production
+                      </option>
+                      <option value="as_needed">As-Needed</option>
+                      <option value="hybrid">Hybrid</option>
+                    </select>
+                  </div>
+                  <div className="w-full md:w-2/3 bg-gray-800/50 p-3 rounded-lg border border-gray-700 line-clamp-4">
+                    {formData.prep_system === "par" && (
+                      <div className="flex items-start gap-2">
+                        <div className="h-5 w-5 mt-0.5 flex-shrink-0 rounded-full bg-blue-500/20 flex items-center justify-center">
+                          <span className="text-blue-400 text-xs font-bold">
+                            P
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-300">
+                          <span className="font-medium text-blue-400">
+                            PAR-based:
+                          </span>{" "}
+                          Prep items to maintain set inventory levels. System
+                          calculates needed amounts based on current levels vs.
+                          target PAR levels.
+                        </p>
+                      </div>
+                    )}
+                    {formData.prep_system === "scheduled_production" && (
+                      <div className="flex items-start gap-2">
+                        <div className="h-5 w-5 mt-0.5 flex-shrink-0 rounded-full bg-green-500/20 flex items-center justify-center">
+                          <span className="text-green-400 text-xs font-bold">
+                            S
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-300">
+                          <span className="font-medium text-green-400">
+                            Scheduled Production:
+                          </span>{" "}
+                          Prep items according to a regular schedule on specific
+                          days of the week with advance planning.
+                        </p>
+                      </div>
+                    )}
+                    {formData.prep_system === "as_needed" && (
+                      <div className="flex items-start gap-2">
+                        <div className="h-5 w-5 mt-0.5 flex-shrink-0 rounded-full bg-amber-500/20 flex items-center justify-center">
+                          <span className="text-amber-400 text-xs font-bold">
+                            A
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-300">
+                          <span className="font-medium text-amber-400">
+                            As-Needed:
+                          </span>{" "}
+                          Flexible prep system where items are prepared when
+                          required, based on user determination rather than
+                          automated calculations.
+                        </p>
+                      </div>
+                    )}
+                    {formData.prep_system === "hybrid" && (
+                      <div className="flex items-start gap-2">
+                        <div className="h-5 w-5 mt-0.5 flex-shrink-0 rounded-full bg-purple-500/20 flex items-center justify-center">
+                          <span className="text-purple-400 text-xs font-bold">
+                            H
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-300">
+                          <span className="font-medium text-purple-400">
+                            Hybrid:
+                          </span>{" "}
+                          Combines scheduled production with PAR-based approach,
+                          allowing both regular prep schedules and
+                          inventory-based calculations.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* PAR Level Settings */}
+              {(formData.prep_system === "par" ||
+                formData.prep_system === "hybrid") && (
+                <div className="mb-4">
+                  <h3 className="text-md font-medium text-white mb-3 flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-green-400" />
+                    PAR Level Settings
+                  </h3>
+                  <p className="text-gray-400 text-sm mb-4 bg-gray-800/50 p-3 rounded-lg border border-gray-700">
+                    PAR levels will be configured for individual list items
+                    after creating the module. The system will use On Hand, Par
+                    Level, and Amount to Prep variables.
+                  </p>
+                </div>
+              )}
+
+              {/* Schedule Settings */}
+              {(formData.prep_system === "scheduled_production" ||
+                formData.prep_system === "hybrid") && (
+                <div className="mb-4">
+                  <h3 className="text-md font-medium text-white mb-3 flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-blue-400" />
+                    Schedule Settings
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-2">
+                        <Calendar className="w-3 h-3 text-blue-400" />
+                        Days of Week
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {dayNames.map((day, index) => (
+                          <button
+                            key={day}
+                            type="button"
+                            onClick={() => handleScheduleDayToggle(index)}
+                            className={`px-3 py-1 rounded-full text-sm ${(formData.schedule_days || []).includes(index) ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-300"}`}
+                          >
+                            {day}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-2">
+                        <Clock className="w-3 h-3 text-blue-400" />
+                        Advance Days
+                        <span className="text-xs text-gray-500 ml-2">
+                          (How many days in advance to schedule)
+                        </span>
+                      </label>
+                      <input
+                        type="number"
+                        name="advance_days"
+                        value={formData.advance_days || 1}
+                        onChange={handleInputChange}
+                        min="0"
+                        max="14"
+                        className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        <div className="flex justify-end gap-3 mt-6">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors"
-          >
-            {selectedTemplate ? "Update Module" : "Create Module"}
-          </button>
+        {/* Recipe & Ingredients Section */}
+        <div className="card p-4 border border-gray-700 bg-slate-900/40 rounded-lg mb-4">
+          {renderSectionHeader(
+            "Recipe & Ingredient References",
+            <LibraryBig className="text-purple-500 w-5 h-5" />,
+            "recipe",
+          )}
+
+          {expanded.recipe && (
+            <div className="p-4 bg-gray-800/50 rounded-lg border border-gray-700 mb-4">
+              <div className="mb-4">
+                <label className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-1">
+                  <LibraryBig className="w-3 h-3 text-blue-400" />
+                  Associated Recipe Library Item
+                </label>
+                <RecipeSelector
+                  recipes={recipeOptions}
+                  selectedRecipeId={formData.recipe_id || ""}
+                  selectedStageId={formData.prep_stage || ""}
+                  onRecipeSelect={(recipeId, recipeName) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      recipe_id: recipeId,
+                    }));
+
+                    // Clear stage selection when recipe changes
+                    if (prev.recipe_id !== recipeId) {
+                      setFormData((prev) => ({
+                        ...prev,
+                        prep_stage: "",
+                      }));
+                      setSelectedStage(null);
+                    }
+                  }}
+                  onStageSelect={(stageId, stageName) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      prep_stage: stageId,
+                    }));
+
+                    // Find stage data for display
+                    const recipe = recipeOptions.find(
+                      (r) => r.id === formData.recipe_id,
+                    );
+                    if (recipe && recipe.stages) {
+                      const stage = recipe.stages.find(
+                        (s) =>
+                          `stage_${recipe.id}_${s.id || s.name}` === stageId,
+                      );
+                      if (stage) {
+                        setSelectedStage(stage);
+
+                        // Auto-populate estimated time if stage has total_time
+                        if (stage.total_time) {
+                          setFormData((prev) => ({
+                            ...prev,
+                            estimated_time: stage.total_time,
+                          }));
+                        }
+                      }
+                    }
+                  }}
+                />
+                {/* List Items Note - shown when editing an existing template */}
+                {selectedTemplate && (
+                  <div className="card p-4 border border-gray-700 bg-slate-900/40 rounded-lg mb-4">
+                    <div className="text-center p-4 border border-dashed border-gray-700 rounded-lg">
+                      <h3 className="text-gray-300 font-medium flex items-center justify-center gap-2 mb-2">
+                        <CheckCircle className="h-4 w-4 text-green-400" />
+                        List Items
+                      </h3>
+                      <p className="text-gray-300">
+                        List items can be added in the Prep List Builder tab
+                        after saving this module.
+                      </p>
+                      <p className="text-gray-500 text-sm mt-2">
+                        This module currently has{" "}
+                        {selectedTemplate.tasks
+                          ? selectedTemplate.tasks.length
+                          : 0}{" "}
+                        list items.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors flex items-center gap-1"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    {selectedTemplate ? "Update Module" : "Create Module"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </form>
     </div>
