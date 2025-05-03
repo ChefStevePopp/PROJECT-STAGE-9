@@ -730,7 +730,8 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
             assignment_type: "direct",
             assignee_id: assigneeId,
             kitchen_station: null,
-            default_station: null, // Also clear the default_station field
+            assignee_station: null, // Clear the assignee_station field
+            // Don't clear default_station as it should remain the original default from prep_list_templates
             lottery: false,
             updated_at: new Date().toISOString(),
             status: currentTask?.status || "pending", // Preserve existing status
@@ -743,7 +744,8 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
         : {
             assignment_type: "station",
             kitchen_station: assigneeId,
-            default_station: assigneeId, // Also update the default_station field for backward compatibility
+            assignee_station: assigneeId, // Update the assignee_station field for current assignment
+            // Don't update default_station as it should remain the original default from prep_list_templates
             assignee_id: null,
             lottery: false,
             updated_at: new Date().toISOString(),
@@ -917,8 +919,11 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
         default_station: module.default_station || templateData?.station || "",
         template_id: module.template_id || module.id,
         sequence: module.sequence || 0,
-        kitchen_station:
-          module.kitchen_station || templateData?.kitchen_stations?.[0] || "",
+        production_station:
+          module.default_station ||
+          module.kitchen_station ||
+          templateData?.kitchen_stations?.[0] ||
+          "",
         // Remove assignee_id completely to avoid foreign key constraint issues
         due_date: dueDate,
         status: "pending",

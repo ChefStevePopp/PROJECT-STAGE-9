@@ -79,6 +79,7 @@ export const TaskAssignment: React.FC<TaskAssignmentProps> = ({
           assignment_type: "station",
           assignee_id: null,
           lottery: false,
+          // Don't update default_station as it should remain the original default
         })
         .eq("id", task.id);
 

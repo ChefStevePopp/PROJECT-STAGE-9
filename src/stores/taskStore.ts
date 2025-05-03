@@ -408,6 +408,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
               ...task,
 
               assignee_station: stationName, // Use assignee_station for the assigned station
+              kitchen_station: stationName, // Set kitchen_station to match the assigned station
               station: stationName, // Keep station updated for backward compatibility
               assignment_type: "station",
               assignee_id: null,
@@ -421,6 +422,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
       return get().updateTask(id, {
         assignee_station: stationName, // Use assignee_station for the assigned station
+        kitchen_station: stationName, // Set kitchen_station to match the assigned station
         station: stationName, // Keep station updated for backward compatibility
         assignment_type: "station", // Change to station assignment type
         assignee_id: null, // Clear any direct assignee
