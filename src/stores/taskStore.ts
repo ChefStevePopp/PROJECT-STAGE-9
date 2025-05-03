@@ -26,7 +26,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         .eq("organization_id", user.user_metadata.organizationId)
         .order("due_date", { ascending: true });
 
-      // Process tasks to ensure assignment_type is set correctly
+      // Process tasks to ensure assignment_type is set correctly and calculate isLate and daysLate
       if (data) {
         data.forEach((task) => {
           // If assignment_type is not set but we have station information, set it to "station"
@@ -43,6 +43,30 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           // If assignment_type is not set but lottery is true, set it to "lottery"
           else if (!task.assignment_type && task.lottery) {
             task.assignment_type = "lottery";
+          }
+
+          // Calculate isLate and daysLate based on due_date and created_at
+          if (task.due_date && task.created_at && !task.completed) {
+            const dueDate = new Date(task.due_date);
+            const createdDate = new Date(task.created_at);
+
+            // Reset time components for accurate day comparison
+            dueDate.setHours(0, 0, 0, 0);
+            createdDate.setHours(0, 0, 0, 0);
+
+            // A task is late if the due date is different from the created date
+            if (dueDate.toDateString() !== createdDate.toDateString()) {
+              task.isLate = true;
+              // Calculate days late (difference between due date and created date)
+              const timeDiff = dueDate.getTime() - createdDate.getTime();
+              task.daysLate = Math.ceil(timeDiff / (1000 * 3600 * 24));
+            } else {
+              task.isLate = false;
+              task.daysLate = 0;
+            }
+          } else {
+            task.isLate = false;
+            task.daysLate = 0;
           }
         });
       }
@@ -67,12 +91,48 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         throw new Error("No organization ID found");
       }
 
+      // If the task is from a template, try to get the estimated_time from the template
+      let estimatedTime = task.estimated_time;
+      if (task.prep_list_template_id) {
+        // Try to fetch the template to get its estimated_time
+        const { data: templateData } = await supabase
+          .from("prep_list_templates")
+          .select("estimated_time")
+          .eq("id", task.prep_list_template_id)
+          .single();
+
+        // Use template's estimated_time if available and not zero, otherwise keep the task's estimated_time or default to 0
+        if (
+          templateData?.estimated_time !== undefined &&
+          templateData.estimated_time > 0
+        ) {
+          estimatedTime = templateData.estimated_time;
+        } else if (
+          task.estimated_time !== undefined &&
+          task.estimated_time > 0
+        ) {
+          estimatedTime = task.estimated_time;
+        } else {
+          estimatedTime = 0;
+        }
+
+        console.log("Template estimated_time:", templateData?.estimated_time);
+        console.log("Task estimated_time:", task.estimated_time);
+        console.log("Final estimated_time:", estimatedTime);
+      }
+
       const newTask = {
         ...task,
         organization_id: user.user_metadata.organizationId,
         created_by: user.id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        estimated_time:
+          estimatedTime > 0
+            ? estimatedTime
+            : task.estimated_time > 0
+              ? task.estimated_time
+              : 0,
       };
 
       const { data, error } = await supabase
@@ -96,7 +156,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           estimated_time: data.estimated_time,
           assignment_type: data.assignment_type,
           assignee_id: data.assignee_id,
-          station: data.station || data.kitchen_station,
+          station: data.default_station || data.kitchen_station,
           prep_list_id: data.prep_list_id,
           user_name: user.user_metadata?.name || user.email,
         },

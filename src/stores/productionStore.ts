@@ -487,6 +487,32 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
           task.due_date = todayStr;
         }
 
+        // Calculate isLate and daysLate based on due_date and created_at
+        if (task.due_date && task.created_at) {
+          const dueDate = new Date(task.due_date);
+          const createdDate = new Date(task.created_at.split("T")[0]);
+
+          // Reset time components for accurate day comparison
+          dueDate.setHours(0, 0, 0, 0);
+          createdDate.setHours(0, 0, 0, 0);
+
+          // A task is late if the due date is different from the created date
+          if (dueDate.toDateString() !== createdDate.toDateString()) {
+            task.isLate = true;
+            // Calculate days late (difference between due date and created date)
+            const diffTime = createdDate.getTime() - dueDate.getTime();
+            task.daysLate = Math.ceil(diffTime / (1000 * 3600 * 24));
+            console.log(`Task ${task.id} is late by ${task.daysLate} days`);
+          } else {
+            task.isLate = false;
+            task.daysLate = 0;
+          }
+        } else {
+          // If we don't have created_at or due_date, task can't be late
+          task.isLate = false;
+          task.daysLate = 0;
+        }
+
         // Ensure assignment data is properly set
         if (task.assignee_id) {
           console.log(`Task ${task.id} has assignee: ${task.assignee_id}`);
@@ -704,7 +730,7 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
             assignment_type: "direct",
             assignee_id: assigneeId,
             kitchen_station: null,
-            station: null, // Also clear the station field
+            default_station: null, // Also clear the default_station field
             lottery: false,
             updated_at: new Date().toISOString(),
             status: currentTask?.status || "pending", // Preserve existing status
@@ -717,7 +743,7 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
         : {
             assignment_type: "station",
             kitchen_station: assigneeId,
-            station: assigneeId, // Also update the station field for backward compatibility
+            default_station: assigneeId, // Also update the default_station field for backward compatibility
             assignee_id: null,
             lottery: false,
             updated_at: new Date().toISOString(),
@@ -886,8 +912,9 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
         assigning_team_member_id: assigningTeamMemberId, // Add the assigning team member ID if provided
         title: module.title,
         description: module.description || "",
-        estimated_time: module.estimated_time || 0,
-        station: module.station || templateData?.station || "",
+        estimated_time:
+          templateData?.estimated_time || module.estimated_time || 0,
+        default_station: module.default_station || templateData?.station || "",
         template_id: module.template_id || module.id,
         sequence: module.sequence || 0,
         kitchen_station:

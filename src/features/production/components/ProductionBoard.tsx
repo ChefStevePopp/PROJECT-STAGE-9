@@ -243,6 +243,16 @@ export const ProductionBoard = ({
       console.log("First template:", templates[0]);
       console.log("First template tasks:", templates[0].tasks);
 
+      // Debug estimated_time values in template tasks
+      if (templates[0].tasks && templates[0].tasks.length > 0) {
+        templates[0].tasks.forEach((task) => {
+          console.log(
+            `Template task ${task.id} - ${task.title} estimated_time:`,
+            task.estimated_time,
+          );
+        });
+      }
+
       // If we have selected prep lists, update the available modules
       if (selectedPrepLists.length > 0 && selectedDay) {
         const selectedPrepListsData = prepLists.filter((prepList) =>
@@ -461,8 +471,9 @@ export const ProductionBoard = ({
           : "",
         template_id: module.template_id, // Keep reference to the original template
         sequence: module.sequence || 0,
-        estimated_time: module.estimated_time || 0,
-        station: module.station || null,
+        estimated_time:
+          module.estimated_time !== undefined ? module.estimated_time : 0,
+        default_station: module.station || null,
         kitchen_station: module.kitchen_station || null,
         recipe_id: module.recipe_id || null,
         required: module.required !== undefined ? module.required : true,
@@ -475,6 +486,19 @@ export const ProductionBoard = ({
         assignee_station: null,
         id: crypto.randomUUID(), // Generate a new UUID for each task instance
       };
+
+      console.log(
+        `Creating new task from module with estimated_time:`,
+        module.estimated_time,
+      );
+
+      // Debug log to check where the estimated_time value is coming from
+      console.log(`Module template data:`, {
+        id: module.id,
+        title: module.title,
+        estimated_time: module.estimated_time,
+        template_id: module.template_id,
+      });
 
       // Ensure assignee_id is not included to avoid foreign key constraint issues
       delete newTaskData.assignee_id;
@@ -972,6 +996,9 @@ export const ProductionBoard = ({
       }
 
       if (data && data.length > 0) {
+        // Debug log to check the raw template data
+        console.log("Raw template data from database:", data);
+
         // Check which modules are already assigned to this day
         const tasksForDay = tasksByDay[selectedDay || ""] || [];
         const assignedModuleTitles = tasksForDay
@@ -987,31 +1014,42 @@ export const ProductionBoard = ({
             uniqueTitles.add(template.title);
             return true;
           })
-          .map((template) => ({
-            id: template.id,
-            title: template.title,
-            description: template.description
-              ? template.description.replace(
-                  /\s*\[Auto-advanced from.*?\]/g,
-                  "",
-                )
-              : "",
-            template_id: template.id,
-            estimated_time: template.estimated_time || 0,
-            station: template.station || "",
-            sequence: template.sequence || 0,
-            required: true,
-            assigned: assignedModuleTitles.includes(template.title),
-            prep_system: template.prep_system,
-            par_level: template.par_level,
-            current_level: template.current_level,
-            amount_required: template.amount_required,
-            kitchen_station:
-              template.kitchen_station || template.kitchen_stations?.[0],
-            recipe_id: template.recipe_id,
-            requires_certification: template.requires_certification,
-            priority: template.priority || "low",
-          }));
+          .map((template) => {
+            // Debug log for each template's estimated_time
+            console.log(
+              `Template ${template.id} - ${template.title} estimated_time:`,
+              template.estimated_time,
+            );
+
+            return {
+              id: template.id,
+              title: template.title,
+              description: template.description
+                ? template.description.replace(
+                    /\s*\[Auto-advanced from.*?\]/g,
+                    "",
+                  )
+                : "",
+              template_id: template.id,
+              estimated_time:
+                template.estimated_time !== undefined
+                  ? template.estimated_time
+                  : 0,
+              station: template.station || "",
+              sequence: template.sequence || 0,
+              required: true,
+              assigned: assignedModuleTitles.includes(template.title),
+              prep_system: template.prep_system,
+              par_level: template.par_level,
+              current_level: template.current_level,
+              amount_required: template.amount_required,
+              kitchen_station:
+                template.kitchen_station || template.kitchen_stations?.[0],
+              recipe_id: template.recipe_id,
+              requires_certification: template.requires_certification,
+              priority: template.priority || "low",
+            };
+          });
 
         setAvailableModules(templatesAsModules);
         console.log(`Loaded ${templatesAsModules.length} unique modules`);

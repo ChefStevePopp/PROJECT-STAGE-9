@@ -79,7 +79,7 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
     category: "prep",
     prep_system: "par",
     is_active: true,
-    station: "",
+    default_station: "",
     par_levels: {},
     schedule_days: [],
     advance_days: 1,
@@ -198,7 +198,8 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
         category: selectedTemplate.category,
         prep_system: selectedTemplate.prep_system,
         is_active: selectedTemplate.is_active,
-        station: selectedTemplate.station,
+        default_station:
+          selectedTemplate.default_station || selectedTemplate.station,
         par_levels: selectedTemplate.par_levels,
         schedule_days: selectedTemplate.schedule_days,
         advance_days: selectedTemplate.advance_days,
@@ -212,8 +213,10 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
       });
 
       // Set search fields based on selected values
-      if (selectedTemplate.station) {
-        setStationSearch(selectedTemplate.station);
+      if (selectedTemplate.default_station || selectedTemplate.station) {
+        setStationSearch(
+          selectedTemplate.default_station || selectedTemplate.station,
+        );
       }
       if (selectedTemplate.kitchen_role) {
         setRoleSearch(selectedTemplate.kitchen_role);

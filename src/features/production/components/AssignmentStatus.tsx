@@ -24,13 +24,11 @@ import toast from "react-hot-toast";
 interface AssignmentStatusProps {
   task: Task;
   onComplete: (taskId: string) => void;
-  estimatedTime?: number;
 }
 
 export const AssignmentStatus: React.FC<AssignmentStatusProps> = ({
   task,
   onComplete,
-  estimatedTime,
 }) => {
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
   const { getUserName } = useUserNameMapping();
@@ -40,6 +38,9 @@ export const AssignmentStatus: React.FC<AssignmentStatusProps> = ({
   const [isStopped, setIsStopped] = useState(false);
   const [activeTime, setActiveTime] = useState(0);
   const [pauseTime, setPauseTime] = useState(0);
+
+  // Always use the task's estimated_time from the database
+  const displayEstimatedTime = task.estimated_time;
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -511,13 +512,13 @@ export const AssignmentStatus: React.FC<AssignmentStatusProps> = ({
               </div>
 
               {/* Estimated Time - Clearly placed under the timer */}
-              {estimatedTime && (
+              {task.estimated_time > 0 && (
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-700/30 rounded-md border border-slate-600/30 w-full">
                   <div className="w-5 h-5 flex items-center justify-center bg-amber-400/20 rounded-md border border-amber-300/30">
                     <Timer className="w-3 h-3 text-amber-400" />
                   </div>
                   <span className="text-sm text-amber-300 font-medium">
-                    Estimated time: {formatEstimatedTime(estimatedTime)}
+                    Estimated time: {task.estimated_time} min
                   </span>
                 </div>
               )}

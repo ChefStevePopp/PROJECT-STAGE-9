@@ -228,6 +228,22 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
       : `${hours}h`;
   };
 
+  // Log the estimated time for debugging
+  console.log(
+    `Task ${task.id} - ${task.title} estimated_time:`,
+    task.estimated_time,
+  );
+
+  // Ensure estimated_time is properly initialized
+  useEffect(() => {
+    if (task.estimated_time === undefined || task.estimated_time === null) {
+      console.warn(
+        `Task ${task.id} has undefined estimated_time, setting to 0`,
+      );
+      task.estimated_time = 0;
+    }
+  }, [task]);
+
   // Determine priority color
   const getPriorityColor = (priority: string) => {
     console.log("Getting color for priority:", priority);
@@ -430,11 +446,7 @@ export const SortableTaskCard: React.FC<SortableTaskCardProps> = ({
               masterIngredientData={masterIngredientData}
             />
             {/* Assignment Status Component - Now third */}
-            <AssignmentStatus
-              task={task}
-              onComplete={onComplete}
-              estimatedTime={task.estimated_time}
-            />
+            <AssignmentStatus task={task} onComplete={onComplete} />
             {task.requires_certification &&
               task.requires_certification.length > 0 && (
                 <div className="flex items-center gap-2 text-xs text-gray-400 mb-3">

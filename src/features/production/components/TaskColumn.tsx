@@ -110,11 +110,11 @@ export const TaskColumn: React.FC<TaskColumnProps> = ({
       >
         <div className="flex justify-between items-center px-2">
           <span>{formattedDay}</span>
-          <span className="text-sm bg-gray-700 px-2 py-0.5 rounded-full">
+          <span className="text-sm text-slate-300 bg-slate-700 border border-slate-400 px-2 py-0.5 rounded-full">
             {processedTasks.length}
           </span>
         </div>
-        <div className="text-sm text-gray-400 text-left px-2">
+        <div className="text-sm text-slate-300 text-left px-2">
           {formattedDate}
         </div>
       </div>

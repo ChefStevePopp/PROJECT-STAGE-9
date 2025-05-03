@@ -184,7 +184,12 @@ const RecipeSelector: React.FC<RecipeSelectorProps> = ({
       onStageSelect(stage.id, stage.name);
     } else {
       // Fallback to old behavior for backward compatibility
-      onRecipeSelect(stage.id, `${selectedRecipe.name} - ${stage.name}`, stage);
+      // Make sure we're passing the complete stage data including total_time
+      onRecipeSelect(
+        stage.id,
+        `${selectedRecipe.name} - ${stage.name}`,
+        stage.stageData,
+      );
     }
   };
 
