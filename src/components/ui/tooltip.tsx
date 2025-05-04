@@ -24,7 +24,7 @@ export const Tooltip: React.FC<{ children: React.ReactNode }> = ({
   const [open, setOpen] = useState(false);
   return (
     <TooltipContext.Provider value={{ open, setOpen }}>
-      <div className="relative inline-block">{children}</div>
+      <div className="relative inline-flex">{children}</div>
     </TooltipContext.Provider>
   );
 };
@@ -39,9 +39,11 @@ export const TooltipTrigger: React.FC<{ children: React.ReactNode }> = ({
 
   return (
     <div
-      className="cursor-help"
+      className="cursor-help inline-flex"
       onMouseEnter={() => context.setOpen(true)}
       onMouseLeave={() => context.setOpen(false)}
+      onFocus={() => context.setOpen(true)}
+      onBlur={() => context.setOpen(false)}
     >
       {children}
     </div>
@@ -61,7 +63,7 @@ export const TooltipContent: React.FC<{ children: React.ReactNode }> = ({
   }
 
   return (
-    <div className="absolute z-50 w-auto min-w-[8rem] px-3 py-1.5 text-sm bg-gray-800 rounded-lg shadow-lg -top-2 left-full ml-2 text-gray-200">
+    <div className="absolute z-50 w-auto min-w-[8rem] max-w-[20rem] px-4 py-3 text-sm bg-gray-800/95 border border-gray-700 rounded-lg shadow-xl -top-2 left-full ml-2 text-gray-200 backdrop-blur-sm">
       {children}
     </div>
   );

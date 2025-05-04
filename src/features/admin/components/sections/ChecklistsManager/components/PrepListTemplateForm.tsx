@@ -14,12 +14,22 @@ import {
   X,
   ChevronDown,
   ChevronUp,
-  GripVertical,
+  ClipboardType,
   Settings,
   CheckCircle,
   BrainCog,
   NotebookPen,
+  ListChecks,
+  AlertCircle,
+  HelpCircle,
+  Info,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../../../../../../components/ui/tooltip";
 import RecipeSelector from "./RecipeSelector";
 import toast from "react-hot-toast";
 import { usePrepListTemplateStore } from "../../../../../../stores/prepListTemplateStore";
@@ -27,6 +37,7 @@ import { useOperationsStore } from "../../../../../../stores/operationsStore";
 import { useTeamStore } from "../../../../../../stores/teamStore";
 import { useRecipeStore } from "@/features/recipes/stores/recipeStore";
 import { useMasterIngredientsStore } from "@/stores/masterIngredientsStore";
+import { supabase } from "../../../../../../lib/supabase";
 import {
   PrepListTemplate,
   PrepListTemplateTask,
@@ -61,6 +72,7 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
   const [expanded, setExpanded] = useState({
     basicInfo: true,
     scheduling: false,
+    teamConfig: false,
     assignments: false,
     ingredients: false,
     recipe: false,
@@ -73,68 +85,130 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
     }));
   };
 
-  const [formData, setFormData] = useState<Partial<PrepListTemplate>>({
+  const [formData, setFormData] = useState<
+    Partial<PrepListTemplate> & { kitchen_stations?: string[] }
+  >({
     title: "",
     description: "",
     category: "prep",
     prep_system: "par",
     is_active: true,
     default_station: "",
+    production_station: "",
     par_levels: {},
     schedule_days: [],
     advance_days: 1,
     recipe_id: "",
     prep_stage: "",
     master_ingredient_id: "",
-    kitchen_role: "",
-    kitchen_stations: [],
+    kitchen_roles: [],
+    kitchen_stations: [], // This is used in the UI but not sent to the database
+    kitchen_station_permission: [],
     auto_advance: false,
     estimated_time: 0,
   });
 
   // Search states
   const [stationSearch, setStationSearch] = useState("");
+  const [productionStationSearch, setProductionStationSearch] = useState("");
   const [roleSearch, setRoleSearch] = useState("");
   const [recipeSearch, setRecipeSearch] = useState("");
   const [ingredientSearch, setIngredientSearch] = useState("");
   const [kitchenStationSearch, setKitchenStationSearch] = useState("");
+  const [stationPermissionSearch, setStationPermissionSearch] = useState("");
 
   // Filtered options
   const [filteredStations, setFilteredStations] = useState<string[]>([]);
+  const [filteredProductionStations, setFilteredProductionStations] = useState<
+    string[]
+  >([]);
   const [filteredRoles, setFilteredRoles] = useState<string[]>([]);
   const [filteredRecipes, setFilteredRecipes] = useState<any[]>([]);
   const [filteredIngredients, setFilteredIngredients] = useState<any[]>([]);
   const [filteredKitchenStations, setFilteredKitchenStations] = useState<
     string[]
   >([]);
+  const [filteredStationPermissions, setFilteredStationPermissions] = useState<
+    string[]
+  >([]);
 
   // Dropdown visibility
   const [stationDropdownOpen, setStationDropdownOpen] = useState(false);
+  const [productionStationDropdownOpen, setProductionStationDropdownOpen] =
+    useState(false);
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
   const [recipeDropdownOpen, setRecipeDropdownOpen] = useState(false);
   const [ingredientDropdownOpen, setIngredientDropdownOpen] = useState(false);
   const [kitchenStationDropdownOpen, setKitchenStationDropdownOpen] =
     useState(false);
+  const [stationPermissionDropdownOpen, setStationPermissionDropdownOpen] =
+    useState(false);
 
   // Refs for dropdown containers
   const stationRef = useRef<HTMLDivElement>(null);
+  const productionStationRef = useRef<HTMLDivElement>(null);
   const roleRef = useRef<HTMLDivElement>(null);
   const recipeRef = useRef<HTMLDivElement>(null);
   const ingredientRef = useRef<HTMLDivElement>(null);
   const kitchenStationRef = useRef<HTMLDivElement>(null);
+  const stationPermissionRef = useRef<HTMLDivElement>(null);
+
+  // Function to fetch prep lists that use this template
+  const fetchPrepListsForTemplate = async (id: string) => {
+    if (!id) return;
+
+    setLoadingPrepLists(true);
+    try {
+      // Query prep_lists table for lists that include this template ID in template_ids array
+      const { data, error } = await supabase
+        .from("prep_lists")
+        .select("id, title")
+        .contains("template_ids", [id]);
+
+      if (error) throw error;
+
+      // Also check for legacy references in template_id field
+      const { data: legacyData, error: legacyError } = await supabase
+        .from("prep_lists")
+        .select("id, title")
+        .eq("template_id", id);
+
+      if (legacyError) throw legacyError;
+
+      // Combine both results, removing duplicates
+      const allLists = [...(data || []), ...(legacyData || [])];
+      const uniqueLists = allLists.filter(
+        (list, index, self) =>
+          index === self.findIndex((l) => l.id === list.id),
+      );
+
+      setPrepLists(uniqueLists);
+    } catch (error) {
+      console.error("Error fetching prep lists for template:", error);
+    } finally {
+      setLoadingPrepLists(false);
+    }
+  };
 
   useEffect(() => {
     // Fetch templates first to ensure they're loaded
     fetchTemplates().then(() => {
       if (templateId) {
         selectTemplate(templateId);
+        fetchPrepListsForTemplate(templateId);
       } else {
         selectTemplate(null);
       }
     });
 
     // Fetch operations settings, team members, recipes, and master ingredients
-    fetchSettings();
+    fetchSettings().then(() => {
+      // Initialize filtered stations with all available stations
+      if (settings?.kitchen_stations) {
+        setFilteredStations(settings.kitchen_stations);
+        setFilteredProductionStations(settings.kitchen_stations);
+      }
+    });
     fetchTeamMembers();
     fetchRecipes();
     fetchIngredients();
@@ -146,6 +220,12 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
         !stationRef.current.contains(event.target as Node)
       ) {
         setStationDropdownOpen(false);
+      }
+      if (
+        productionStationRef.current &&
+        !productionStationRef.current.contains(event.target as Node)
+      ) {
+        setProductionStationDropdownOpen(false);
       }
       if (roleRef.current && !roleRef.current.contains(event.target as Node)) {
         setRoleDropdownOpen(false);
@@ -167,6 +247,12 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
         !kitchenStationRef.current.contains(event.target as Node)
       ) {
         setKitchenStationDropdownOpen(false);
+      }
+      if (
+        stationPermissionRef.current &&
+        !stationPermissionRef.current.contains(event.target as Node)
+      ) {
+        setStationPermissionDropdownOpen(false);
       }
     };
 
@@ -192,6 +278,33 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
 
   useEffect(() => {
     if (selectedTemplate) {
+      // Process kitchen roles to ensure they're properly formatted as an array
+      let processedKitchenRoles: string[] = [];
+
+      if (selectedTemplate.kitchen_role) {
+        if (Array.isArray(selectedTemplate.kitchen_role)) {
+          // If it's already an array, use it directly
+          processedKitchenRoles = selectedTemplate.kitchen_role;
+        } else if (typeof selectedTemplate.kitchen_role === "string") {
+          try {
+            // Check if it's a stringified array
+            if (
+              selectedTemplate.kitchen_role.startsWith("[") &&
+              selectedTemplate.kitchen_role.endsWith("]")
+            ) {
+              processedKitchenRoles = JSON.parse(selectedTemplate.kitchen_role);
+            } else {
+              // Single role as string
+              processedKitchenRoles = [selectedTemplate.kitchen_role];
+            }
+          } catch (e) {
+            console.error("Error parsing kitchen roles:", e);
+            // If parsing fails, treat it as a single role
+            processedKitchenRoles = [String(selectedTemplate.kitchen_role)];
+          }
+        }
+      }
+
       setFormData({
         title: selectedTemplate.title,
         description: selectedTemplate.description,
@@ -200,14 +313,17 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
         is_active: selectedTemplate.is_active,
         default_station:
           selectedTemplate.default_station || selectedTemplate.station,
+        production_station: selectedTemplate.production_station || "",
         par_levels: selectedTemplate.par_levels,
         schedule_days: selectedTemplate.schedule_days,
         advance_days: selectedTemplate.advance_days,
         recipe_id: selectedTemplate.recipe_id || "",
         prep_stage: selectedTemplate.prep_stage || "",
         master_ingredient_id: selectedTemplate.master_ingredient_id || "",
-        kitchen_role: selectedTemplate.kitchen_role || "",
+        kitchen_roles: processedKitchenRoles,
         kitchen_stations: selectedTemplate.kitchen_stations || [],
+        kitchen_station_permission:
+          selectedTemplate.kitchen_station_permission || [],
         auto_advance: selectedTemplate.auto_advance || false,
         estimated_time: selectedTemplate.estimated_time || 0,
       });
@@ -218,9 +334,10 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
           selectedTemplate.default_station || selectedTemplate.station,
         );
       }
-      if (selectedTemplate.kitchen_role) {
-        setRoleSearch(selectedTemplate.kitchen_role);
+      if (selectedTemplate.production_station) {
+        setProductionStationSearch(selectedTemplate.production_station);
       }
+      // We don't need to set roleSearch for multi-select
 
       // Set recipe search if a recipe is selected
       if (selectedTemplate.recipe_id && recipeOptions.length > 0) {
@@ -262,15 +379,39 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
     }
   }, [selectedTemplate, recipes, ingredients]);
 
-  // Filter stations based on search
+  // Filter stations based on search and initialize dropdown with all stations when empty
   useEffect(() => {
     if (settings?.kitchen_stations) {
       const filtered = settings.kitchen_stations.filter((station) =>
         station.toLowerCase().includes(stationSearch.toLowerCase()),
       );
       setFilteredStations(filtered);
+
+      // If dropdown is open and no search term, show all stations
+      if (stationDropdownOpen && !stationSearch) {
+        setFilteredStations(settings.kitchen_stations);
+      }
     }
-  }, [stationSearch, settings?.kitchen_stations]);
+  }, [stationSearch, settings?.kitchen_stations, stationDropdownOpen]);
+
+  // Filter production stations based on search
+  useEffect(() => {
+    if (settings?.kitchen_stations) {
+      const filtered = settings.kitchen_stations.filter((station) =>
+        station.toLowerCase().includes(productionStationSearch.toLowerCase()),
+      );
+      setFilteredProductionStations(filtered);
+
+      // If dropdown is open and no search term, show all stations
+      if (productionStationDropdownOpen && !productionStationSearch) {
+        setFilteredProductionStations(settings.kitchen_stations);
+      }
+    }
+  }, [
+    productionStationSearch,
+    settings?.kitchen_stations,
+    productionStationDropdownOpen,
+  ]);
 
   // Filter kitchen stations based on search
   useEffect(() => {
@@ -286,6 +427,24 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
     kitchenStationSearch,
     settings?.kitchen_stations,
     formData.kitchen_stations,
+  ]);
+
+  // Filter station permissions based on search
+  useEffect(() => {
+    if (settings?.kitchen_stations) {
+      const filtered = settings.kitchen_stations.filter(
+        (station) =>
+          station
+            .toLowerCase()
+            .includes(stationPermissionSearch.toLowerCase()) &&
+          !(formData.kitchen_station_permission || []).includes(station),
+      );
+      setFilteredStationPermissions(filtered);
+    }
+  }, [
+    stationPermissionSearch,
+    settings?.kitchen_stations,
+    formData.kitchen_station_permission,
   ]);
 
   // Filter roles based on search
@@ -306,6 +465,12 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
 
   // State for selected stage
   const [selectedStage, setSelectedStage] = useState<any>(null);
+
+  // State for prep lists that use this template
+  const [prepLists, setPrepLists] = useState<{ id: string; title: string }[]>(
+    [],
+  );
+  const [loadingPrepLists, setLoadingPrepLists] = useState(false);
 
   // Filter recipes based on search
   useEffect(() => {
@@ -403,18 +568,38 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
     }
 
     try {
-      // Ensure kitchen_role, master_ingredient_id, and prep_stage are included in the submission
+      // Ensure all fields are included in the submission
+      // Remove fields that don't exist in the database schema
+      // Ensure kitchen_roles is a proper array before submission
+      const kitchenRoles = Array.isArray(formData.kitchen_roles)
+        ? formData.kitchen_roles
+        : formData.kitchen_roles
+          ? [formData.kitchen_roles]
+          : [];
+
       const dataToSubmit = {
-        ...formData,
-        kitchen_role: formData.kitchen_role || null,
+        title: formData.title,
+        description: formData.description || null,
+        category: formData.category || "prep",
+        prep_system: formData.prep_system || "par",
+        is_active: formData.is_active !== undefined ? formData.is_active : true,
+        default_station: formData.default_station || null,
+        production_station: formData.production_station || null,
+        par_levels: formData.par_levels || {},
+        schedule_days: formData.schedule_days || [],
+        advance_days: formData.advance_days || 1,
+        recipe_id: formData.recipe_id || null,
+        kitchen_role: kitchenRoles, // Properly formatted kitchen roles array
         master_ingredient_id: formData.master_ingredient_id || null,
+        kitchen_station_permission: formData.kitchen_station_permission || [],
+        auto_advance: formData.auto_advance || false,
         prep_stage: formData.prep_stage || null,
+        estimated_time: formData.estimated_time || 0,
       };
 
-      // Log the data being submitted for debugging
-      console.log("Submitting form data:", dataToSubmit);
-      console.log("Recipe ID being saved:", dataToSubmit.recipe_id);
-      console.log("Prep stage being saved:", dataToSubmit.prep_stage);
+      // Remove fields that don't exist in the database schema
+      delete dataToSubmit.kitchen_stations;
+      // Don't include station field at all as it doesn't exist in the schema
 
       if (selectedTemplate) {
         await updateTemplate(selectedTemplate.id, dataToSubmit);
@@ -497,29 +682,128 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
   return (
     <div className="bg-gray-900 rounded-lg border border-gray-700 p-6 max-w-4xl mx-auto">
       {/* Header section */}
-      <div className="expandable-kanban-header mb-6">
-        <div className="flex flex-col sm:flex-row w-full">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <div className="cursor-grab active:cursor-grabbing text-gray-500 hover:text-gray-300 flex-shrink-0">
-              <GripVertical className="w-4 h-4" />
-            </div>
+      <div className="flex justify-between items-center rounded-lg p-6 mb-4 bg-[#1a1f2b] shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-purple-600/20 rounded-lg flex items-center justify-center">
+            <ClipboardType className="h-5 w-5 text-purple-500" />
+          </div>
+          <div>
             <h2 className="text-2xl font-bold text-white">
-              {selectedTemplate ? "Edit List Module" : "Create New List Module"}
+              {selectedTemplate ? selectedTemplate.title : "New List Module"}
             </h2>
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+              {selectedTemplate && (
+                <div className="bg-blue-500/20 text-blue-300 text-sm px-3 py-1 rounded-full border border-blue-500/30 flex items-center gap-1">
+                  <ListChecks className="h-3.5 w-3.5" />
+                  <span>
+                    {" "}
+                    Has Been Assigned{" "}
+                    {selectedTemplate.tasks
+                      ? selectedTemplate.tasks.length
+                      : 0}{" "}
+                    Times
+                  </span>
+                </div>
+              )}
+              {loadingPrepLists ? (
+                <div className="bg-gray-500/20 text-gray-300 text-sm px-3 py-1 rounded-full border border-gray-500/30 flex items-center gap-1">
+                  <span className="animate-pulse">Loading lists...</span>
+                </div>
+              ) : selectedTemplate && prepLists.length > 0 ? (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <div className="bg-green-500/20 text-green-300 text-sm px-3 py-1 rounded-full border border-green-500/30 flex items-center gap-1 cursor-help">
+                        <CheckCircle className="h-3.5 w-3.5" />
+                        <span>Used in {prepLists.length} lists</span>
+                        <Info className="h-3.5 w-3.5 ml-1 text-green-300/70" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <div className="p-2 max-w-xs">
+                        <h4 className="text-sm font-medium text-gray-300 mb-2">
+                          Lists using this module:
+                        </h4>
+                        <ul className="space-y-1">
+                          {prepLists.map((list) => (
+                            <li
+                              key={list.id}
+                              className="text-gray-300 text-2xs"
+                            >
+                              • {list.title}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : (
+                selectedTemplate && (
+                  <div className="bg-amber-500/20 text-amber-300 text-sm px-3 py-1 rounded-full border border-amber-500/30 flex items-center gap-1">
+                    <AlertCircle className="h-3.5 w-3.5" />
+                    <span>Not used in any lists</span>
+                  </div>
+                )
+              )}
+              {!selectedTemplate && (
+                <p className="text-gray-400">
+                  Create a new list module for building daily prep lists. Add
+                  list items in the Prep List Builder tab after saving.
+                </p>
+              )}
+            </div>
           </div>
         </div>
+        {/* Removed the list display from here as it's now shown in the tooltip */}
       </div>
 
       {selectedTemplate && (
         <div className="mb-4 bg-blue-500/20 p-3 rounded-lg border border-blue-500/30">
-          <p className="text-blue-300">
-            This module is part of{" "}
-            {selectedTemplate.tasks ? selectedTemplate.tasks.length : 0} lists
-            {selectedTemplate.tasks && selectedTemplate.tasks.length > 0
-              ? ": " +
-                selectedTemplate.tasks.map((task) => task.title).join(", ")
-              : ". Add it to a list in the Prep List Builder tab."}
-          </p>
+          <div className="flex items-start gap-2">
+            <div className="mt-1">
+              <ListChecks className="h-5 w-5 text-blue-400" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-blue-300 font-medium mb-1">Module Tasks</h3>
+              <p className="text-blue-300">
+                This module contains{" "}
+                {selectedTemplate.tasks ? selectedTemplate.tasks.length : 0}{" "}
+                task items
+                {selectedTemplate.tasks && selectedTemplate.tasks.length > 0 ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <span className="cursor-help inline-flex items-center">
+                          : {selectedTemplate.tasks.length} items
+                          <Info className="h-3.5 w-3.5 ml-1 text-blue-300/70" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <div className="p-2 max-w-xs">
+                          <h4 className="font-medium text-white mb-1">
+                            Task items:
+                          </h4>
+                          <ul className="space-y-1">
+                            {selectedTemplate.tasks.map((task) => (
+                              <li
+                                key={task.id}
+                                className="text-gray-300 text-xs"
+                              >
+                                • {task.title}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  ". Add tasks in the Prep List Builder tab."
+                )}
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -805,6 +1089,321 @@ export const PrepListTemplateForm: React.FC<PrepListTemplateFormProps> = ({
                   </div>
                 </div>
               )}
+            </div>
+          )}
+        </div>
+
+        {/* Team Configuration Section */}
+        <div className="card p-4 border border-gray-700 bg-slate-900/40 rounded-lg mb-4">
+          {renderSectionHeader(
+            "Team Configuration",
+            <User className="text-amber-500 w-5 h-5" />,
+            "teamConfig",
+          )}
+
+          {expanded.teamConfig && (
+            <div className="p-4 bg-gray-800/50 rounded-lg border border-gray-700 mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                {/* Default Station */}
+                <div className="relative" ref={stationRef}>
+                  <label className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-1">
+                    <MapPin className="w-3 h-3 text-blue-400" />
+                    Default Station
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={stationSearch}
+                      onChange={(e) => setStationSearch(e.target.value)}
+                      onFocus={() => {
+                        setStationDropdownOpen(true);
+                        // Show all stations when focusing on the input
+                        if (settings?.kitchen_stations) {
+                          setFilteredStations(settings.kitchen_stations);
+                        }
+                      }}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white"
+                      placeholder="Select a station"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400"
+                      onClick={() =>
+                        setStationDropdownOpen(!stationDropdownOpen)
+                      }
+                    >
+                      {stationDropdownOpen ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                  {stationDropdownOpen && (
+                    <div className="absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-lg max-h-60 overflow-auto">
+                      {filteredStations.length > 0 ? (
+                        filteredStations.map((station) => (
+                          <div
+                            key={station}
+                            className="p-2 hover:bg-gray-700 cursor-pointer text-white"
+                            onClick={() => {
+                              setStationSearch(station);
+                              setFormData((prev) => ({
+                                ...prev,
+                                default_station: station,
+                              }));
+                              setStationDropdownOpen(false);
+                            }}
+                          >
+                            {station}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-2 text-gray-400 text-center">
+                          No stations found
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Production Station */}
+                <div className="relative" ref={productionStationRef}>
+                  <label className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-1">
+                    <MapPin className="w-3 h-3 text-green-400" />
+                    Production Station
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={productionStationSearch}
+                      onChange={(e) =>
+                        setProductionStationSearch(e.target.value)
+                      }
+                      onFocus={() => {
+                        setProductionStationDropdownOpen(true);
+                        // Show all stations when focusing on the input
+                        if (settings?.kitchen_stations) {
+                          setFilteredProductionStations(
+                            settings.kitchen_stations,
+                          );
+                        }
+                      }}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white"
+                      placeholder="Select a production station"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400"
+                      onClick={() =>
+                        setProductionStationDropdownOpen(
+                          !productionStationDropdownOpen,
+                        )
+                      }
+                    >
+                      {productionStationDropdownOpen ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                  {productionStationDropdownOpen && (
+                    <div className="absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-lg max-h-60 overflow-auto">
+                      {filteredProductionStations.length > 0 ? (
+                        filteredProductionStations.map((station) => (
+                          <div
+                            key={station}
+                            className="p-2 hover:bg-gray-700 cursor-pointer text-white"
+                            onClick={() => {
+                              setProductionStationSearch(station);
+                              setFormData((prev) => ({
+                                ...prev,
+                                production_station: station,
+                              }));
+                              setProductionStationDropdownOpen(false);
+                            }}
+                          >
+                            {station}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-2 text-gray-400 text-center">
+                          No stations found
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Kitchen Roles (Multi-select) */}
+              <div className="mb-4">
+                <label className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-1">
+                  <User className="w-3 h-3 text-blue-400" />
+                  Kitchen Roles
+                </label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {(formData.kitchen_roles || []).map((role) => (
+                    <div
+                      key={role}
+                      className="bg-gray-700 text-white px-2 py-1 rounded-lg flex items-center gap-1"
+                    >
+                      <span>{role}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            kitchen_roles: (prev.kitchen_roles || []).filter(
+                              (r) => r !== role,
+                            ),
+                          }));
+                        }}
+                        className="text-gray-400 hover:text-white"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="relative" ref={roleRef}>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={roleSearch}
+                      onChange={(e) => setRoleSearch(e.target.value)}
+                      onFocus={() => setRoleDropdownOpen(true)}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white"
+                      placeholder="Add kitchen roles"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400"
+                      onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
+                    >
+                      {roleDropdownOpen ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                  {roleDropdownOpen && filteredRoles.length > 0 && (
+                    <div className="absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-lg max-h-60 overflow-auto">
+                      {filteredRoles
+                        .filter(
+                          (role) =>
+                            !(formData.kitchen_roles || []).includes(role),
+                        )
+                        .map((role) => (
+                          <div
+                            key={role}
+                            className="p-2 hover:bg-gray-700 cursor-pointer text-white"
+                            onClick={() => {
+                              setRoleSearch("");
+                              setFormData((prev) => ({
+                                ...prev,
+                                kitchen_roles: [
+                                  ...(prev.kitchen_roles || []),
+                                  role,
+                                ],
+                              }));
+                            }}
+                          >
+                            {role}
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Station Permissions (Multi-select) */}
+              <div className="mb-4">
+                <label className="flex items-center gap-1 text-sm font-medium text-gray-400 mb-1">
+                  <Settings className="w-3 h-3 text-amber-400" />
+                  Station Permissions (Which stations can view this module)
+                </label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {(formData.kitchen_station_permission || []).map(
+                    (station) => (
+                      <div
+                        key={station}
+                        className="bg-gray-700 text-white px-2 py-1 rounded-lg flex items-center gap-1"
+                      >
+                        <span>{station}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              kitchen_station_permission: (
+                                prev.kitchen_station_permission || []
+                              ).filter((s) => s !== station),
+                            }));
+                          }}
+                          className="text-gray-400 hover:text-white"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ),
+                  )}
+                </div>
+                <div className="relative" ref={stationPermissionRef}>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={stationPermissionSearch}
+                      onChange={(e) =>
+                        setStationPermissionSearch(e.target.value)
+                      }
+                      onFocus={() => setStationPermissionDropdownOpen(true)}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white"
+                      placeholder="Add station permissions"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400"
+                      onClick={() =>
+                        setStationPermissionDropdownOpen(
+                          !stationPermissionDropdownOpen,
+                        )
+                      }
+                    >
+                      {stationPermissionDropdownOpen ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                  {stationPermissionDropdownOpen &&
+                    filteredStationPermissions.length > 0 && (
+                      <div className="absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-lg max-h-60 overflow-auto">
+                        {filteredStationPermissions.map((station) => (
+                          <div
+                            key={station}
+                            className="p-2 hover:bg-gray-700 cursor-pointer text-white"
+                            onClick={() => {
+                              setStationPermissionSearch("");
+                              setFormData((prev) => ({
+                                ...prev,
+                                kitchen_station_permission: [
+                                  ...(prev.kitchen_station_permission || []),
+                                  station,
+                                ],
+                              }));
+                            }}
+                          >
+                            {station}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                </div>
+              </div>
             </div>
           )}
         </div>
