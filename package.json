@@ -36,7 +36,7 @@
     "react-image-crop": "^11.0.5",
     "react-router-dom": "^6.22.1",
     "tailwind-merge": "^3.0.2",
-    "tempo-devtools": "^2.0.102",
+    "tempo-devtools": "^2.0.106",
     "tesseract.js": "^6.0.0",
     "xlsx": "^0.18.5",
     "zustand": "^4.5.1"

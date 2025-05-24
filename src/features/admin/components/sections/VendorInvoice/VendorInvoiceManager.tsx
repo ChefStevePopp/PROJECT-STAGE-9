@@ -30,6 +30,7 @@ import { VendorAnalytics } from "./components/VendorAnalytics";
 import { ImportHistory } from "./components/ImportHistory";
 import { useVendorTemplatesStore } from "@/stores/vendorTemplatesStore";
 import { ManualInvoiceForm } from "./components/ManualInvoiceForm";
+import { ocrService } from "@/lib/ocr-service";
 import toast from "react-hot-toast";
 
 const TABS = [
@@ -111,19 +112,191 @@ export const VendorInvoiceManager = () => {
     if (data instanceof File) {
       setIsLoading(true);
       try {
-        let results;
         if (importType === "pdf") {
-          // Mock OCR service for PDF processing
-          console.log("Processing PDF file:", data.name);
-          // In a real implementation, this would call an actual OCR service
+          console.log("Processing PDF file with OCR:", data.name);
+          const vendorTemplate = templates.find(
+            (t) => t.vendor_id === selectedVendor,
+          );
+
+          if (!vendorTemplate) {
+            toast.error("No template found for this vendor");
+            setIsLoading(false);
+            return;
+          }
+
+          try {
+            // Use the OCR service to extract real data from the PDF
+            const ocrResults = await ocrService.processPDF(data);
+            const extractedData = ocrService.extractInvoiceData(ocrResults);
+
+            // Initialize mappedData as an empty array
+            let mappedData = [];
+
+            // Only map if items exist and are in an array
+            if (
+              extractedData &&
+              extractedData.items &&
+              Array.isArray(extractedData.items)
+            ) {
+              mappedData = extractedData.items.map((item, index) => ({
+                item_code: item.itemCode || `ITEM-${index + 1}`,
+                product_name: item.description || `Product ${index + 1}`,
+                unit_price: item.unitPrice || 0,
+                unit_of_measure: "EA", // Default unit of measure
+              }));
+            }
+
+            // If no items were extracted, show a message
+            if (mappedData.length === 0) {
+              toast.warning(
+                "No items could be extracted from the PDF. Adding a placeholder item.",
+              );
+              // Add a fallback item to show something in the preview
+              mappedData.push({
+                item_code: "OCR-FAILED",
+                product_name: "OCR extraction failed - please try manual entry",
+                unit_price: 0,
+                unit_of_measure: "EA",
+              });
+            } else {
+              toast.success(
+                `Successfully extracted ${mappedData.length} items from PDF`,
+              );
+            }
+
+            // Set the invoice date from extracted data or default to today
+            if (extractedData && extractedData.date) {
+              try {
+                const parsedDate = new Date(extractedData.date);
+                if (!isNaN(parsedDate.getTime())) {
+                  setInvoiceDate(parsedDate);
+                } else {
+                  setInvoiceDate(new Date());
+                }
+              } catch (e) {
+                setInvoiceDate(new Date());
+              }
+            } else {
+              setInvoiceDate(new Date());
+            }
+
+            // Set the CSV data to show the preview
+            setCSVData(mappedData);
+          } catch (pdfError) {
+            console.error("PDF processing error:", pdfError);
+            toast.error("Failed to process PDF. Adding placeholder data.");
+
+            // Add fallback data
+            const fallbackData = [
+              {
+                item_code: "PDF-ERROR",
+                product_name: "PDF processing failed - please try manual entry",
+                unit_price: 0,
+                unit_of_measure: "EA",
+              },
+            ];
+
+            setCSVData(fallbackData);
+            setInvoiceDate(new Date());
+          }
         } else if (importType === "photo") {
-          // Mock OCR service for image processing
-          console.log("Processing image file:", data.name);
-          // In a real implementation, this would call an actual OCR service
+          console.log("Processing image file with OCR:", data.name);
+
+          try {
+            // Use the OCR service to extract real data from the photo
+            const ocrResults = await ocrService.processImage(data);
+            const extractedData = ocrService.extractInvoiceData(ocrResults);
+
+            // Initialize mappedData as an empty array
+            let mappedData = [];
+
+            // Only map if items exist and are in an array
+            if (
+              extractedData &&
+              extractedData.items &&
+              Array.isArray(extractedData.items)
+            ) {
+              mappedData = extractedData.items.map((item, index) => ({
+                item_code: item.itemCode || `ITEM-${index + 1}`,
+                product_name: item.description || `Product ${index + 1}`,
+                unit_price: item.unitPrice || 0,
+                unit_of_measure: "EA", // Default unit of measure
+              }));
+            }
+
+            // If no items were extracted, show a message
+            if (mappedData.length === 0) {
+              toast.error(
+                "No items could be extracted from the image. Adding a placeholder item.",
+              );
+              // Add a fallback item to show something in the preview
+              mappedData.push({
+                item_code: "OCR-FAILED",
+                product_name: "OCR extraction failed - please try manual entry",
+                unit_price: 0,
+                unit_of_measure: "EA",
+              });
+            } else {
+              toast.success(
+                `Successfully extracted ${mappedData.length} items from image`,
+              );
+            }
+
+            // Set the invoice date from extracted data or default to today
+            if (extractedData && extractedData.date) {
+              try {
+                const parsedDate = new Date(extractedData.date);
+                if (!isNaN(parsedDate.getTime())) {
+                  setInvoiceDate(parsedDate);
+                } else {
+                  setInvoiceDate(new Date());
+                }
+              } catch (e) {
+                setInvoiceDate(new Date());
+              }
+            } else {
+              setInvoiceDate(new Date());
+            }
+
+            // Set the CSV data to show the preview
+            setCSVData(mappedData);
+          } catch (photoError) {
+            console.error("Photo processing error:", photoError);
+            toast.error("Failed to process image. Adding placeholder data.");
+
+            // Add fallback data
+            const fallbackData = [
+              {
+                item_code: "PHOTO-ERROR",
+                product_name:
+                  "Image processing failed - please try manual entry",
+                unit_price: 0,
+                unit_of_measure: "EA",
+              },
+            ];
+
+            setCSVData(fallbackData);
+            setInvoiceDate(new Date());
+          }
         }
       } catch (error) {
         console.error(`Error processing ${importType.toUpperCase()}:`, error);
-        toast.error(`Failed to process ${importType.toUpperCase()} file`);
+        toast.error(
+          `Failed to process ${importType.toUpperCase()} file: ${error.message}`,
+        );
+
+        // Add fallback data even in case of general errors
+        const fallbackData = [
+          {
+            item_code: "ERROR",
+            product_name: `${importType.toUpperCase()} processing failed - please try manual entry`,
+            unit_price: 0,
+            unit_of_measure: "EA",
+          },
+        ];
+
+        setCSVData(fallbackData);
+        setInvoiceDate(new Date());
       } finally {
         setIsLoading(false);
       }

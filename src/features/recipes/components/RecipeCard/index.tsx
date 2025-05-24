@@ -263,7 +263,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
                 recipe.status === "approved"
                   ? "bg-green-500/20 text-green-400"
                   : recipe.status === "draft"
-                    ? "bg-amber-500/20 text-amber-400"
+                    ? "bg-slate-700/60 text-amber-400"
                     : recipe.status === "archived"
                       ? "bg-gray-500/20 text-gray-400"
                       : "bg-gray-900/90 text-gray-300"

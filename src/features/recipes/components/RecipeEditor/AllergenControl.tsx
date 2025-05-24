@@ -352,6 +352,13 @@ export const AllergenControl: React.FC<AllergenControlProps> = ({
               ? extractAllergensFromMasterIngredient(masterIngredient)
               : null;
 
+            // Add to the set of allergens
+            if (allergenInfo?.contains) {
+              allergenInfo.contains.forEach((allergen) =>
+                allergens.add(allergen),
+              );
+            }
+
             return (
               <div
                 key={index}
@@ -368,19 +375,29 @@ export const AllergenControl: React.FC<AllergenControlProps> = ({
                 </div>
 
                 {/* Display allergens */}
-                {allergenInfo && allergenInfo.contains.length > 0 && (
+                {((allergenInfo && allergenInfo.contains.length > 0) ||
+                  (isRecipeIngredient && recipeAllergens.length > 0)) && (
                   <div className="mt-2">
                     <div className="text-xs font-medium text-gray-400 mb-1">
                       Allergens:
                     </div>
                     <div className="flex flex-wrap gap-1">
-                      {allergenInfo.contains.map((allergen) => (
-                        <AllergenBadge
-                          key={allergen}
-                          type={allergen as AllergenType}
-                          size="sm"
-                        />
-                      ))}
+                      {allergenInfo &&
+                        allergenInfo.contains.map((allergen) => (
+                          <AllergenBadge
+                            key={allergen}
+                            type={allergen as AllergenType}
+                            size="sm"
+                          />
+                        ))}
+                      {isRecipeIngredient &&
+                        recipeAllergens.map((allergen) => (
+                          <AllergenBadge
+                            key={`recipe-${allergen}`}
+                            type={allergen as AllergenType}
+                            size="sm"
+                          />
+                        ))}
                     </div>
                   </div>
                 )}
@@ -417,10 +434,27 @@ export const AllergenControl: React.FC<AllergenControlProps> = ({
               const masterIngredient = ingredients.find(
                 (mi) => mi.id === ingredient.name,
               );
+
+              // Check if this is a recipe ingredient (UUID format)
+              const isRecipeIngredient =
+                !masterIngredient &&
+                ingredient.name &&
+                ingredient.name.match(
+                  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+                );
+
+              // Get recipe allergens if this is a recipe ingredient
+              if (isRecipeIngredient && recipeMap[ingredient.name]) {
+                const recipeAllergens =
+                  recipeMap[ingredient.name].allergens || [];
+                recipeAllergens.forEach((allergen) => allergens.add(allergen));
+              }
+
               // Extract allergens from master ingredient
               const allergenInfo = masterIngredient
                 ? extractAllergensFromMasterIngredient(masterIngredient)
                 : null;
+
               // Add to the set of allergens
               if (allergenInfo?.contains) {
                 allergenInfo.contains.forEach((allergen) =>
@@ -435,10 +469,29 @@ export const AllergenControl: React.FC<AllergenControlProps> = ({
                   const masterIngredient = ingredients.find(
                     (mi) => mi.id === ingredient.name,
                   );
+
+                  // Check if this is a recipe ingredient (UUID format)
+                  const isRecipeIngredient =
+                    !masterIngredient &&
+                    ingredient.name &&
+                    ingredient.name.match(
+                      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+                    );
+
+                  // Get recipe allergens if this is a recipe ingredient
+                  if (isRecipeIngredient && recipeMap[ingredient.name]) {
+                    const recipeAllergens =
+                      recipeMap[ingredient.name].allergens || [];
+                    recipeAllergens.forEach((allergen) =>
+                      allergens.add(allergen),
+                    );
+                  }
+
                   // Extract allergens from master ingredient
                   const allergenInfo = masterIngredient
                     ? extractAllergensFromMasterIngredient(masterIngredient)
                     : null;
+
                   // Add to the set of allergens
                   if (allergenInfo?.contains) {
                     allergenInfo.contains.forEach((allergen) =>

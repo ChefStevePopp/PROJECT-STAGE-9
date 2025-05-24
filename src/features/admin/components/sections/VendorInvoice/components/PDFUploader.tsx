@@ -13,6 +13,12 @@ export const PDFUploader: React.FC<Props> = ({ onUpload }) => {
     (acceptedFiles: File[]) => {
       const file = acceptedFiles[0];
       if (file) {
+        console.log(
+          "PDF file dropped:",
+          file.name,
+          file.type,
+          `${Math.round(file.size / 1024)} KB`,
+        );
         if (file.size > 10 * 1024 * 1024) {
           // 10MB limit
           setError("File size too large. Maximum size is 10MB.");

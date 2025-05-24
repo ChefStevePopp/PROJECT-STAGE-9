@@ -134,26 +134,28 @@ export const VendorSelector: React.FC<Props> = ({
               />
               CSV
             </button>
-            <button
-              type="button"
-              onClick={() => onFileTypeChange("pdf")}
-              className={`tab green ${fileType === "pdf" ? "active" : ""} text-sm`}
-            >
-              <FileText
-                className={`w-5 h-5 mr-1 ${fileType === "pdf" ? "text-green-400" : ""}`}
-              />
-              PDF
-            </button>
-            <button
-              type="button"
-              onClick={() => onFileTypeChange("photo")}
-              className={`tab amber ${fileType === "photo" ? "active" : ""} text-sm`}
-            >
-              <Camera
-                className={`w-5 h-5 mr-1 ${fileType === "photo" ? "text-amber-400" : ""}`}
-              />
-              Photo
-            </button>
+            {/* 
+    <button
+      type="button"
+      onClick={() => onFileTypeChange("pdf")}
+      className={`tab green ${fileType === "pdf" ? "active" : ""} text-sm`}
+    >
+      <FileText
+        className={`w-5 h-5 mr-1 ${fileType === "pdf" ? "text-green-400" : ""}`}
+      />
+      PDF
+    </button>
+    <button
+      type="button"
+      onClick={() => onFileTypeChange("photo")}
+      className={`tab amber ${fileType === "photo" ? "active" : ""} text-sm`}
+    >
+      <Camera
+        className={`w-5 h-5 mr-1 ${fileType === "photo" ? "text-amber-400" : ""}`}
+      />
+      Photo
+    </button>
+    */}
             <button
               type="button"
               onClick={() => onFileTypeChange("manual")}

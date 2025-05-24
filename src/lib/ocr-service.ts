@@ -66,17 +66,28 @@ export const ocrService = {
       // Convert PDF to images
       const images = await this.pdfToImages(file);
 
+      if (!images || images.length === 0) {
+        console.warn("No images extracted from PDF");
+        return [];
+      }
+
       // Process each page
       const results: OCRResult[] = [];
       for (const image of images) {
-        const pageResults = await this.processImage(image);
-        results.push(...pageResults);
+        try {
+          const pageResults = await this.processImage(image);
+          results.push(...pageResults);
+        } catch (pageError) {
+          console.error("Error processing PDF page:", pageError);
+          // Continue with next page instead of failing completely
+        }
       }
 
       return results;
     } catch (error) {
       console.error("PDF OCR error:", error);
-      throw new Error("Failed to process PDF");
+      // Return empty array instead of throwing
+      return [];
     }
   },
 
@@ -92,45 +103,81 @@ export const ocrService = {
       }
 
       // Process with Tesseract
-      const { data } = await worker.recognize(image);
+      const result = await worker.recognize(image);
+
+      // Check if data and words exist before mapping
+      if (
+        !result ||
+        !result.data ||
+        !result.data.words ||
+        !Array.isArray(result.data.words)
+      ) {
+        console.warn("No valid OCR data found in the image");
+        return [];
+      }
 
       // Convert Tesseract results to our format
-      return data.words.map((word) => ({
-        text: word.text,
-        confidence: word.confidence,
+      return result.data.words.map((word) => ({
+        text: word.text || "",
+        confidence: word.confidence || 0,
         boundingBox: word.bbox,
       }));
     } catch (error) {
       console.error("Image OCR error:", error);
-      throw new Error("Failed to process image");
+      // Return empty array instead of throwing
+      return [];
     }
   },
 
   async pdfToImages(file: File): Promise<HTMLCanvasElement[]> {
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-    const images: HTMLCanvasElement[] = [];
+    console.log(`Converting PDF to images: ${file.name}`);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      console.log(
+        `PDF loaded into ArrayBuffer, size: ${Math.round(arrayBuffer.byteLength / 1024)} KB`,
+      );
 
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const viewport = page.getViewport({ scale: 2.0 }); // Higher scale for better OCR
+      const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+      console.log(`PDF document loaded. Total pages: ${pdf.numPages}`);
 
-      const canvas = document.createElement("canvas");
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
+      const images: HTMLCanvasElement[] = [];
 
-      const context = canvas.getContext("2d");
-      if (!context) continue;
+      for (let i = 1; i <= pdf.numPages; i++) {
+        console.log(`Rendering page ${i}/${pdf.numPages}`);
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 2.0 }); // Higher scale for better OCR
 
-      await page.render({
-        canvasContext: context,
-        viewport: viewport,
-      }).promise;
+        const canvas = document.createElement("canvas");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        console.log(
+          `Canvas created for page ${i}: ${canvas.width}x${canvas.height}`,
+        );
 
-      images.push(canvas);
+        const context = canvas.getContext("2d");
+        if (!context) {
+          console.error(`Failed to get 2D context for page ${i}`);
+          continue;
+        }
+
+        console.log(`Rendering page ${i} to canvas...`);
+        await page.render({
+          canvasContext: context,
+          viewport: viewport,
+        }).promise;
+        console.log(`Page ${i} rendered successfully`);
+
+        images.push(canvas);
+      }
+
+      console.log(
+        `PDF conversion complete. Generated ${images.length} canvas images`,
+      );
+      return images;
+    } catch (error) {
+      console.error("Error converting PDF to images:", error);
+      return [];
     }
-
-    return images;
   },
 
   async fileToBase64(file: File): Promise<string> {
@@ -151,12 +198,18 @@ export const ocrService = {
       vendorInfo: {},
     };
 
+    // Handle empty results
+    if (!results || !Array.isArray(results) || results.length === 0) {
+      console.warn("No OCR results to extract invoice data from");
+      return data;
+    }
+
     // Join all text for pattern matching
-    const fullText = results.map((r) => r.text).join(" ");
+    const fullText = results.map((r) => r.text || "").join(" ");
 
     // Extract invoice number (common patterns)
     const invoiceMatch = fullText.match(/inv[oice]*(\s|#|:)*([\w-]+)/i);
-    if (invoiceMatch) {
+    if (invoiceMatch && invoiceMatch[2]) {
       data.invoiceNumber = invoiceMatch[2];
     }
 
@@ -164,14 +217,14 @@ export const ocrService = {
     const dateMatch = fullText.match(
       /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})|(\w+ \d{1,2},? \d{4})/,
     );
-    if (dateMatch) {
+    if (dateMatch && dateMatch[0]) {
       data.date = dateMatch[0];
     }
 
     // Extract total (look for patterns like "Total: $123.45")
     const totalMatch = fullText.match(/total\s*:?\s*\$?(\d+\.?\d*)/i);
-    if (totalMatch) {
-      data.total = parseFloat(totalMatch[1]);
+    if (totalMatch && totalMatch[1]) {
+      data.total = parseFloat(totalMatch[1]) || 0;
     }
 
     // Extract line items (basic pattern matching)
@@ -183,14 +236,44 @@ export const ocrService = {
         /(\w+)\s+([\w\s]+)\s+(\d+)\s+\$?(\d+\.?\d*)/,
       );
 
-      if (itemMatch) {
-        data.items.push({
-          itemCode: itemMatch[1],
-          description: itemMatch[2].trim(),
-          quantity: parseInt(itemMatch[3]),
-          unitPrice: parseFloat(itemMatch[4]),
-          total: parseInt(itemMatch[3]) * parseFloat(itemMatch[4]),
-        });
+      if (itemMatch && itemMatch.length >= 5) {
+        try {
+          const quantity = parseInt(itemMatch[3]) || 0;
+          const unitPrice = parseFloat(itemMatch[4]) || 0;
+
+          data.items.push({
+            itemCode: itemMatch[1],
+            description: itemMatch[2].trim(),
+            quantity: quantity,
+            unitPrice: unitPrice,
+            total: quantity * unitPrice,
+          });
+        } catch (error) {
+          console.warn("Error parsing line item:", error);
+        }
+      }
+    }
+
+    // If no items were found, try a more lenient pattern
+    if (data.items.length === 0) {
+      // Look for any lines with numbers that might be prices
+      for (const line of lines) {
+        const simpleMatch = line.match(/([A-Za-z0-9-]+).*?\$?(\d+\.?\d*)/i);
+        if (simpleMatch && simpleMatch.length >= 3) {
+          try {
+            data.items.push({
+              itemCode: simpleMatch[1].trim(),
+              description:
+                line.replace(simpleMatch[0], "").trim() ||
+                `Item ${data.items.length + 1}`,
+              quantity: 1,
+              unitPrice: parseFloat(simpleMatch[2]) || 0,
+              total: parseFloat(simpleMatch[2]) || 0,
+            });
+          } catch (error) {
+            console.warn("Error parsing simple line item:", error);
+          }
+        }
       }
     }
 
