@@ -13,6 +13,7 @@ import toast from "react-hot-toast";
 import { ColumnMapping } from "@/types/csv-mappings";
 import { useCSVMappingsStore } from "@/stores/csvMappingsStore";
 import { supabase } from "@/lib/supabase";
+import { Json } from "@/types/supabase";
 
 interface CSVConfigurationProps {
   onSaveMapping: (mapping: ColumnMapping) => void;
@@ -294,7 +295,12 @@ export const CSVConfiguration: React.FC<CSVConfigurationProps> = ({
 
     // Save to database if organization ID is available
     if (orgId) {
-      const success = await saveMapping(orgId, "schedule", null, finalMapping);
+      const success = await saveMapping(
+        orgId,
+        "schedule",
+        null,
+        finalMapping as unknown as Json,
+      );
       if (success) {
         toast.success("Mapping saved to database");
       }
@@ -500,7 +506,7 @@ export const CSVConfiguration: React.FC<CSVConfigurationProps> = ({
             ) : mappings && mappings.length > 0 ? (
               mappings.map((savedMapping) => {
                 const mapping =
-                  savedMapping.column_mapping as unknown as ColumnMapping;
+                  savedMapping.column_mapping as Json as unknown as ColumnMapping;
                 return (
                   <div key={savedMapping.id} className="flex items-center">
                     <button

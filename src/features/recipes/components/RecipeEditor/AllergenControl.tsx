@@ -194,23 +194,32 @@ export const AllergenControl: React.FC<AllergenControlProps> = ({
 
   // Fetch recipes to get names for recipe ingredients
   const { recipes, fetchRecipes } = useRecipeStore();
-  const [recipeMap, setRecipeMap] = useState<Record<string, string>>({});
+  const [recipeMap, setRecipeMap] = useState<
+    Record<string, { name: string; allergens: string[] }>
+  >({});
 
   useEffect(() => {
     if (masterIngredients.length === 0) {
       fetchIngredients();
     }
+    // Always fetch recipes to ensure we have the latest data
     fetchRecipes();
+    console.log("Fetching recipes for allergen detection");
   }, [masterIngredients.length, fetchIngredients, fetchRecipes]);
 
-  // Create a map of recipe IDs to names
+  // Create a map of recipe IDs to names and allergen data
   useEffect(() => {
     if (recipes.length > 0) {
-      const map: Record<string, string> = {};
+      const map: Record<string, { name: string; allergens: string[] }> = {};
       recipes.forEach((r) => {
-        map[r.id] = r.name;
+        map[r.id] = {
+          name: r.name,
+          allergens: r.allergenInfo?.contains || [],
+        };
+        console.log(`Recipe ${r.name} (${r.id}) allergens:`, r.allergenInfo);
       });
       setRecipeMap(map);
+      console.log("Recipe map created:", map);
     }
   }, [recipes]);
 
@@ -232,7 +241,39 @@ export const AllergenControl: React.FC<AllergenControlProps> = ({
         JSON.stringify(ingredients.slice(0, 3), null, 2),
       );
     }
-  }, [recipe.ingredients, masterIngredients.length, ingredients.length]);
+
+    // Check the allergen format in the current recipe
+    console.log("Current recipe allergenInfo:", recipe.allergenInfo);
+
+    // Check if recipe ingredients are actually recipes
+    if (recipe.ingredients) {
+      recipe.ingredients.forEach((ingredient) => {
+        const isRecipeIngredient =
+          ingredient.name &&
+          ingredient.name.match(
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+          );
+
+        if (isRecipeIngredient) {
+          console.log(`Found recipe ingredient: ${ingredient.name}`);
+          // Check if we have this recipe in our recipes array
+          const foundRecipe = recipes.find((r) => r.id === ingredient.name);
+          if (foundRecipe) {
+            console.log(`Recipe found in store:`, foundRecipe.name);
+            console.log(`Recipe allergenInfo:`, foundRecipe.allergenInfo);
+          } else {
+            console.log(`Recipe NOT found in store for ID: ${ingredient.name}`);
+          }
+        }
+      });
+    }
+  }, [
+    recipe.ingredients,
+    masterIngredients.length,
+    ingredients.length,
+    recipes,
+    recipe.allergenInfo,
+  ]);
 
   const handleAllergenChange = (allergenKey: string, isContained: boolean) => {
     console.log("Allergen change:", allergenKey, isContained);
@@ -329,35 +370,35 @@ export const AllergenControl: React.FC<AllergenControlProps> = ({
 
         <div className="grid grid-cols-2 gap-4">
           {recipe.ingredients?.map((ingredient, index) => {
-            // Find the corresponding master ingredient
-            const masterIngredient = ingredients.find(
-              (mi) => mi.id === ingredient.name,
-            );
-
-            // Check if this is a recipe ingredient (UUID format)
+            // Check if this is a recipe ingredient (UUID format) first
             const isRecipeIngredient =
-              !masterIngredient &&
               ingredient.name &&
               ingredient.name.match(
                 /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
               );
 
-            // Get recipe name if this is a recipe ingredient
-            const recipeName = isRecipeIngredient
+            // Find the corresponding master ingredient (only if not a recipe ingredient)
+            const masterIngredient = ingredients.find(
+              (mi) => mi.id === ingredient.name,
+            );
+
+            // If it's a recipe ingredient, it shouldn't be treated as a master ingredient
+            const isMasterIngredient =
+              !isRecipeIngredient && !!masterIngredient;
+
+            // Get recipe name and allergens if this is a recipe ingredient
+            const recipeInfo = isRecipeIngredient
               ? recipeMap[ingredient.name]
               : null;
+            const recipeName = recipeInfo?.name || null;
+            const recipeAllergens = recipeInfo?.allergens || [];
 
             // Extract allergens from master ingredient
             const allergenInfo = masterIngredient
               ? extractAllergensFromMasterIngredient(masterIngredient)
               : null;
 
-            // Add to the set of allergens
-            if (allergenInfo?.contains) {
-              allergenInfo.contains.forEach((allergen) =>
-                allergens.add(allergen),
-              );
-            }
+            // This line was causing an error - removed
 
             return (
               <div
@@ -429,90 +470,115 @@ export const AllergenControl: React.FC<AllergenControlProps> = ({
             Selected Ingredients Contain These Allergens:
           </h5>
           <div className="flex flex-wrap gap-2">
-            {recipe.ingredients?.reduce((allergens, ingredient) => {
-              // Find the corresponding master ingredient
-              const masterIngredient = ingredients.find(
-                (mi) => mi.id === ingredient.name,
-              );
+            {(() => {
+              const allergens = new Set<string>();
 
-              // Check if this is a recipe ingredient (UUID format)
-              const isRecipeIngredient =
-                !masterIngredient &&
-                ingredient.name &&
-                ingredient.name.match(
-                  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-                );
+              recipe.ingredients?.forEach((ingredient) => {
+                console.log(`Processing ingredient:`, ingredient);
 
-              // Get recipe allergens if this is a recipe ingredient
-              if (isRecipeIngredient && recipeMap[ingredient.name]) {
-                const recipeAllergens =
-                  recipeMap[ingredient.name].allergens || [];
-                recipeAllergens.forEach((allergen) => allergens.add(allergen));
-              }
-
-              // Extract allergens from master ingredient
-              const allergenInfo = masterIngredient
-                ? extractAllergensFromMasterIngredient(masterIngredient)
-                : null;
-
-              // Add to the set of allergens
-              if (allergenInfo?.contains) {
-                allergenInfo.contains.forEach((allergen) =>
-                  allergens.add(allergen),
-                );
-              }
-              return allergens;
-            }, new Set<string>()).size > 0 ? (
-              Array.from(
-                recipe.ingredients?.reduce((allergens, ingredient) => {
-                  // Find the corresponding master ingredient
-                  const masterIngredient = ingredients.find(
-                    (mi) => mi.id === ingredient.name,
+                // Check if this is a recipe ingredient (UUID format) first
+                const isRecipeIngredient =
+                  ingredient.name &&
+                  ingredient.name.match(
+                    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
                   );
 
-                  // Check if this is a recipe ingredient (UUID format)
-                  const isRecipeIngredient =
-                    !masterIngredient &&
-                    ingredient.name &&
-                    ingredient.name.match(
-                      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-                    );
+                // Find the corresponding master ingredient (only if not a recipe ingredient)
+                const masterIngredient = ingredients.find(
+                  (mi) => mi.id === ingredient.name,
+                );
 
-                  // Get recipe allergens if this is a recipe ingredient
-                  if (isRecipeIngredient && recipeMap[ingredient.name]) {
-                    const recipeAllergens =
-                      recipeMap[ingredient.name].allergens || [];
-                    recipeAllergens.forEach((allergen) =>
-                      allergens.add(allergen),
+                // If it's a recipe ingredient, it shouldn't be treated as a master ingredient
+                const isMasterIngredient =
+                  !isRecipeIngredient && !!masterIngredient;
+
+                console.log(`Is recipe ingredient: ${isRecipeIngredient}`);
+                console.log(`Master ingredient found: ${!!masterIngredient}`);
+                console.log(
+                  `Using as master ingredient: ${isMasterIngredient}`,
+                );
+
+                // Get recipe allergens if this is a recipe ingredient
+                if (isRecipeIngredient) {
+                  console.log(
+                    `Processing recipe ingredient: ${ingredient.name}`,
+                  );
+
+                  // Search directly in recipes array (more reliable than recipeMap)
+                  const foundRecipe = recipes.find(
+                    (r) => r.id === ingredient.name,
+                  );
+
+                  console.log(`Found recipe:`, foundRecipe?.name);
+                  console.log(
+                    `Recipe allergenInfo:`,
+                    foundRecipe?.allergenInfo,
+                  );
+
+                  if (foundRecipe?.allergenInfo?.contains) {
+                    console.log(
+                      `Adding allergens from recipe:`,
+                      foundRecipe.allergenInfo.contains,
                     );
+                    foundRecipe.allergenInfo.contains.forEach((allergen) => {
+                      console.log(`Adding allergen: ${allergen}`);
+                      allergens.add(allergen);
+                    });
                   }
 
-                  // Extract allergens from master ingredient
-                  const allergenInfo = masterIngredient
-                    ? extractAllergensFromMasterIngredient(masterIngredient)
-                    : null;
+                  // Also try recipeMap as backup
+                  if (recipeMap[ingredient.name]?.allergens) {
+                    console.log(
+                      `Adding allergens from recipeMap:`,
+                      recipeMap[ingredient.name].allergens,
+                    );
+                    recipeMap[ingredient.name].allergens.forEach((allergen) => {
+                      allergens.add(allergen);
+                    });
+                  }
+                }
 
-                  // Add to the set of allergens
+                // Extract allergens from master ingredient (only if not a recipe ingredient)
+                if (isMasterIngredient) {
+                  console.log(
+                    `Processing master ingredient:`,
+                    masterIngredient.product,
+                  );
+                  const allergenInfo =
+                    extractAllergensFromMasterIngredient(masterIngredient);
+                  console.log(
+                    `Master ingredient allergens:`,
+                    allergenInfo?.contains,
+                  );
+
                   if (allergenInfo?.contains) {
-                    allergenInfo.contains.forEach((allergen) =>
-                      allergens.add(allergen),
-                    );
+                    allergenInfo.contains.forEach((allergen) => {
+                      console.log(
+                        `Adding master ingredient allergen: ${allergen}`,
+                      );
+                      allergens.add(allergen);
+                    });
                   }
-                  return allergens;
-                }, new Set<string>()),
-              ).map((allergen) => (
-                <AllergenBadge
-                  key={allergen}
-                  type={allergen as AllergenType}
-                  size="md"
-                  showLabel
-                />
-              ))
-            ) : (
-              <p className="text-gray-400">
-                No allergens detected in ingredients
-              </p>
-            )}
+                }
+              });
+
+              console.log("Final allergens set:", Array.from(allergens));
+
+              return allergens.size > 0 ? (
+                Array.from(allergens).map((allergen) => (
+                  <AllergenBadge
+                    key={allergen}
+                    type={allergen as AllergenType}
+                    size="md"
+                    showLabel
+                  />
+                ))
+              ) : (
+                <p className="text-gray-400">
+                  No allergens detected in ingredients
+                </p>
+              );
+            })()}
           </div>
         </div>
 

@@ -74,6 +74,12 @@ export const masterIngredientColumns: ExcelColumn[] = [
     width: 150,
     sortable: false,
     filterable: false,
+    cell: (info) => {
+      return {
+        component: AllergenCell,
+        props: { ingredient: info.row.original },
+      };
+    },
   },
 ];
 

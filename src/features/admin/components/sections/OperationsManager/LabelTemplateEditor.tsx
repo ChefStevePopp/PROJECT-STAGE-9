@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Save, X, Eye, Printer, AlertTriangle } from 'lucide-react';
-import type { LabelTemplate } from '../../types/labels';
-import toast from 'react-hot-toast';
+import React, { useState } from "react";
+import { Save, X, Eye, Printer, AlertTriangle } from "lucide-react";
+import type { LabelTemplate } from "../../../admin/types/labels";
+import toast from "react-hot-toast";
 
 interface LabelTemplateEditorProps {
   template: LabelTemplate;
@@ -9,44 +9,46 @@ interface LabelTemplateEditorProps {
 }
 
 const AVAILABLE_FIELDS = [
-  { id: 'product_name', label: 'Product Name', required: true },
-  { id: 'date', label: 'Date', required: true },
-  { id: 'team_member', label: 'Team Member', required: true },
-  { id: 'use_by', label: 'Use By Date' },
-  { id: 'allergens', label: 'Allergen Warnings' },
-  { id: 'storage_temp', label: 'Storage Temperature' },
-  { id: 'batch_number', label: 'Batch Number' }
+  { id: "product_name", label: "Product Name", required: true },
+  { id: "date", label: "Date", required: true },
+  { id: "team_member", label: "Team Member", required: true },
+  { id: "use_by", label: "Use By Date" },
+  { id: "allergens", label: "Allergen Warnings" },
+  { id: "storage_temp", label: "Storage Temperature" },
+  { id: "batch_number", label: "Batch Number" },
 ];
 
-export const LabelTemplateEditor: React.FC<LabelTemplateEditorProps> = ({ 
-  template, 
-  onUpdate 
+export const LabelTemplateEditor: React.FC<LabelTemplateEditorProps> = ({
+  template,
+  onUpdate,
 }) => {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
 
   const handleFieldToggle = (fieldId: string) => {
-    const field = AVAILABLE_FIELDS.find(f => f.id === fieldId);
+    const field = AVAILABLE_FIELDS.find((f) => f.id === fieldId);
     if (field?.required) return; // Can't toggle required fields
 
     const updatedFields = template.fields.includes(fieldId)
-      ? template.fields.filter(f => f !== fieldId)
+      ? template.fields.filter((f) => f !== fieldId)
       : [...template.fields, fieldId];
 
     onUpdate({
       ...template,
-      fields: updatedFields
+      fields: updatedFields,
     });
   };
 
   const renderPreview = () => {
     return (
-      <div className="bg-white text-black p-4 rounded-lg w-[248px]"> {/* 62mm = ~248px */}
+      <div className="bg-white text-black p-4 rounded-lg w-[248px]">
+        {" "}
+        {/* 62mm = ~248px */}
         <div className="text-xs border-b pb-1 mb-2 font-bold">
           Memphis Fire BBQ Company
         </div>
         <div className="space-y-1">
-          {template.fields.map(fieldId => {
-            const field = AVAILABLE_FIELDS.find(f => f.id === fieldId);
+          {template.fields.map((fieldId) => {
+            const field = AVAILABLE_FIELDS.find((f) => f.id === fieldId);
             return (
               <div key={fieldId} className="text-sm flex justify-between">
                 <span className="text-gray-600">{field?.label}:</span>
@@ -72,7 +74,8 @@ export const LabelTemplateEditor: React.FC<LabelTemplateEditorProps> = ({
             placeholder="Template Name"
           />
           <div className="text-sm text-gray-400 mt-1">
-            {template.printerConfig?.width}mm x {template.printerConfig?.height}mm
+            {template.printerConfig?.width}mm x {template.printerConfig?.height}
+            mm
           </div>
         </div>
         <div className="flex gap-2">
@@ -81,7 +84,7 @@ export const LabelTemplateEditor: React.FC<LabelTemplateEditorProps> = ({
             className="btn-ghost"
           >
             <Eye className="w-4 h-4 mr-2" />
-            {isPreviewMode ? 'Edit' : 'Preview'}
+            {isPreviewMode ? "Edit" : "Preview"}
           </button>
           <button className="btn-primary">
             <Printer className="w-4 h-4 mr-2" />
@@ -93,10 +96,12 @@ export const LabelTemplateEditor: React.FC<LabelTemplateEditorProps> = ({
       {/* Content */}
       <div className="grid grid-cols-2 gap-8">
         {/* Field Selection */}
-        <div className={isPreviewMode ? 'opacity-50 pointer-events-none' : ''}>
-          <h4 className="text-sm font-medium text-gray-400 mb-4">Label Fields</h4>
+        <div className={isPreviewMode ? "opacity-50 pointer-events-none" : ""}>
+          <h4 className="text-sm font-medium text-gray-400 mb-4">
+            Label Fields
+          </h4>
           <div className="space-y-2">
-            {AVAILABLE_FIELDS.map(field => (
+            {AVAILABLE_FIELDS.map((field) => (
               <div
                 key={field.id}
                 className="flex items-center justify-between p-3 rounded-lg bg-gray-800/50"
@@ -123,7 +128,8 @@ export const LabelTemplateEditor: React.FC<LabelTemplateEditorProps> = ({
             <div className="flex gap-2">
               <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0" />
               <div className="text-sm text-gray-300">
-                Required fields cannot be removed from the label template for food safety compliance.
+                Required fields cannot be removed from the label template for
+                food safety compliance.
               </div>
             </div>
           </div>
@@ -131,7 +137,9 @@ export const LabelTemplateEditor: React.FC<LabelTemplateEditorProps> = ({
 
         {/* Preview */}
         <div>
-          <h4 className="text-sm font-medium text-gray-400 mb-4">Label Preview</h4>
+          <h4 className="text-sm font-medium text-gray-400 mb-4">
+            Label Preview
+          </h4>
           {renderPreview()}
           <p className="text-sm text-gray-500 mt-4">
             Preview shows approximate layout. Actual label may vary slightly.

@@ -1,7 +1,13 @@
-import React, { useState } from 'react';
-import { Printer, Wifi, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
-import type { PrinterSettings } from '../../types/labels';
-import toast from 'react-hot-toast';
+import React, { useState } from "react";
+import {
+  Printer,
+  Wifi,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
+} from "lucide-react";
+import type { PrinterSettings } from "../../../admin/types/labels";
+import toast from "react-hot-toast";
 
 interface PrinterManagerProps {
   printers: PrinterSettings[];
@@ -14,12 +20,15 @@ interface NetworkSetupDialogProps {
 }
 
 const SUPPORTED_LABEL_SIZES = [
-  { width: 62, height: 29, name: 'Standard Address (DK-11209)' },
-  { width: 62, height: 100, name: 'Shipping (DK-11202)' }
+  { width: 62, height: 29, name: "Standard Address (DK-11209)" },
+  { width: 62, height: 100, name: "Shipping (DK-11202)" },
 ];
 
-const NetworkSetupDialog: React.FC<NetworkSetupDialogProps> = ({ onClose, onSave }) => {
-  const [ipAddress, setIpAddress] = useState('');
+const NetworkSetupDialog: React.FC<NetworkSetupDialogProps> = ({
+  onClose,
+  onSave,
+}) => {
+  const [ipAddress, setIpAddress] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
@@ -35,7 +44,9 @@ const NetworkSetupDialog: React.FC<NetworkSetupDialogProps> = ({ onClose, onSave
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
       <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
-        <h3 className="text-lg font-medium text-white mb-4">Configure Network Printer</h3>
+        <h3 className="text-lg font-medium text-white mb-4">
+          Configure Network Printer
+        </h3>
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-1">
@@ -73,16 +84,16 @@ const NetworkSetupDialog: React.FC<NetworkSetupDialogProps> = ({ onClose, onSave
 
 export const PrinterManager: React.FC<PrinterManagerProps> = ({
   printers,
-  onUpdate
+  onUpdate,
 }) => {
   const [isAddingPrinter, setIsAddingPrinter] = useState(false);
 
   const testConnection = async (ipAddress: string): Promise<boolean> => {
-    if (window.bpac) {
+    if (typeof window !== "undefined" && (window as any).bpac) {
       try {
-        const printer = new window.bpac.Printer();
-        printer.modelName = 'QL-810W';
-        printer.port = 'NET';
+        const printer = new (window as any).bpac.Printer();
+        printer.modelName = "QL-810W";
+        printer.port = "NET";
         printer.ipAddress = ipAddress;
         return await printer.isPrinterReady();
       } catch {
@@ -93,37 +104,37 @@ export const PrinterManager: React.FC<PrinterManagerProps> = ({
   };
 
   const testPrinter = async (printer: PrinterSettings) => {
-    if (window.bpac) {
+    if (typeof window !== "undefined" && (window as any).bpac) {
       try {
-        const p = new window.bpac.Printer();
-        p.modelName = 'QL-810W';
-        p.port = 'NET';
+        const p = new (window as any).bpac.Printer();
+        p.modelName = "QL-810W";
+        p.port = "NET";
         p.ipAddress = printer.ipAddress;
 
         if (await p.isPrinterReady()) {
           // Create test label
           p.startJob();
-          p.setMediaById('102', '29');  // 62mm x 29mm
+          p.setMediaById("102", "29"); // 62mm x 29mm
           p.clearFormat();
 
           p.setFontSize(10);
-          p.addText('Test Print - Memphis Fire BBQ');
+          p.addText("Test Print - Memphis Fire BBQ");
           p.addText(new Date().toLocaleString());
 
           const success = await p.print();
           if (success) {
-            toast.success('Test print sent successfully');
+            toast.success("Test print sent successfully");
           } else {
-            toast.error('Print failed');
+            toast.error("Print failed");
           }
         } else {
-          toast.error('Printer not ready');
+          toast.error("Printer not ready");
         }
       } catch (error) {
-        toast.error('Printer error');
+        toast.error("Printer error");
       }
     } else {
-      toast.error('Brother b-PAC SDK not found');
+      toast.error("Brother b-PAC SDK not found");
     }
   };
 
@@ -132,8 +143,12 @@ export const PrinterManager: React.FC<PrinterManagerProps> = ({
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-lg font-medium text-white">Label Printer Setup</h3>
-          <p className="text-sm text-gray-400">Configure Brother QL-810W printer</p>
+          <h3 className="text-lg font-medium text-white">
+            Label Printer Setup
+          </h3>
+          <p className="text-sm text-gray-400">
+            Configure Brother QL-810W printer
+          </p>
         </div>
         {printers.length === 0 && (
           <button
@@ -148,7 +163,7 @@ export const PrinterManager: React.FC<PrinterManagerProps> = ({
 
       {/* Printers List */}
       <div className="space-y-4">
-        {printers.map(printer => (
+        {printers.map((printer) => (
           <div key={printer.id} className="bg-gray-800/50 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
@@ -177,14 +192,17 @@ export const PrinterManager: React.FC<PrinterManagerProps> = ({
       </div>
 
       {/* SDK Warning */}
-      {!window.bpac && (
+      {(typeof window === "undefined" || !(window as any).bpac) && (
         <div className="bg-yellow-500/10 rounded-lg p-4">
           <div className="flex gap-3">
             <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0" />
             <div>
-              <p className="text-yellow-400 font-medium">Brother SDK Not Found</p>
+              <p className="text-yellow-400 font-medium">
+                Brother SDK Not Found
+              </p>
               <p className="text-sm text-gray-300 mt-1">
-                The Brother b-PAC SDK is required for label printing. Please install it from the Brother website.
+                The Brother b-PAC SDK is required for label printing. Please
+                install it from the Brother website.
               </p>
             </div>
           </div>
@@ -199,19 +217,19 @@ export const PrinterManager: React.FC<PrinterManagerProps> = ({
             if (await testConnection(ipAddress)) {
               const newPrinter = {
                 id: `printer-${Date.now()}`,
-                name: 'QL-810W Label Printer',
-                model: 'QL-810W',
+                name: "QL-810W Label Printer",
+                model: "QL-810W",
                 ipAddress,
                 labelSize: {
                   width: 62,
-                  height: 29
-                }
+                  height: 29,
+                },
               };
               onUpdate([...printers, newPrinter]);
               setIsAddingPrinter(false);
-              toast.success('Printer configured successfully');
+              toast.success("Printer configured successfully");
             } else {
-              toast.error('Could not connect to printer');
+              toast.error("Could not connect to printer");
             }
           }}
         />

@@ -4,11 +4,11 @@ export interface Task {
   title: string;
   description?: string;
   due_date: string;
-  assignee_id?: string;
+  assignee_id?: string | null;
   default_station?: string;
-  station?: string; // Deprecated: Use default_station instead - kept for backward compatibility
+  station?: string | null; // Deprecated: Use default_station instead - kept for backward compatibility
   kitchen_station_id?: string; // ID of the kitchen station this task is assigned to
-  kitchen_station?: string; // Name of the kitchen station this task is assigned to
+  kitchen_station?: string | null; // Name of the kitchen station this task is assigned to
   priority: "low" | "medium" | "high";
   estimated_time: number; // in minutes
   actual_time?: number; // in minutes
@@ -27,8 +27,8 @@ export interface Task {
   assignment_type?: "direct" | "lottery" | "station"; // Whether this task is directly assigned, available for lottery, or assigned to a station
   lottery?: boolean; // Whether this task is available for lottery
   requires_certification?: string[]; // List of certification IDs required to perform this task
-  claimed_at?: string; // When the task was claimed in lottery mode
-  claimed_by?: string; // Who claimed the task in lottery mode
+  claimed_at?: string | null; // When the task was claimed in lottery mode
+  claimed_by?: string | null; // Who claimed the task in lottery mode
   prep_system?: "par" | "as_needed" | "scheduled_production" | "hybrid"; // The prep system used for this task
   par_level?: number; // Target quantity for PAR-based tasks
   current_level?: number; // Current quantity for PAR-based tasks

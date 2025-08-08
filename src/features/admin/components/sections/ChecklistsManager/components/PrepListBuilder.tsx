@@ -73,7 +73,7 @@ const SortableItem = ({
   const template = templates.find((t) => t.id === id);
   const prepSystem = template?.prep_system || "";
 
-  const getPrepSystemBadgeClass = (prepSystem: string) => {
+  const getPrepSystemBadgeClass = (prepSystem: string | undefined) => {
     switch (prepSystem?.toLowerCase()) {
       case "as-needed":
       case "as_needed":
@@ -89,7 +89,7 @@ const SortableItem = ({
     }
   };
 
-  const getPrepSystemInitial = (prepSystem: string) => {
+  const getPrepSystemInitial = (prepSystem: string | undefined) => {
     switch (prepSystem?.toLowerCase()) {
       case "as-needed":
       case "as_needed":
@@ -234,7 +234,6 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
     null,
   );
   const [isEditingExisting, setIsEditingExisting] = useState(false);
-  const [infoSectionExpanded, setInfoSectionExpanded] = useState(true);
   const [isInfoExpanded, setIsInfoExpanded] = useState(false);
   const [kitchenStations, setKitchenStations] = useState<string[]>([]);
 
@@ -284,9 +283,15 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
       if (error) throw error;
 
       // Transform the data to match our interface
-      const transformedData = data.map((list) => ({
-        ...list,
+      const transformedData: SavedPrepList[] = data.map((list) => ({
+        id: list.id,
+        title: list.title,
+        description: list.description || "",
         templates: list.template_id ? [list.template_id] : [],
+        created_at: list.created_at || "",
+        updated_at: list.updated_at || "",
+        organization_id: list.organization_id || "",
+        created_by: list.created_by || "",
         kitchen_stations: list.kitchen_stations || [],
       }));
 
@@ -580,7 +585,7 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
     }
   };
 
-  const getPrepSystemBadgeClass = (prepSystem: string) => {
+  const getPrepSystemBadgeClass = (prepSystem: string | undefined) => {
     switch (prepSystem?.toLowerCase()) {
       case "as-needed":
       case "as_needed":
@@ -1080,30 +1085,21 @@ const PrepListBuilder: React.FC<PrepListBuilderProps> = ({
                             <span className="text-gray-400">System:</span>
                             <span
                               className={getPrepSystemBadgeClass(
-                                template.prep_system || template.prepSystem,
+                                template.prep_system,
                               )}
                             >
-                              {(template.prep_system === "as_needed"
+                              {template.prep_system === "as_needed"
                                 ? "As-Needed"
                                 : template.prep_system ===
                                     "scheduled_production"
                                   ? "Scheduled"
-                                  : template.prep_system) ||
-                                (template.prepSystem === "as_needed"
-                                  ? "As-Needed"
-                                  : template.prepSystem ===
-                                      "scheduled_production"
-                                    ? "Scheduled"
-                                    : template.prepSystem) ||
-                                "None"}
+                                  : template.prep_system || "None"}
                             </span>
                           </div>
                           <div className="flex items-center gap-1">
                             <span className="text-gray-400">Role:</span>
                             <span className="text-gray-300">
-                              {template.kitchen_role ||
-                                template.teamMemberRole ||
-                                "None"}
+                              {template.kitchen_role || "None"}
                             </span>
                           </div>
                         </div>

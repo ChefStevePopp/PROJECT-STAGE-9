@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { Upload, X, FileSpreadsheet, AlertCircle } from 'lucide-react';
-import { useDropzone } from 'react-dropzone';
-import { read, utils } from 'xlsx';
-import { LoadingLogo } from '@/features/shared/components';
-import toast from 'react-hot-toast';
+import React, { useState } from "react";
+import { Upload, X, FileSpreadsheet, AlertCircle } from "lucide-react";
+import { useDropzone } from "react-dropzone";
+import { read, utils } from "xlsx";
+import { LoadingLogo } from "@/features/shared/components";
+import toast from "react-hot-toast";
 
 interface ImportPreparedItemsModalProps {
   isOpen: boolean;
@@ -11,44 +11,46 @@ interface ImportPreparedItemsModalProps {
   onImport: (data: any[], sheetName: string) => Promise<void>;
 }
 
-export const ImportPreparedItemsModal: React.FC<ImportPreparedItemsModalProps> = ({ 
-  isOpen, 
-  onClose, 
-  onImport 
-}) => {
+export const ImportPreparedItemsModal: React.FC<
+  ImportPreparedItemsModalProps
+> = ({ isOpen, onClose, onImport }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [previewData, setPreviewData] = useState<any[] | null>(null);
   const [workbook, setWorkbook] = useState<any>(null);
-  const [selectedSheet, setSelectedSheet] = useState('');
+  const [selectedSheet, setSelectedSheet] = useState("");
 
   // Required columns for prepared items
   const requiredColumns = [
-    'Item ID',
-    'CATEGORY',
-    'PRODUCT',
-    'STATION',
-    'SUB CATEGORY',
-    'STORAGE AREA',
-    'CONTAINER',
-    'CONTAINER TYPE',
-    'SHELF LIFE',
-    'RECIPE UNIT (R/U)',
-    'COST PER R/U',
-    'YIELD %',
-    'FINAL $'
+    "Item ID",
+    "CATEGORY",
+    "PRODUCT",
+    "STATION",
+    "SUB CATEGORY",
+    "STORAGE AREA",
+    "CONTAINER",
+    "CONTAINER TYPE",
+    "SHELF LIFE",
+    "RECIPE UNIT (R/U)",
+    "COST PER R/U",
+    "YIELD %",
+    "FINAL $",
   ];
 
   const handleFileUpload = async (file: File) => {
     setIsProcessing(true);
     try {
       const buffer = await file.arrayBuffer();
-      const wb = read(buffer, { cellDates: true, cellNF: false, cellText: false });
+      const wb = read(buffer, {
+        cellDates: true,
+        cellNF: false,
+        cellText: false,
+      });
       setWorkbook(wb);
-      setSelectedSheet('');
+      setSelectedSheet("");
       setPreviewData(null);
     } catch (error) {
-      console.error('Error reading Excel:', error);
-      toast.error('Failed to read Excel file');
+      console.error("Error reading Excel:", error);
+      toast.error("Failed to read Excel file");
     } finally {
       setIsProcessing(false);
     }
@@ -56,39 +58,39 @@ export const ImportPreparedItemsModal: React.FC<ImportPreparedItemsModalProps> =
 
   const handleSheetChange = (sheetName: string) => {
     if (!workbook || !sheetName) return;
-    
+
     try {
       setIsProcessing(true);
       const worksheet = workbook.Sheets[sheetName];
-      
+
       // Read data using predefined column order
       const jsonData = utils.sheet_to_json(worksheet, {
         header: requiredColumns,
         range: 1, // Skip header row
         raw: false,
-        defval: ''
+        defval: "",
       });
 
       // Filter out empty rows
-      const validRows = jsonData.filter(row => {
-        const productName = row['PRODUCT']?.toString().trim();
-        return productName && productName !== '0';
+      const validRows = jsonData.filter((row: any) => {
+        const productName = row["PRODUCT"]?.toString().trim();
+        return productName && productName !== "0";
       });
 
       if (validRows.length === 0) {
-        toast.error('No valid data rows found in selected sheet');
+        toast.error("No valid data rows found in selected sheet");
         setPreviewData(null);
-        setSelectedSheet('');
+        setSelectedSheet("");
         return;
       }
 
       setSelectedSheet(sheetName);
       setPreviewData(validRows.slice(0, 3));
     } catch (error) {
-      console.error('Error loading sheet:', error);
-      toast.error('Failed to load sheet data');
+      console.error("Error loading sheet:", error);
+      toast.error("Failed to load sheet data");
       setPreviewData(null);
-      setSelectedSheet('');
+      setSelectedSheet("");
     } finally {
       setIsProcessing(false);
     }
@@ -96,16 +98,18 @@ export const ImportPreparedItemsModal: React.FC<ImportPreparedItemsModalProps> =
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: {
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'application/vnd.ms-excel.sheet.macroEnabled.12': ['.xlsm']
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [
+        ".xlsx",
+      ],
+      "application/vnd.ms-excel.sheet.macroEnabled.12": [".xlsm"],
     },
     maxFiles: 1,
-    onDrop: files => files[0] && handleFileUpload(files[0])
+    onDrop: (files) => files[0] && handleFileUpload(files[0]),
   });
 
   const handleImport = async () => {
     if (!workbook || !selectedSheet) {
-      toast.error('Please select a worksheet first');
+      toast.error("Please select a worksheet first");
       return;
     }
 
@@ -115,14 +119,14 @@ export const ImportPreparedItemsModal: React.FC<ImportPreparedItemsModalProps> =
         header: requiredColumns,
         range: 1,
         raw: false,
-        defval: ''
+        defval: "",
       });
 
       await onImport(jsonData, selectedSheet);
       onClose();
     } catch (error) {
-      console.error('Import error:', error);
-      toast.error('Failed to import data');
+      console.error("Import error:", error);
+      toast.error("Failed to import data");
     }
   };
 
@@ -132,8 +136,10 @@ export const ImportPreparedItemsModal: React.FC<ImportPreparedItemsModalProps> =
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-gray-900 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-gray-900 p-6 border-b border-gray-800 flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-white">Import Prepared Items</h2>
-          <button 
+          <h2 className="text-2xl font-bold text-white">
+            Import Prepared Items
+          </h2>
+          <button
             onClick={onClose}
             className="text-gray-400 hover:text-white transition-colors"
           >
@@ -166,18 +172,18 @@ export const ImportPreparedItemsModal: React.FC<ImportPreparedItemsModalProps> =
 
               {previewData && (
                 <div>
-                  <h3 className="text-lg font-medium text-white mb-4">Data Preview</h3>
+                  <h3 className="text-lg font-medium text-white mb-4">
+                    Data Preview
+                  </h3>
                   <div className="bg-gray-800 rounded-lg p-4 space-y-4">
                     {previewData.map((row, index) => (
                       <div key={index} className="flex gap-4 text-sm">
                         <span className="text-gray-400">
-                          {row['Item ID'] || 'N/A'}
+                          {row["Item ID"] || "N/A"}
                         </span>
-                        <span className="text-white">
-                          {row['PRODUCT']}
-                        </span>
+                        <span className="text-white">{row["PRODUCT"]}</span>
                         <span className="text-gray-400">
-                          {row['CATEGORY'] || 'N/A'}
+                          {row["CATEGORY"] || "N/A"}
                         </span>
                       </div>
                     ))}
@@ -192,17 +198,18 @@ export const ImportPreparedItemsModal: React.FC<ImportPreparedItemsModalProps> =
             <div
               {...getRootProps()}
               className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors
-                ${isDragActive 
-                  ? 'border-primary-500 bg-primary-500/10' 
-                  : 'border-gray-700 hover:border-gray-600'
+                ${
+                  isDragActive
+                    ? "border-primary-500 bg-primary-500/10"
+                    : "border-gray-700 hover:border-gray-600"
                 }`}
             >
               <input {...getInputProps()} />
               <FileSpreadsheet className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <p className="text-white font-medium mb-2">
                 {isDragActive
-                  ? 'Drop the Excel file here'
-                  : 'Drag & drop an Excel file here, or click to select'}
+                  ? "Drop the Excel file here"
+                  : "Drag & drop an Excel file here, or click to select"}
               </p>
               <p className="text-sm text-gray-400">
                 Supports .xlsx and .xlsm files
@@ -219,7 +226,7 @@ export const ImportPreparedItemsModal: React.FC<ImportPreparedItemsModalProps> =
                   The Excel file must contain the following columns:
                 </p>
                 <ul className="text-sm text-gray-300 mt-1 list-disc list-inside">
-                  {requiredColumns.map(col => (
+                  {requiredColumns.map((col) => (
                     <li key={col}>{col}</li>
                   ))}
                 </ul>
@@ -229,10 +236,7 @@ export const ImportPreparedItemsModal: React.FC<ImportPreparedItemsModalProps> =
         </div>
 
         <div className="sticky bottom-0 bg-gray-900 p-6 border-t border-gray-800 flex justify-end gap-4">
-          <button
-            onClick={onClose}
-            className="btn-ghost"
-          >
+          <button onClick={onClose} className="btn-ghost">
             Cancel
           </button>
           <button

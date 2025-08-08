@@ -1,7 +1,14 @@
 export interface ExcelColumn {
   key: string;
   name: string;
-  type: 'text' | 'currency' | 'percent' | 'imageUrl' | 'number';
+  type:
+    | "text"
+    | "currency"
+    | "percent"
+    | "imageUrl"
+    | "number"
+    | "boolean"
+    | "actions";
   width?: number;
 }
 

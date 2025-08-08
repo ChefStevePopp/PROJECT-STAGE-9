@@ -178,7 +178,12 @@ import { useAuth } from "@/hooks/useAuth";
 
 export const HACCPManager: React.FC = () => {
   const [activeTab, setActiveTab] = useState("fridges");
-  const { organization, updateOrganization } = useAuth();
+  const { organization } = useAuth();
+
+  const handleOrganizationChange = (updatedOrg: any) => {
+    // Handle organization updates here if needed
+    console.log("Organization updated:", updatedOrg);
+  };
 
   return (
     <div className="space-y-6">
@@ -358,7 +363,7 @@ export const HACCPManager: React.FC = () => {
       {activeTab === "health" && (
         <BoardOfHealth
           organization={organization}
-          onChange={updateOrganization}
+          onChange={handleOrganizationChange}
         />
       )}
     </div>

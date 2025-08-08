@@ -11,7 +11,8 @@ type ActivityType =
   | "recipe_deleted"
   | "recipe_status_changed"
   | "inventory_updated"
-  | "settings_changed";
+  | "settings_changed"
+  | "task_completed";
 
 interface ActivityLogEntry {
   organization_id: string;

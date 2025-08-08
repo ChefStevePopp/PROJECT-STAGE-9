@@ -188,7 +188,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
               .from("recipes")
               .select("media")
               .eq("id", recipeId)
-              .eq("organization_id", organization.id)
+              .eq("organization_id", organization.id || "")
               .single();
 
             // Use media field for recipes
@@ -244,8 +244,8 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                 .from("organization_team_members")
                 .select("avatar_url")
                 .eq("id", teamMemberId)
-                .eq("organization_id", organization.id)
-                .single();
+                .eq("organization_id", organization.id || "")
+                .limit(1);
 
               if (teamMemberData?.avatar_url) {
                 return teamMemberData.avatar_url;
@@ -269,7 +269,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                   .select("avatar_url")
                   .ilike("first_name", `%${changes.first_name}%`)
                   .ilike("last_name", `%${changes.last_name}%`)
-                  .eq("organization_id", organization.id)
+                  .eq("organization_id", organization.id || "")
                   .limit(1);
 
                 if (
@@ -287,7 +287,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                   .from("organization_team_members")
                   .select("avatar_url")
                   .ilike("email", `%${changes.email || ""}%`)
-                  .eq("organization_id", organization.id)
+                  .eq("organization_id", organization.id || "")
                   .limit(1);
 
                 if (
@@ -315,7 +315,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                 .or(
                   `first_name.ilike.%${firstName}%,last_name.ilike.%${lastName}%,email.ilike.%${activity.user || ""}%`,
                 )
-                .eq("organization_id", organization.id)
+                .eq("organization_id", organization?.id || "")
                 .limit(1);
 
               if (
@@ -333,7 +333,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                 .or(
                   `first_name.ilike.%${activity.user}%,last_name.ilike.%${activity.user}%,email.ilike.%${activity.user || ""}%`,
                 )
-                .eq("organization_id", organization.id)
+                .eq("organization_id", organization?.id || "")
                 .limit(1);
 
               if (
@@ -374,7 +374,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
       let query = supabase
         .from("activity_logs")
         .select("*")
-        .eq("organization_id", organization.id)
+        .eq("organization_id", organization?.id || "")
         .gte("created_at", startDate.toISOString())
         .order("created_at", { ascending: true });
 
@@ -393,7 +393,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
       const { data: teamMembers, error: teamMembersError } = await supabase
         .from("organization_team_members")
         .select("id, email, first_name, last_name")
-        .eq("organization_id", organization.id);
+        .eq("organization_id", organization?.id || "");
 
       if (teamMembersError) {
         console.error("Error fetching team members:", teamMembersError);
@@ -442,6 +442,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
         if (
           log.user_id === "859585ee-05a4-4660-806b-174d6f1cbe45" ||
           (log.user_id &&
+            typeof log.user_id === "string" &&
             log.user_id.toLowerCase() === "office@memphisfirebbq.com")
         ) {
           userName = "Steve Dev Popp";
@@ -472,7 +473,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
             userName = `${log.details.changes.first_name} ${log.details.changes.last_name}`;
           } else if (
             log.details?.team_member?.first_name &&
-            log.details?.team_member?.last_name
+            log.details?.team_member.last_name
           ) {
             userName = `${log.details.team_member.first_name} ${log.details.team_member.last_name}`;
           } else if (log.details?.changes?.email) {
@@ -508,7 +509,9 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
         const acknowledgedBy = log.acknowledged_by
           ? Array.isArray(log.acknowledged_by)
             ? log.acknowledged_by
-            : []
+            : typeof log.acknowledged_by === "string"
+              ? [log.acknowledged_by]
+              : []
           : [];
 
         const isAcknowledged = user?.id

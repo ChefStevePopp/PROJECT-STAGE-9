@@ -66,11 +66,11 @@ export const TeamList: React.FC<TeamListProps> = ({
                 {member.first_name} {member.last_name}
               </div>
               <div className="text-sm text-primary-400 truncate">
-                {member.kitchen_role || member.role}
+                {(member as any).kitchen_role || (member as any).role}
               </div>
-              {member.station && (
+              {(member as any).station && (
                 <div className="text-xs text-gray-400 mt-1 truncate">
-                  {member.station}
+                  {(member as any).station}
                 </div>
               )}
             </div>

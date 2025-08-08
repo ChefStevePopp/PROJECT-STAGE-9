@@ -16,7 +16,18 @@ export const CreateTeamMemberModal: React.FC<CreateTeamMemberModalProps> = ({
   onClose,
 }) => {
   const { createTeamMember } = useTeamStore();
-  const [formData, setFormData] = useState<Partial<TeamMember>>({
+  const [formData, setFormData] = useState<
+    Partial<
+      TeamMember & {
+        kitchen_role?: string;
+        station?: string;
+        punch_id?: string;
+        certifications?: string[];
+        allergies?: string[];
+        emergency_contact?: any;
+      }
+    >
+  >({
     first_name: "",
     last_name: "",
     email: "",

@@ -1,7 +1,6 @@
 import { createColumnHelper } from "@tanstack/react-table";
 import { MasterIngredient } from "@/types/master-ingredient";
 import { AllergenCell } from "./components/AllergenCell";
-import { getAllergenMapping } from "@/features/allergens/utils/allergenMapping";
 
 const columnHelper = createColumnHelper<MasterIngredient>();
 
@@ -36,6 +35,11 @@ export const columns = [
   }),
   columnHelper.accessor("allergen_peanut", {
     header: "Allergens",
-    cell: (info) => <AllergenCell row={info.row.original} />,
+    cell: (info) => {
+      return {
+        component: AllergenCell,
+        props: { ingredient: info.row.original },
+      };
+    },
   }),
 ];

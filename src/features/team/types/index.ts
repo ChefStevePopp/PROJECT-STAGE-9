@@ -5,7 +5,7 @@ export interface TeamMember {
   organization_id: string;
   first_name: string;
   last_name: string;
-  display_name?: string;
+  display_name?: string | null;
   email: string;
   phone?: string;
   punch_id?: string;

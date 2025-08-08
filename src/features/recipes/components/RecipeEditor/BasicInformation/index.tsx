@@ -3,7 +3,7 @@ import { Book } from "lucide-react";
 import { PrimaryInfo } from "./PrimaryInfo";
 import { IngredientsInput } from "./IngredientsInput";
 import { CostingSummary } from "./CostingSummary";
-import type { Recipe } from "/src/stores/recipeStore.ts";
+import type { Recipe } from "@/stores/recipeStore";
 import type { OperationsSettings } from "@/types/operations";
 
 interface BasicInformationProps {
