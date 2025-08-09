@@ -1,6 +1,7 @@
-import React, { useEffect } from "react";
-import { useAuthStore } from "../lib/auth/simplified-auth";
+import React from "react";
 
+// This provider is no longer needed - we're using Supabase auth directly
+// Keeping minimal implementation for backward compatibility
 interface AuthProviderProps {
   children: React.ReactNode;
 }
@@ -8,17 +9,5 @@ interface AuthProviderProps {
 export const SimplifiedAuthProvider: React.FC<AuthProviderProps> = ({
   children,
 }) => {
-  useEffect(() => {
-    // Initialize auth when the provider mounts
-    const unsubscribe = useAuthStore.getState().initialize();
-
-    // Clean up subscription when the provider unmounts
-    return () => {
-      if (typeof unsubscribe === "function") {
-        unsubscribe();
-      }
-    };
-  }, []);
-
   return <>{children}</>;
 };

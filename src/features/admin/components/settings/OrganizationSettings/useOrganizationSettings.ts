@@ -1,75 +1,78 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/hooks/useAuth';
-import type { Organization } from '@/types/organization';
-import toast from 'react-hot-toast';
+import { useState, useEffect, useMemo } from "react";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
+import type { Organization } from "@/types/organization";
+import toast from "react-hot-toast";
 
 export function useOrganizationSettings() {
-  const { user } = useAuth();
-  const [organization, setOrganization] = useState<Organization | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const {
+    organization: authOrganization,
+    organizationId,
+    isLoading: authLoading,
+  } = useAuth();
+  const [localOrganization, setLocalOrganization] =
+    useState<Organization | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Use organization from auth if available, otherwise use local state
+  const organization = useMemo(() => {
+    return localOrganization || authOrganization;
+  }, [localOrganization, authOrganization]);
+
+  // Only load organization if auth doesn't have it
   useEffect(() => {
-    if (user) {
-      loadOrganization();
+    if (!authLoading && organizationId && !authOrganization) {
+      loadOrganization(organizationId);
+    } else if (authOrganization && !localOrganization) {
+      // Initialize local state with auth organization and ensure settings exist
+      const orgWithSettings = {
+        ...authOrganization,
+        settings: authOrganization.settings || {
+          business_type: "restaurant",
+          default_timezone: "America/Toronto",
+          multi_unit: false,
+          currency: "CAD",
+          date_format: "MM/DD/YYYY",
+          time_format: "12h",
+        },
+      };
+      setLocalOrganization(orgWithSettings);
     }
-  }, [user]);
+  }, [authLoading, organizationId, authOrganization, localOrganization]);
 
-  const loadOrganization = async () => {
+  const loadOrganization = async (orgId: string) => {
     try {
-      setIsLoading(true);
-      
-      // First try to get org from user metadata
-      let orgId = user?.user_metadata?.organizationId;
-      
-      // If not found, try to get from organization_roles
-      if (!orgId) {
-        const { data: orgRole } = await supabase
-          .from('organization_roles')
-          .select('organization_id')
-          .eq('user_id', user?.id)
-          .single();
-          
-        orgId = orgRole?.organization_id;
-      }
-      
-      if (!orgId) {
-        throw new Error('No organization ID found');
-      }
-
       const { data, error } = await supabase
-        .from('organizations')
-        .select('*')
-        .eq('id', orgId)
+        .from("organizations")
+        .select("*")
+        .eq("id", orgId)
         .single();
 
       if (error) throw error;
-      
+
       // Initialize empty settings if none exist
       if (!data.settings) {
         data.settings = {
-          business_type: 'restaurant',
-          default_timezone: 'America/Toronto',
+          business_type: "restaurant",
+          default_timezone: "America/Toronto",
           multi_unit: false,
-          currency: 'CAD',
-          date_format: 'MM/DD/YYYY',
-          time_format: '12h'
+          currency: "CAD",
+          date_format: "MM/DD/YYYY",
+          time_format: "12h",
         };
       }
-      
-      setOrganization(data);
+
+      setLocalOrganization(data);
     } catch (error) {
-      console.error('Error loading organization:', error);
-      toast.error('Failed to load organization settings');
-    } finally {
-      setIsLoading(false);
+      console.error("Error loading organization:", error);
+      toast.error("Failed to load organization settings");
     }
   };
 
   const updateOrganization = (updates: Partial<Organization>) => {
     if (!organization) return;
-    setOrganization({ ...organization, ...updates });
+    const updatedOrg = { ...organization, ...updates };
+    setLocalOrganization(updatedOrg);
   };
 
   const handleSave = async () => {
@@ -78,19 +81,23 @@ export function useOrganizationSettings() {
     try {
       setIsSaving(true);
       const { error } = await supabase
-        .from('organizations')
+        .from("organizations")
         .update({
           ...organization,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
-        .eq('id', organization.id);
+        .eq("id", organization.id);
 
       if (error) throw error;
-      toast.success('Settings saved successfully');
-      await loadOrganization(); // Reload to get fresh data
+      toast.success("Settings saved successfully");
+
+      // Only reload if we don't have auth organization (to avoid unnecessary fetches)
+      if (!authOrganization && organizationId) {
+        await loadOrganization(organizationId);
+      }
     } catch (error) {
-      console.error('Error saving settings:', error);
-      toast.error('Failed to save settings');
+      console.error("Error saving settings:", error);
+      toast.error("Failed to save settings");
     } finally {
       setIsSaving(false);
     }
@@ -98,9 +105,9 @@ export function useOrganizationSettings() {
 
   return {
     organization,
-    isLoading,
+    isLoading: authLoading && !organization,
     isSaving,
     updateOrganization,
-    handleSave
+    handleSave,
   };
 }

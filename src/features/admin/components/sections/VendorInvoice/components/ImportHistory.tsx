@@ -42,7 +42,7 @@ type DateRangeOption =
   | "custom";
 
 export const ImportHistory: React.FC = () => {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading, organizationId } = useAuth();
   const [imports, setImports] = useState<ImportRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -107,17 +107,35 @@ export const ImportHistory: React.FC = () => {
       setIsLoading(true);
       setError(null);
 
-      // Get the organization ID from user metadata
-      const organizationId = user?.user_metadata?.organizationId;
-      if (!organizationId) {
-        throw new Error("Organization ID not found");
+      // Wait for auth to be loaded and check for organization ID
+      if (authLoading) {
+        console.log("[ImportHistory] Auth still loading, skipping fetch");
+        setIsLoading(false);
+        return;
       }
+
+      // Get the organization ID from useAuth hook or user metadata
+      const orgId = organizationId || user?.user_metadata?.organizationId;
+      if (!orgId) {
+        console.log("[ImportHistory] No organization ID found:", {
+          organizationId,
+          userMetadata: user?.user_metadata,
+          userId: user?.id,
+        });
+        setError(
+          "Organization ID not found. Please ensure you have access to an organization.",
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      console.log("[ImportHistory] Using organization ID:", orgId);
 
       // Query the vendor_imports table
       let query = supabase
         .from("vendor_imports")
         .select("*")
-        .eq("organization_id", organizationId)
+        .eq("organization_id", orgId)
         .order("created_at", { ascending: false });
 
       // Apply date range filter if not showing all
@@ -169,9 +187,16 @@ export const ImportHistory: React.FC = () => {
 
   // Fetch data when component mounts or date range changes
   useEffect(() => {
-    console.log("Fetching import history with date option:", dateRangeOption);
-    fetchImportHistory();
-  }, [dateRange, dateRangeOption]);
+    // Only fetch if auth is not loading and we have user data
+    if (!authLoading && user) {
+      console.log("Fetching import history with date option:", dateRangeOption);
+      fetchImportHistory();
+    } else if (!authLoading && !user) {
+      console.log("No user found, cannot fetch import history");
+      setError("User not authenticated");
+      setIsLoading(false);
+    }
+  }, [dateRange, dateRangeOption, authLoading, user, organizationId]);
 
   // Add a manual refresh button click handler
   const handleRefresh = () => {
@@ -354,10 +379,12 @@ export const ImportHistory: React.FC = () => {
       )}
 
       {/* Import History Table using ExcelDataGrid */}
-      {isLoading ? (
+      {authLoading || isLoading ? (
         <div className="flex items-center justify-center p-8 text-gray-400">
           <div className="animate-spin h-5 w-5 border-2 border-primary-500 border-t-transparent rounded-full mr-2"></div>
-          Loading import history...
+          {authLoading
+            ? "Loading authentication..."
+            : "Loading import history..."}
         </div>
       ) : error ? (
         <div className="flex items-center justify-center p-8 text-rose-400 gap-2">

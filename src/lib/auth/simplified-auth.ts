@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 interface AuthState {
   user: User | null;
   organizationId: string | null;
+  organization: any | null;
   isLoading: boolean;
   error: string | null;
   isDev: boolean;
@@ -23,15 +24,43 @@ interface AuthState {
 // Helper to get organization ID from user or database
 async function getOrganizationId(userId: string): Promise<string | null> {
   try {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("organization_roles")
       .select("organization_id")
       .eq("user_id", userId)
       .maybeSingle();
 
+    if (error) {
+      console.error("Error getting organization ID:", error);
+      return null;
+    }
+
     return data?.organization_id || null;
   } catch (error) {
     console.error("Error getting organization ID:", error);
+    return null;
+  }
+}
+
+// Helper to fetch organization details
+async function fetchOrganizationDetails(
+  organizationId: string,
+): Promise<any | null> {
+  try {
+    const { data, error } = await supabase
+      .from("organizations")
+      .select("*")
+      .eq("id", organizationId)
+      .single();
+
+    if (error) {
+      console.error("Error fetching organization details:", error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error fetching organization details:", error);
     return null;
   }
 }
@@ -60,14 +89,23 @@ async function createOrganization(
       .select()
       .single();
 
-    if (orgError) throw orgError;
+    if (orgError) {
+      console.error("Error creating organization:", orgError);
+      throw orgError;
+    }
 
     // Create owner role
-    await supabase.from("organization_roles").insert({
-      organization_id: org.id,
-      user_id: userId,
-      role: "owner",
-    });
+    const { error: roleError } = await supabase
+      .from("organization_roles")
+      .insert({
+        organization_id: org.id,
+        user_id: userId,
+        role: "owner",
+      });
+
+    if (roleError) {
+      console.error("Error creating owner role:", roleError);
+    }
 
     return org.id;
   } catch (error) {
@@ -79,69 +117,43 @@ async function createOrganization(
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   organizationId: null,
+  organization: null,
   isLoading: true,
   error: null,
   isDev: false,
   hasAdminAccess: false,
 
   initialize: async () => {
+    const currentState = get();
+
+    // Prevent multiple simultaneous initializations
+    if (isInitializing) {
+      return;
+    }
+    isInitializing = true;
+    set({ isLoading: true, error: null });
+
     try {
-      // Check for existing session
+      // Get session with timeout
       const {
         data: { session },
+        error: sessionError,
       } = await supabase.auth.getSession();
 
-      if (session?.user) {
-        const user = session.user;
-
-        // Get organization ID
-        let organizationId = user.user_metadata?.organizationId || null;
-        if (!organizationId) {
-          organizationId = await getOrganizationId(user.id);
-        }
-
-        // Check if user is a dev or admin
-        const isDev = Boolean(
-          user.user_metadata?.system_role === "dev" ||
-            user.user_metadata?.role === "dev",
-        );
-
-        const hasAdminAccess = Boolean(
-          isDev ||
-            user.user_metadata?.role === "owner" ||
-            user.user_metadata?.role === "admin",
-        );
-
-        set({
-          user,
-          organizationId,
-          isDev,
-          hasAdminAccess,
-          error: null,
-        });
+      if (sessionError) {
+        set({ error: null, isLoading: false });
+        return;
       }
-    } catch (error) {
-      console.error("Auth initialization error:", error);
-      set({ error: "Failed to initialize auth" });
-    } finally {
-      set({ isLoading: false });
-    }
 
-    // Set up a simple auth change listener
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         const user = session.user;
-        const organizationId =
-          user.user_metadata?.organizationId ||
-          (await getOrganizationId(user.id));
 
+        // Get basic user info from metadata
+        const organizationId = user.user_metadata?.organizationId || null;
         const isDev = Boolean(
           user.user_metadata?.system_role === "dev" ||
             user.user_metadata?.role === "dev",
         );
-
         const hasAdminAccess = Boolean(
           isDev ||
             user.user_metadata?.role === "owner" ||
@@ -151,40 +163,68 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({
           user,
           organizationId,
+          organization: null, // Load later if needed
           isDev,
           hasAdminAccess,
           error: null,
+          isLoading: false,
         });
       } else {
         set({
           user: null,
           organizationId: null,
+          organization: null,
           isDev: false,
           hasAdminAccess: false,
+          error: null,
+          isLoading: false,
         });
       }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    } catch (error) {
+      set({
+        error: null,
+        isLoading: false,
+        user: null,
+        organizationId: null,
+        organization: null,
+        isDev: false,
+        hasAdminAccess: false,
+      });
+    } finally {
+      isInitializing = false;
+    }
   },
 
   signIn: async (email: string, password: string, rememberMe = true) => {
     try {
-      // Set session expiration to 14 days if rememberMe is true
-      const expiresIn = rememberMe ? 60 * 60 * 24 * 14 : 60 * 60; // 14 days or 1 hour
-
+      // Set session persistence based on rememberMe
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password: password.trim(),
       });
 
-      if (error) throw error;
-      if (!data.user) throw new Error("No user data returned");
+      if (error) {
+        console.error("Supabase sign in error:", error);
+        throw error;
+      }
+      if (!data.user || !data.session) {
+        throw new Error("No user data or session returned");
+      }
+
+      // Ensure session is properly set in storage
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      });
+
+      if (sessionError) {
+        console.error("Error setting session:", sessionError);
+        throw sessionError;
+      }
 
       // Get or create organization
       let organizationId = data.user.user_metadata?.organizationId;
+
       if (!organizationId) {
         // Check if user has an organization
         organizationId = await getOrganizationId(data.user.id);
@@ -198,12 +238,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
 
         // Update user metadata
-        await supabase.auth.updateUser({
+        const { error: updateError } = await supabase.auth.updateUser({
           data: {
             organizationId,
             ...data.user.user_metadata,
           },
         });
+
+        if (updateError) {
+          console.error("Error updating user metadata:", updateError);
+        }
+      }
+
+      // Verify session is persisted
+      const {
+        data: { session: verifySession },
+      } = await supabase.auth.getSession();
+      if (!verifySession) {
+        console.warn("Session not properly persisted after sign in");
       }
 
       toast.success("Signed in successfully");
@@ -217,11 +269,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signOut: async () => {
     try {
       const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase sign out error:", error);
+        throw error;
+      }
 
       set({
         user: null,
         organizationId: null,
+        organization: null,
         isDev: false,
         hasAdminAccess: false,
       });
@@ -236,8 +292,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   refreshSession: async () => {
     try {
       const { data, error } = await supabase.auth.refreshSession();
-      if (error) throw error;
-
+      if (error) {
+        console.error("Session refresh error:", error);
+        throw error;
+      }
       // No need to update state as the auth listener will handle it
     } catch (error) {
       console.error("Session refresh error:", error);
@@ -245,16 +303,72 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 }));
 
-// Initialize auth on app load
-useAuthStore.getState().initialize();
+// Initialize auth on app load - but only once
+let isInitialized = false;
+let authSubscription: any = null;
+let isInitializing = false;
 
-// Set up a daily refresh timer to keep the session alive
-setInterval(
-  () => {
-    const { user } = useAuthStore.getState();
-    if (user) {
-      useAuthStore.getState().refreshSession();
+if (!isInitialized) {
+  isInitialized = true;
+
+  // Initialize auth state immediately
+  useAuthStore.getState().initialize();
+
+  // Set up auth state change listener with simplified logic
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // Prevent processing during initialization
+    if (isInitializing) {
+      return;
     }
-  },
-  1000 * 60 * 60 * 24,
-); // Once per day
+
+    const currentState = useAuthStore.getState();
+
+    // Handle sign out - simple and direct
+    if (event === "SIGNED_OUT" || !session) {
+      useAuthStore.setState({
+        user: null,
+        organizationId: null,
+        organization: null,
+        isDev: false,
+        hasAdminAccess: false,
+        isLoading: false,
+        error: null,
+      });
+      return;
+    }
+
+    // Handle sign in - only update if we don't have this user AND not currently loading
+    if (
+      session?.user &&
+      (!currentState.user || currentState.user.id !== session.user.id) &&
+      !currentState.isLoading
+    ) {
+      const user = session.user;
+      const organizationId = user.user_metadata?.organizationId || null;
+      const isDev = Boolean(
+        user.user_metadata?.system_role === "dev" ||
+          user.user_metadata?.role === "dev",
+      );
+      const hasAdminAccess = Boolean(
+        isDev ||
+          user.user_metadata?.role === "owner" ||
+          user.user_metadata?.role === "admin",
+      );
+
+      // Update state directly without re-initialization
+      useAuthStore.setState({
+        user,
+        organizationId,
+        organization: null, // Will be loaded later if needed
+        isDev,
+        hasAdminAccess,
+        isLoading: false,
+        error: null,
+      });
+    }
+  });
+
+  authSubscription = subscription;
+}

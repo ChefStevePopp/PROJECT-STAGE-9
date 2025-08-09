@@ -55,7 +55,10 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
       </button>
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-6">
+      <nav
+        className="flex-1 overflow-y-auto py-6"
+        style={{ maxHeight: "calc(100vh - 120px)" }}
+      >
         <div className={`space-y-8 ${isCollapsed ? "px-2" : "px-6"}`}>
           {items.map((section) => (
             <div key={section.id}>

@@ -45,11 +45,11 @@ export const MainLayout: React.FC = () => {
           className={`
             fixed inset-0 z-30
             transition-all duration-300 ease-in-out
-            pointer-events-none
             bg-gradient-to-l from-gray-900/90 via-gray-900/50 to-transparent
             backdrop-blur-md
-            ${isChatOpen ? "opacity-100" : "opacity-0"}
+            ${isChatOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}
           `}
+          onClick={() => setIsChatOpen(false)}
         />
 
         {/* Desktop Chat Button - hidden on mobile */}

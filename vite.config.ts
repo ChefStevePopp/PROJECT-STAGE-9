@@ -30,5 +30,34 @@ export default defineConfig({
   server: {
     // Allow all hosts when running in Tempo
     allowedHosts: process.env.TEMPO === "true" ? true : undefined,
+    // Configure CORS for development
+    cors: {
+      origin: true,
+      credentials: true,
+    },
+    // Add proxy to handle external requests that might cause CORS issues
+    proxy: {
+      "/api/posthog": {
+        target: "https://us.i.posthog.com",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/posthog/, ""),
+        configure: (proxy, _options) => {
+          proxy.on("error", (err, _req, _res) => {
+            console.log("PostHog proxy error:", err);
+          });
+        },
+      },
+    },
+  },
+  // Optimize build performance
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ["react", "react-dom"],
+          supabase: ["@supabase/supabase-js"],
+        },
+      },
+    },
   },
 });

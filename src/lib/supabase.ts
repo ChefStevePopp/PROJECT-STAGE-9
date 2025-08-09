@@ -23,14 +23,23 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
       "x-application-name": "kitchen-ai",
     },
     fetch: (url, options) => {
-      // Add retry logic for network failures
-      const fetchWithRetry = async (retriesLeft = 3, delay = 1000) => {
+      // Add retry logic for network failures with timeout
+      const fetchWithRetry = async (retriesLeft = 2, delay = 500) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
         try {
-          return await fetch(url, options);
+          const response = await fetch(url, {
+            ...options,
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+          return response;
         } catch (error) {
+          clearTimeout(timeoutId);
           if (retriesLeft <= 0) throw error;
           await new Promise((resolve) => setTimeout(resolve, delay));
-          return fetchWithRetry(retriesLeft - 1, delay * 2);
+          return fetchWithRetry(retriesLeft - 1, delay * 1.5);
         }
       };
       return fetchWithRetry();

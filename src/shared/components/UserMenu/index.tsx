@@ -83,7 +83,7 @@ export const UserMenu: React.FC = () => {
       : `https://api.dicebear.com/7.x/initials/svg?seed=${displayName}`;
 
   return (
-    <div className="relative group">
+    <div className="relative group z-50">
       <button className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-800/50 transition-colors">
         <img
           src={avatarUrl}
@@ -107,7 +107,7 @@ export const UserMenu: React.FC = () => {
       </button>
 
       {/* Dropdown Menu */}
-      <div className="absolute right-0 top-full mt-2 w-64 py-2 bg-gray-800 rounded-xl border border-gray-700/50 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+      <div className="absolute right-0 top-full mt-2 w-64 py-2 bg-gray-800 rounded-xl border border-gray-700/50 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[9999]">
         {/* User Info */}
         <div className="px-4 py-3 border-b border-gray-700/50 mb-2">
           <div className="flex items-center gap-3">

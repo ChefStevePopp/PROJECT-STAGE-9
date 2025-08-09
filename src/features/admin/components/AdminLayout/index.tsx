@@ -63,8 +63,8 @@ export const AdminLayout: React.FC = () => {
           </div>
           <div
             ref={contentRef}
-            className="p-4 md:p-6 lg:p-8 w-full overflow-auto flex-1"
-            style={{ maxHeight: "calc(100vh - 57px)" }} // 57px is the height of the header
+            className="p-4 md:p-6 lg:p-8 w-full overflow-y-auto flex-1"
+            style={{ height: "calc(100vh - 57px)" }} // 57px is the height of the header
           >
             <Outlet />
           </div>

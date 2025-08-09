@@ -18,17 +18,23 @@ export const SignIn: React.FC = () => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
+    console.log("🔐 Sign in attempt started", { email });
 
     try {
+      console.log("📤 Calling signIn function...");
       await signIn(email, password, rememberMe);
+      console.log("✅ Sign in successful");
 
       // Get return URL from location state or default to dashboard
       const returnPath =
         (location.state as any)?.from || ROUTES.KITCHEN.DASHBOARD;
+      console.log("🔄 Navigating to:", returnPath);
       navigate(returnPath, { replace: true });
     } catch (error) {
+      console.error("❌ Sign in error:", error);
       setError("Invalid email or password");
     } finally {
+      console.log("🏁 Sign in process completed, setting isLoading to false");
       setIsLoading(false);
     }
   };

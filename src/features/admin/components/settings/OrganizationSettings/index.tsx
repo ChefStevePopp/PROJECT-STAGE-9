@@ -9,10 +9,18 @@ import { LoadingLogo } from "@/features/shared/components";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "@/config/routes";
+import toast from "react-hot-toast";
 
 export const OrganizationSettings: React.FC = () => {
   const navigate = useNavigate();
-  const { organizationId } = useAuth();
+  const {
+    organizationId,
+    organization: authOrganization,
+    user,
+    isLoading: authLoading,
+    isDev,
+    hasAdminAccess,
+  } = useAuth();
   const { isLoading, isSaving, handleSave, organization, updateOrganization } =
     useOrganizationSettings();
 
@@ -20,13 +28,22 @@ export const OrganizationSettings: React.FC = () => {
     "organization" | "industry" | "location" | "additional"
   >("organization");
 
-  // Redirect if no organization
+  // Redirect if no organization - but allow admin users
   React.useEffect(() => {
-    if (!organizationId && !isLoading) {
+    if (
+      !authLoading &&
+      !isLoading &&
+      !organizationId &&
+      !isDev &&
+      !hasAdminAccess
+    ) {
+      console.log(
+        "[OrganizationSettings] No organization found and no admin access, redirecting",
+      );
       toast.error("No organization found");
       navigate(ROUTES.KITCHEN.DASHBOARD);
     }
-  }, [organizationId, isLoading, navigate]);
+  }, [organizationId, authLoading, isLoading, navigate, isDev, hasAdminAccess]);
 
   const tabs = [
     {

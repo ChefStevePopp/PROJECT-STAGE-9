@@ -48,6 +48,7 @@
     "zustand": "^4.5.1"
   },
   "devDependencies": {
+    "@babel/core": "^7.28.0",
     "@babel/plugin-proposal-throw-expressions": "^7.25.9",
     "@types/node": "^20.11.16",
     "@types/papaparse": "^5.3.15",
