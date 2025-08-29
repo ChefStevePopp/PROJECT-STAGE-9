@@ -16,6 +16,9 @@ import routes from "tempo-routes";
 function App() {
   const { isLoading } = useAuthStore();
 
+  // Always call useRoutes to maintain hook order
+  const tempoRoutes = import.meta.env.VITE_TEMPO ? useRoutes(routes) : null;
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
@@ -35,9 +38,6 @@ function App() {
   return (
     <ErrorBoundary>
       <div className="min-h-screen h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 overflow-hidden">
-        {/* Tempo routes */}
-        {import.meta.env.VITE_TEMPO && useRoutes(routes)}
-
         <Routes>
           {/* Auth Routes */}
           <Route element={<AuthLayout />}>
@@ -82,15 +82,17 @@ function App() {
             element={<Navigate to={ROUTES.KITCHEN.DASHBOARD} replace />}
           />
 
-          {/* Tempo routes catchall */}
-          {import.meta.env.VITE_TEMPO && <Route path="/tempobook/*" />}
-
-          {/* Catch all redirect */}
+          {/* Catch all redirect - but exclude tempobook paths */}
           <Route
             path="*"
             element={<Navigate to={ROUTES.KITCHEN.DASHBOARD} replace />}
           />
         </Routes>
+
+        {/* Tempo routes - only render for tempobook paths */}
+        {import.meta.env.VITE_TEMPO &&
+          window.location.pathname.startsWith("/tempobook") &&
+          tempoRoutes}
 
         <Toaster
           position="top-right"

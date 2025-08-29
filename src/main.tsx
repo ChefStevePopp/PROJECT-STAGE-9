@@ -1,14 +1,14 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { TempoDevtools } from "tempo-devtools";
+/* import { TempoDevtools } from 'tempo-devtools'; [deprecated] */
 import App from './App';
 import './index.css';
 import { Toaster } from 'react-hot-toast';
 
 // Initialize Tempo before rendering
 if (import.meta.env.VITE_TEMPO) {
-  TempoDevtools.init();
+  /* TempoDevtools.init() [deprecated] */;
 }
 const container = document.getElementById('root');
 if (!container) throw new Error('Failed to find the root element');

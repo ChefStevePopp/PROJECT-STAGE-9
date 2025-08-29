@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instanciate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "12.2.12 (cd3cf9e)"
+  }
   public: {
     Tables: {
       activity_logs: {
@@ -290,6 +295,139 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      haccp_equipment: {
+        Row: {
+          created_at: string | null
+          equipment_type: string
+          id: string
+          is_active: boolean | null
+          location_name: string
+          name: string
+          notes: string | null
+          organization_id: string
+          sensor_id: string | null
+          station_assignment: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          equipment_type: string
+          id?: string
+          is_active?: boolean | null
+          location_name: string
+          name: string
+          notes?: string | null
+          organization_id: string
+          sensor_id?: string | null
+          station_assignment?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          equipment_type?: string
+          id?: string
+          is_active?: boolean | null
+          location_name?: string
+          name?: string
+          notes?: string | null
+          organization_id?: string
+          sensor_id?: string | null
+          station_assignment?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "haccp_equipment_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "haccp_equipment_sensor_id_fkey"
+            columns: ["sensor_id"]
+            isOneToOne: false
+            referencedRelation: "sensorpush_sensors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      haccp_temperature_logs: {
+        Row: {
+          corrective_action: string | null
+          created_at: string | null
+          equipment_type: string
+          id: string
+          is_manual: boolean | null
+          location_name: string
+          notes: string | null
+          organization_id: string
+          recorded_at: string
+          recorded_by: string | null
+          sensor_id: string | null
+          station: string | null
+          status: string | null
+          temperature: number
+          updated_at: string | null
+        }
+        Insert: {
+          corrective_action?: string | null
+          created_at?: string | null
+          equipment_type: string
+          id?: string
+          is_manual?: boolean | null
+          location_name: string
+          notes?: string | null
+          organization_id: string
+          recorded_at: string
+          recorded_by?: string | null
+          sensor_id?: string | null
+          station?: string | null
+          status?: string | null
+          temperature: number
+          updated_at?: string | null
+        }
+        Update: {
+          corrective_action?: string | null
+          created_at?: string | null
+          equipment_type?: string
+          id?: string
+          is_manual?: boolean | null
+          location_name?: string
+          notes?: string | null
+          organization_id?: string
+          recorded_at?: string
+          recorded_by?: string | null
+          sensor_id?: string | null
+          station?: string | null
+          status?: string | null
+          temperature?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "haccp_temperature_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "haccp_temperature_logs_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "organization_team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "haccp_temperature_logs_sensor_id_fkey"
+            columns: ["sensor_id"]
+            isOneToOne: false
+            referencedRelation: "sensorpush_sensors"
             referencedColumns: ["id"]
           },
         ]
@@ -1044,6 +1182,7 @@ export type Database = {
           completed_at: string | null
           created_at: string
           current_level: number | null
+          default_station: string | null
           description: string | null
           due_date: string | null
           estimated_time: number | null
@@ -1062,13 +1201,13 @@ export type Database = {
           prep_system: string | null
           prep_unit_measure: string | null
           priority: string | null
+          production_station: string | null
           quantity: number | null
           recipe_id: string | null
           required: boolean
           schedule_days: number[] | null
           sequence: number
           started_at: string | null
-          station: string | null
           status: string | null
           stopped_at: string | null
           storage_area: string | null
@@ -1093,6 +1232,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           current_level?: number | null
+          default_station?: string | null
           description?: string | null
           due_date?: string | null
           estimated_time?: number | null
@@ -1111,13 +1251,13 @@ export type Database = {
           prep_system?: string | null
           prep_unit_measure?: string | null
           priority?: string | null
+          production_station?: string | null
           quantity?: number | null
           recipe_id?: string | null
           required?: boolean
           schedule_days?: number[] | null
           sequence: number
           started_at?: string | null
-          station?: string | null
           status?: string | null
           stopped_at?: string | null
           storage_area?: string | null
@@ -1142,6 +1282,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           current_level?: number | null
+          default_station?: string | null
           description?: string | null
           due_date?: string | null
           estimated_time?: number | null
@@ -1160,13 +1301,13 @@ export type Database = {
           prep_system?: string | null
           prep_unit_measure?: string | null
           priority?: string | null
+          production_station?: string | null
           quantity?: number | null
           recipe_id?: string | null
           required?: boolean
           schedule_days?: number[] | null
           sequence?: number
           started_at?: string | null
-          station?: string | null
           status?: string | null
           stopped_at?: string | null
           storage_area?: string | null
@@ -1239,18 +1380,21 @@ export type Database = {
           category: string
           created_at: string
           created_by: string | null
+          default_station: string | null
           description: string | null
+          estimated_time: number | null
           id: string
           is_active: boolean
           kitchen_role: string | null
-          kitchen_stations: string[] | null
+          kitchen_station_permission: string[] | null
           master_ingredient_id: string | null
           organization_id: string
           par_levels: Json | null
+          prep_stage: string | null
           prep_system: string
+          production_station: string | null
           recipe_id: string | null
           schedule_days: number[] | null
-          station: string | null
           title: string
           updated_at: string
           updated_by: string | null
@@ -1261,18 +1405,21 @@ export type Database = {
           category: string
           created_at?: string
           created_by?: string | null
+          default_station?: string | null
           description?: string | null
+          estimated_time?: number | null
           id?: string
           is_active?: boolean
           kitchen_role?: string | null
-          kitchen_stations?: string[] | null
+          kitchen_station_permission?: string[] | null
           master_ingredient_id?: string | null
           organization_id: string
           par_levels?: Json | null
+          prep_stage?: string | null
           prep_system: string
+          production_station?: string | null
           recipe_id?: string | null
           schedule_days?: number[] | null
-          station?: string | null
           title: string
           updated_at?: string
           updated_by?: string | null
@@ -1283,18 +1430,21 @@ export type Database = {
           category?: string
           created_at?: string
           created_by?: string | null
+          default_station?: string | null
           description?: string | null
+          estimated_time?: number | null
           id?: string
           is_active?: boolean
           kitchen_role?: string | null
-          kitchen_stations?: string[] | null
+          kitchen_station_permission?: string[] | null
           master_ingredient_id?: string | null
           organization_id?: string
           par_levels?: Json | null
+          prep_stage?: string | null
           prep_system?: string
+          production_station?: string | null
           recipe_id?: string | null
           schedule_days?: number[] | null
-          station?: string | null
           title?: string
           updated_at?: string
           updated_by?: string | null
@@ -1893,6 +2043,261 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "schedules_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sensorpush_gateways: {
+        Row: {
+          created_at: string | null
+          id: string
+          integration_id: string
+          last_alert: string | null
+          last_seen: string | null
+          message: string | null
+          name: string
+          organization_id: string
+          paired: boolean | null
+          tags: Json | null
+          updated_at: string | null
+          version: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id: string
+          integration_id: string
+          last_alert?: string | null
+          last_seen?: string | null
+          message?: string | null
+          name: string
+          organization_id: string
+          paired?: boolean | null
+          tags?: Json | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          integration_id?: string
+          last_alert?: string | null
+          last_seen?: string | null
+          message?: string | null
+          name?: string
+          organization_id?: string
+          paired?: boolean | null
+          tags?: Json | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sensorpush_gateways_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "sensorpush_integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sensorpush_gateways_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sensorpush_integrations: {
+        Row: {
+          api_access_token: string | null
+          api_refresh_token: string | null
+          created_at: string | null
+          email: string
+          id: string
+          is_active: boolean | null
+          last_sync_at: string | null
+          organization_id: string
+          password_hash: string
+          token_expires_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          api_access_token?: string | null
+          api_refresh_token?: string | null
+          created_at?: string | null
+          email: string
+          id?: string
+          is_active?: boolean | null
+          last_sync_at?: string | null
+          organization_id: string
+          password_hash: string
+          token_expires_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          api_access_token?: string | null
+          api_refresh_token?: string | null
+          created_at?: string | null
+          email?: string
+          id?: string
+          is_active?: boolean | null
+          last_sync_at?: string | null
+          organization_id?: string
+          password_hash?: string
+          token_expires_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sensorpush_integrations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sensorpush_readings: {
+        Row: {
+          altitude: number | null
+          barometric_pressure: number | null
+          created_at: string | null
+          dewpoint: number | null
+          humidity: number | null
+          id: string
+          observed_at: string
+          organization_id: string
+          sensor_id: string
+          tags: Json | null
+          temperature: number | null
+          vpd: number | null
+        }
+        Insert: {
+          altitude?: number | null
+          barometric_pressure?: number | null
+          created_at?: string | null
+          dewpoint?: number | null
+          humidity?: number | null
+          id?: string
+          observed_at: string
+          organization_id: string
+          sensor_id: string
+          tags?: Json | null
+          temperature?: number | null
+          vpd?: number | null
+        }
+        Update: {
+          altitude?: number | null
+          barometric_pressure?: number | null
+          created_at?: string | null
+          dewpoint?: number | null
+          humidity?: number | null
+          id?: string
+          observed_at?: string
+          organization_id?: string
+          sensor_id?: string
+          tags?: Json | null
+          temperature?: number | null
+          vpd?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sensorpush_readings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sensorpush_readings_sensor_id_fkey"
+            columns: ["sensor_id"]
+            isOneToOne: false
+            referencedRelation: "sensorpush_sensors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sensorpush_sensors: {
+        Row: {
+          active: boolean | null
+          address: string | null
+          alerts: Json | null
+          battery_voltage: number | null
+          calibration: Json | null
+          created_at: string | null
+          device_id: string | null
+          gateway_id: string | null
+          id: string
+          integration_id: string
+          location_name: string | null
+          name: string
+          organization_id: string
+          rssi: number | null
+          station_assignment: string | null
+          tags: Json | null
+          type: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          address?: string | null
+          alerts?: Json | null
+          battery_voltage?: number | null
+          calibration?: Json | null
+          created_at?: string | null
+          device_id?: string | null
+          gateway_id?: string | null
+          id: string
+          integration_id: string
+          location_name?: string | null
+          name: string
+          organization_id: string
+          rssi?: number | null
+          station_assignment?: string | null
+          tags?: Json | null
+          type?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          address?: string | null
+          alerts?: Json | null
+          battery_voltage?: number | null
+          calibration?: Json | null
+          created_at?: string | null
+          device_id?: string | null
+          gateway_id?: string | null
+          id?: string
+          integration_id?: string
+          location_name?: string | null
+          name?: string
+          organization_id?: string
+          rssi?: number | null
+          station_assignment?: string | null
+          tags?: Json | null
+          type?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sensorpush_sensors_gateway_id_fkey"
+            columns: ["gateway_id"]
+            isOneToOne: false
+            referencedRelation: "sensorpush_gateways"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sensorpush_sensors_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "sensorpush_integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sensorpush_sensors_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -3078,21 +3483,25 @@ export type Database = {
   }
 }
 
-type DefaultSchema = Database[Extract<keyof Database, "public">]
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
@@ -3110,14 +3519,16 @@ export type Tables<
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
@@ -3133,14 +3544,16 @@ export type TablesInsert<
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
@@ -3156,14 +3569,16 @@ export type TablesUpdate<
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = DefaultSchemaEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
@@ -3171,14 +3586,16 @@ export type Enums<
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
-> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
